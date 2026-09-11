@@ -5,7 +5,7 @@
  * CPSE comparisons, plant distributions, and auditable sourcing opportunities.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE } from './apiConfig';
 
 export interface ProcurementKPIs {
   total_materials_analyzed: number;

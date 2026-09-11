@@ -4,7 +4,7 @@
  * stats, single material lookups, and reverse lookups by CMM code.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE } from './apiConfig';
 
 export interface LegacyMaterialMappingRecord {
   mapping_id: string;

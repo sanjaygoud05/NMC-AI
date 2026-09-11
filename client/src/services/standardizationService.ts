@@ -3,7 +3,7 @@
  * Communicates with Phase 3 attribute extraction endpoints
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE } from './apiConfig';
 
 export interface AttributeCoverage {
   material_family: number;
