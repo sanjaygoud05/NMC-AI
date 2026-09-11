@@ -1,0 +1,16 @@
+services:
+  # Python FastAPI Backend with ML & Data
+  - type: web
+    name: nmc-ai-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: "pip install -r server/requirements.txt"
+    startCommand: "uvicorn app.main:app --app-dir server --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DATA_DIR
+        value: "data"
+      - key: ALLOWED_ORIGINS
+        value: "*"
