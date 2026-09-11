@@ -196,16 +196,24 @@ async def get_standardization_report():
 
 
 @router.get("/materials/{material_code}")
-async def get_standardized_material(material_code: str):
+async def get_standardized_material(
+    material_code: str,
+    dataset_id: Optional[str] = None,
+):
     """
-    Get standardized material details for a specific material code.
+    Get standardized material details for a specific material code scoped by dataset_id.
     Returns original fields, Phase 3 extracted attributes, and Phase 4 canonical attributes.
     """
-    df = _load_standardized_df()
-    if df is None:
+    from server.services.dataset_resolver import load_dataset_dataframe
+
+    df = load_dataset_dataframe("standardized_materials.csv", dataset_id=dataset_id)
+    if df.empty:
+        df = _load_standardized_df()
+
+    if df is None or df.empty:
         raise HTTPException(
             status_code=404,
-            detail="Standardized materials dataset not found. Run Phase 4 pipeline first.",
+            detail="Standardized materials dataset not found.",
         )
 
     mask = df["Material_Code"] == material_code

@@ -31,12 +31,14 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { mockProcessingJobs } from '@/lib/mock/jobs';
 import { ingestionService } from '@/services/ingestionService';
+import { useDataset } from '@/contexts/DatasetContext';
 import type { NormalizationStatus } from '@/types';
 
 interface UploadResult {
   status: string;
+  dataset_id?: string;
+  job_id?: string;
   filename: string;
   size_bytes: number;
   size_mb: number;
@@ -57,7 +59,7 @@ interface UploadResult {
 }
 
 export default function Ingest() {
-  const jobs = mockProcessingJobs.slice(0, 3);
+  const { activeDatasetId, datasets, selectDataset, refreshDatasets } = useDataset();
   const [normStatus, setNormStatus] = useState<NormalizationStatus | null>(null);
   const [normLoading, setNormLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -94,10 +96,14 @@ export default function Ingest() {
       setUploadLoading(true);
       const res = await ingestionService.uploadFile(file);
       setUploadResult(res as unknown as UploadResult);
-      if (res.is_official_raw_baseline) {
+      await refreshDatasets();
+      if (res.dataset_id) {
+        selectDataset(res.dataset_id);
+        toast.success(`Dataset registered: ${res.dataset_id}. Phase 2–10 processing in background.`);
+      } else if (res.is_official_raw_baseline) {
         toast.success(`Verified official Phase 1 raw baseline dataset: ${file.name}`);
       } else {
-        toast.success(`Dataset ${file.name} uploaded and profiled (${res.record_count} records)`);
+        toast.success(`Dataset ${file.name} uploaded (${res.record_count} records)`);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to upload file';
@@ -496,47 +502,73 @@ export default function Ingest() {
           </CardContent>
         </Card>
 
-        {/* Recent Jobs */}
+        {/* Registered Datasets & Pipeline History */}
         <Card className="border-border bg-card">
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Recent Ingestion Jobs</CardTitle>
-            <CardDescription>Pipeline execution history</CardDescription>
+            <CardTitle className="text-base font-semibold">Registered Datasets & Pipeline History</CardTitle>
+            <CardDescription>Persistent dataset registry and background execution state</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {jobs.map((job) => (
+              {datasets.map((ds) => (
                 <div
-                  key={job.id}
+                  key={ds.dataset_id}
                   className="flex items-center gap-4 p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors"
                 >
                   <div className="shrink-0">
-                    {job.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                    {job.status === 'running' && <Clock className="h-4 w-4 text-blue-500 animate-spin" />}
-                    {job.status === 'pending' && <Clock className="h-4 w-4 text-muted-foreground" />}
-                    {job.status === 'failed' && <AlertTriangle className="h-4 w-4 text-destructive" />}
+                    {ds.status === 'COMPLETED' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                    {(ds.status === 'PROCESSING' || ds.status === 'VALIDATING') && (
+                      <Clock className="h-4 w-4 text-blue-500 animate-spin" />
+                    )}
+                    {ds.status === 'UPLOADED' && <Clock className="h-4 w-4 text-muted-foreground" />}
+                    {ds.status === 'FAILED' && <AlertTriangle className="h-4 w-4 text-destructive" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {job.jobType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold font-mono text-foreground">
+                        {ds.dataset_id}
+                      </span>
+                      {ds.is_baseline && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] py-0 px-1.5 font-mono text-muted-foreground"
+                        >
+                          BASELINE
+                        </Badge>
+                      )}
+                      {ds.dataset_id === activeDatasetId && (
+                        <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] py-0 px-1.5 font-mono">
+                          ACTIVE
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {ds.file_name} · {ds.row_count.toLocaleString()} records
                     </p>
-                    <p className="text-xs text-muted-foreground">{job.phase}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">
-                      {job.results?.recordsProcessed?.toLocaleString() ?? '—'} records
-                    </span>
                     <Badge
                       variant={
-                        job.status === 'completed'
+                        ds.status === 'COMPLETED'
                           ? 'default'
-                          : job.status === 'running'
+                          : ds.status === 'PROCESSING' || ds.status === 'VALIDATING'
                             ? 'secondary'
                             : 'outline'
                       }
                       className="text-xs capitalize"
                     >
-                      {job.status}
+                      {ds.status.toLowerCase()}
                     </Badge>
+                    {ds.dataset_id !== activeDatasetId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs h-7 px-2"
+                        onClick={() => selectDataset(ds.dataset_id)}
+                      >
+                        Activate
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

@@ -125,9 +125,10 @@ export const procurementService = {
   /**
    * Fetch enterprise procurement KPIs partitioned by UOM
    */
-  async getKPIs(): Promise<ProcurementKPIs> {
+  async getKPIs(datasetId?: string): Promise<ProcurementKPIs> {
     const token = localStorage.getItem('supabase.auth.token') || '';
-    const res = await fetch(`${API_BASE}/api/procurement/kpis`, {
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/procurement/kpis${query}`, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -150,6 +151,7 @@ export const procurementService = {
     min_consumption?: number;
     page?: number;
     page_size?: number;
+    dataset_id?: string;
   }): Promise<CMMCatalogResponse> {
     const q = new URLSearchParams();
     if (params.search) q.append('search', params.search);
@@ -161,6 +163,9 @@ export const procurementService = {
     }
     if (params.cpse && params.cpse !== 'all') {
       q.append('cpse', params.cpse);
+    }
+    if (params.dataset_id) {
+      q.append('dataset_id', params.dataset_id);
     }
     if (params.min_consumption !== undefined && params.min_consumption > 0) {
       q.append('min_consumption', String(params.min_consumption));

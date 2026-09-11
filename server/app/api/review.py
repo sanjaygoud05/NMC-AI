@@ -69,7 +69,8 @@ def get_cached_materials() -> Dict[str, Dict[str, Any]]:
 async def get_review_queue(
     page: int = Query(0, ge=0),
     page_size: int = Query(25, ge=1, le=100),
-    view_mode: str = Query("active", description="Queue partition: active (12,191), secondary (4,033), disqualified (21,276), or all (37,500)"),
+    view_mode: str = Query("active", description="Queue partition: active, secondary, disqualified, or all"),
+    dataset_id: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
     decision_filter: str = Query("all", description="Filter by decision: all, pending, accepted, rejected, deferred"),
@@ -81,16 +82,24 @@ async def get_review_queue(
 ):
     """
     Get paginated review queue of validated candidates.
-    Supports strict queue partitions: ACTIVE (12,191), SECONDARY (4,033), DISQUALIFIED (21,276), ALL (37,500).
-    Overlays current human review decisions from Supabase PostgreSQL.
+    Supports dataset_id scoping (BASELINE, UPLOAD-..., or ALL).
     """
-    if not os.path.exists(VALIDATED_CSV):
-        raise HTTPException(
-            status_code=503,
-            detail="Phase 6 validation has not been run yet. File validated_candidates.csv missing."
-        )
+    from server.services.dataset_resolver import load_dataset_dataframe
 
-    df = pd.read_csv(VALIDATED_CSV, low_memory=False)
+    df = load_dataset_dataframe("validated_candidates.csv", dataset_id=dataset_id)
+    if df.empty and dataset_id in [None, "BASELINE"]:
+        if os.path.exists(VALIDATED_CSV):
+            df = pd.read_csv(VALIDATED_CSV, low_memory=False)
+
+    if df.empty:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0,
+            "dataset_id": dataset_id or "BASELINE",
+        }
 
     # 1. Apply View Mode Partitioning
     # ACTIVE: CRITICAL + HIGH priority (12,191 candidates)

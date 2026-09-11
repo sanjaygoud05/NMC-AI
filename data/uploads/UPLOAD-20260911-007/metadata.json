@@ -1,0 +1,17 @@
+{
+  "dataset_id": "UPLOAD-20260911-007",
+  "file_name": "test_upload_isolated.csv",
+  "file_hash": "e4d7269b94d829c7608a7ad5c974c3c5f3828d315e082b7dd0b6edfd66269c20",
+  "row_count": 0,
+  "column_count": 0,
+  "cpse_summary": {},
+  "status": "FAILED",
+  "is_baseline": false,
+  "schema_version": "1.0",
+  "uploaded_at": "2026-09-11T07:31:27.245004+00:00",
+  "processing_started_at": null,
+  "processing_completed_at": null,
+  "error_message": "Schema validation failed. Missing required columns: Material_Grade, Size, Length, Diameter, Coating, Unit",
+  "data_dir": "data\\uploads\\UPLOAD-20260911-007\\processed",
+  "source_file": "data\\uploads\\UPLOAD-20260911-007\\source.csv"
+}

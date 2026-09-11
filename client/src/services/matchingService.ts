@@ -120,6 +120,7 @@ export const matchingService = {
     exact_key_only?: boolean;
     incompatible_only?: boolean;
     search?: string;
+    dataset_id?: string;
   }): Promise<MatchesResponse> {
     const query = new URLSearchParams();
     if (params?.skip !== undefined) query.set('skip', params.skip.toString());
@@ -131,6 +132,7 @@ export const matchingService = {
     if (params?.exact_key_only) query.set('exact_key_only', 'true');
     if (params?.incompatible_only) query.set('incompatible_only', 'true');
     if (params?.search) query.set('search', params.search);
+    if (params?.dataset_id) query.set('dataset_id', params.dataset_id);
 
     const res = await fetch(`${API_BASE}/api/matches?${query.toString()}`);
     if (!res.ok) {

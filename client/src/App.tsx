@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { DatasetProvider } from "@/contexts/DatasetContext";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
@@ -57,11 +58,12 @@ const App = () => {
     <ThemeProvider defaultTheme="dark" storageKey="theme">
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <TooltipProvider>
-            <Sonner />
-            <BrowserRouter>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
+          <DatasetProvider>
+            <TooltipProvider>
+              <Sonner />
+              <BrowserRouter>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
                   {/* Root redirect */}
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
@@ -110,8 +112,9 @@ const App = () => {
               </Suspense>
             </BrowserRouter>
           </TooltipProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+        </DatasetProvider>
+      </AuthProvider>
+    </QueryClientProvider>
     </ThemeProvider>
   );
 };

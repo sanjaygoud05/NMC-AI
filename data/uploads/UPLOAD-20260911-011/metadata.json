@@ -1,0 +1,22 @@
+{
+  "dataset_id": "UPLOAD-20260911-011",
+  "file_name": "SIH26099_upload_test.csv",
+  "file_hash": "476bbdcf9d50dabc60206df11be95dfbc0ea5722b190bd4f2e27550b67225851",
+  "row_count": 8,
+  "column_count": 18,
+  "cpse_summary": {
+    "ONGC": 2,
+    "IOCL": 2,
+    "HPCL": 2,
+    "CPCL": 2
+  },
+  "status": "VALIDATED",
+  "is_baseline": false,
+  "schema_version": "1.0",
+  "uploaded_at": "2026-09-11T07:33:27.825167+00:00",
+  "processing_started_at": null,
+  "processing_completed_at": null,
+  "error_message": null,
+  "data_dir": "data\\uploads\\UPLOAD-20260911-011\\processed",
+  "source_file": "data\\uploads\\UPLOAD-20260911-011\\source.csv"
+}

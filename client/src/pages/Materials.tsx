@@ -1,10 +1,9 @@
 /**
  * Material Explorer Page
- * Searchable, filterable table of all CPSE materials.
- * Full implementation planned for Phase 2.
+ * Searchable, filterable table of CPSE materials scoped by active dataset.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
@@ -20,19 +19,43 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Filter, ExternalLink } from 'lucide-react';
-import { mockMaterials } from '@/lib/mock/materials';
+import { Search, Filter, ExternalLink, Loader2 } from 'lucide-react';
+import { materialService } from '@/services/materialService';
+import { useDataset } from '@/contexts/DatasetContext';
+import type { Material } from '@/types';
 import { Link } from 'react-router-dom';
 
 export default function Materials() {
+  const { activeDatasetId } = useDataset();
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  const filtered = mockMaterials.filter(
-    (m) =>
-      m.description.toLowerCase().includes(search.toLowerCase()) ||
-      m.materialCode.toLowerCase().includes(search.toLowerCase()) ||
-      m.cpseId.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    let isCurrent = true;
+    setLoading(true);
+    materialService
+      .getMaterials({
+        datasetId: activeDatasetId,
+        search,
+        limit: 100,
+      })
+      .then((res) => {
+        if (isCurrent) {
+          setMaterials(res.materials);
+          setTotal(res.total);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) setLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [activeDatasetId, search]);
 
   return (
     <AppLayout>
@@ -58,7 +81,13 @@ export default function Materials() {
             Filters
           </Button>
           <Badge variant="secondary" className="text-xs">
-            {filtered.length} of {mockMaterials.length} materials (mock data)
+            {loading ? (
+              <span className="flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading...
+              </span>
+            ) : (
+              `${materials.length} of ${total} materials (${activeDatasetId})`
+            )}
           </Badge>
         </div>
 
@@ -79,7 +108,14 @@ export default function Materials() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((material) => (
+                {materials.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
+                      No materials found for dataset {activeDatasetId}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {materials.map((material) => (
                   <TableRow key={material.id} className="hover:bg-muted/30">
                     <TableCell className="font-mono text-xs">{material.materialCode}</TableCell>
                     <TableCell className="max-w-xs">

@@ -6,13 +6,21 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Moon, Sun, Loader2 } from 'lucide-react';
+import { ChevronDown, Moon, Sun, Loader2, Database } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useDataset } from '@/contexts/DatasetContext';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -22,6 +30,7 @@ interface AppLayoutProps {
 export function AppLayout({ children, requireRole }: AppLayoutProps) {
   const { user, role, availableRoles, isLoading, isSwitchingRole, switchRole } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { activeDatasetId, datasets, selectDataset } = useDataset();
 
   if (isLoading || (requireRole && !role)) {
     return (
@@ -52,6 +61,35 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
           <header className="h-14 border-b border-border bg-card flex items-center px-4 sticky top-0 z-10">
             <SidebarTrigger className="mr-2 md:mr-4 text-foreground" />
             <div className="flex-1" />
+
+            {/* Dataset Selector */}
+            <div className="mr-3 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden md:inline">Dataset:</span>
+              <Select value={activeDatasetId} onValueChange={selectDataset}>
+                <SelectTrigger className="h-8 text-xs font-medium w-[170px] sm:w-[210px] bg-background border-border">
+                  <Database className="h-3.5 w-3.5 mr-1.5 text-primary shrink-0" />
+                  <SelectValue placeholder="Select dataset" />
+                </SelectTrigger>
+                <SelectContent align="end" className="bg-card border-border">
+                  <SelectItem value="ALL" className="text-xs font-semibold">
+                    All datasets (Combined Scope)
+                  </SelectItem>
+                  <SelectItem value="BASELINE" className="text-xs">
+                    Baseline (1,250 records)
+                  </SelectItem>
+                  {datasets
+                    .filter((d) => d.dataset_id !== "BASELINE")
+                    .map((d) => (
+                      <SelectItem key={d.dataset_id} value={d.dataset_id} className="text-xs">
+                        {d.dataset_id} ({d.row_count} rows)
+                      </SelectItem>
+                    ))}
+                  <SelectItem value="NONE" className="text-xs text-muted-foreground">
+                    No active dataset
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             {/* Theme Toggle */}
             <Button

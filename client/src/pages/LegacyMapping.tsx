@@ -53,9 +53,11 @@ import {
   LegacyMappingRecord,
   LegacyMappingStats,
 } from '@/services/legacyMappingService';
+import { useDataset } from '@/contexts/DatasetContext';
 import { toast } from 'sonner';
 
 export default function LegacyMapping() {
+  const { activeDatasetId } = useDataset();
   const [mappings, setMappings] = useState<LegacyMappingRecord[]>([]);
   const [stats, setStats] = useState<LegacyMappingStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,10 +80,11 @@ export default function LegacyMapping() {
           search,
           cpse: cpseFilter,
           status: statusFilter,
+          dataset_id: activeDatasetId,
           page,
           page_size: 20,
         }),
-        legacyMappingService.getStats().catch(() => null),
+        legacyMappingService.getStats(activeDatasetId).catch(() => null),
       ]);
 
       setMappings(registryData.items || []);
@@ -98,7 +101,7 @@ export default function LegacyMapping() {
 
   useEffect(() => {
     fetchRegistry();
-  }, [search, cpseFilter, statusFilter, page]);
+  }, [search, cpseFilter, statusFilter, page, activeDatasetId]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);

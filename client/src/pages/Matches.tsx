@@ -45,8 +45,10 @@ import {
   Filter,
 } from 'lucide-react';
 import { matchingService, type MatchCandidateRecord, type MatchingReport } from '@/services/matchingService';
+import { useDataset } from '@/contexts/DatasetContext';
 
 export default function Matches() {
+  const { activeDatasetId } = useDataset();
   const [report, setReport] = useState<MatchingReport | null>(null);
   const [matches, setMatches] = useState<MatchCandidateRecord[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
@@ -90,6 +92,7 @@ export default function Matches() {
         exact_key_only: exactKeyOnly,
         incompatible_only: incompatibleOnly,
         search: search.trim() || undefined,
+        dataset_id: activeDatasetId,
       });
       setMatches(data.matches);
       setTotalMatches(data.total);
@@ -98,7 +101,7 @@ export default function Matches() {
     } finally {
       setLoading(false);
     }
-  }, [page, sourceCpse, candidateCpse, confidenceFilter, crossCpseOnly, exactKeyOnly, incompatibleOnly, search]);
+  }, [page, sourceCpse, candidateCpse, confidenceFilter, crossCpseOnly, exactKeyOnly, incompatibleOnly, search, activeDatasetId]);
 
   useEffect(() => {
     loadReport();

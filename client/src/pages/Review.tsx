@@ -65,8 +65,10 @@ import {
   type EvidencePackage,
   type ReviewEventRecord,
 } from '@/services/reviewService';
+import { useDataset } from '@/contexts/DatasetContext';
 
 export default function Review() {
+  const { activeDatasetId } = useDataset();
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [items, setItems] = useState<ValidatedCandidateRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -125,6 +127,7 @@ export default function Review() {
         candidate_cpse: candidateCpse,
         cross_cpse_only: crossCpseOnly,
         search: search.trim() || undefined,
+        dataset_id: activeDatasetId,
       });
       setItems(res.items);
       setTotal(res.total);
@@ -133,7 +136,7 @@ export default function Review() {
     } finally {
       setLoading(false);
     }
-  }, [page, viewMode, statusFilter, priorityFilter, decisionFilter, sourceCpse, candidateCpse, crossCpseOnly, search]);
+  }, [page, viewMode, statusFilter, priorityFilter, decisionFilter, sourceCpse, candidateCpse, crossCpseOnly, search, activeDatasetId]);
 
   useEffect(() => {
     loadStats();
