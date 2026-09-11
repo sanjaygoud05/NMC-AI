@@ -60,19 +60,19 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <main className="flex-1 flex flex-col min-h-screen">
-          <header className="h-14 border-b border-border bg-card flex items-center px-4 sticky top-0 z-10">
-            <SidebarTrigger className="mr-2 md:mr-4 text-foreground" />
+          <header className="h-14 border-b border-border bg-card flex items-center px-2.5 sm:px-4 sticky top-0 z-10 gap-1.5 sm:gap-2">
+            <SidebarTrigger className="text-foreground shrink-0" />
             <div className="flex-1" />
 
             {/* Dataset Selector */}
-            <div className="mr-3 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground hidden md:inline">Dataset:</span>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-xs text-muted-foreground hidden lg:inline">Dataset:</span>
               <Select value={activeDatasetId} onValueChange={selectDataset}>
-                <SelectTrigger className="h-8 text-xs font-medium w-[170px] sm:w-[210px] bg-background border-border">
-                  <Database className="h-3.5 w-3.5 mr-1.5 text-primary shrink-0" />
-                  <SelectValue placeholder="Select dataset" />
+                <SelectTrigger className="h-8 text-xs font-medium w-[125px] xs:w-[155px] sm:w-[190px] md:w-[220px] bg-background border-border shrink-0">
+                  <Database className="h-3.5 w-3.5 mr-1 text-primary shrink-0" />
+                  <SelectValue placeholder="Select dataset" className="truncate" />
                 </SelectTrigger>
-                <SelectContent align="end" className="bg-card border-border">
+                <SelectContent align="end" className="bg-card border-border max-w-[280px]">
                   <SelectItem value="NONE" className="text-xs font-medium text-muted-foreground">
                     No dataset selected
                   </SelectItem>
@@ -83,7 +83,7 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
                     .filter((d) => !d.is_baseline && d.dataset_id !== "BASELINE")
                     .map((d) => (
                       <SelectItem key={d.dataset_id} value={d.dataset_id} className="text-xs">
-                        {d.file_name}
+                        <span className="truncate block max-w-[220px]">{d.file_name}</span>
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -95,7 +95,7 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="mr-2 text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
               aria-label="Toggle theme"
             >
               {theme === "dark" ? (
@@ -112,17 +112,17 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-primary/30 text-primary bg-primary/10 hover:bg-primary/20"
+                  className="h-8 px-2 sm:px-3 text-xs border-primary/30 text-primary bg-primary/10 hover:bg-primary/20 shrink-0"
                   disabled={isSwitchingRole}
                 >
                   {isSwitchingRole ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1 sm:mr-1.5" />
                   ) : (
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary mr-1.5" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary mr-1 sm:mr-1.5" />
                   )}
                   <span className="hidden sm:inline">Role: </span>
-                  {role?.charAt(0).toUpperCase()}{role?.slice(1)}
-                  <ChevronDown className="ml-1.5 h-3.5 w-3.5" />
+                  <span className="capitalize">{role}</span>
+                  <ChevronDown className="ml-1 sm:ml-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-card border-border">
@@ -141,7 +141,7 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
             </DropdownMenu>
             )}
           </header>
-          <div className="flex-1 p-4 md:p-6 bg-background bg-dot-pattern">
+          <div className="flex-1 p-3 sm:p-4 md:p-6 bg-background bg-dot-pattern max-w-full overflow-x-hidden">
             {children}
           </div>
         </main>

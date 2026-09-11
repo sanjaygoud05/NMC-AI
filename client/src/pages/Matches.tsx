@@ -260,8 +260,8 @@ export default function Matches() {
         </div>
 
         {/* Filter Controls matching Image 1: Confidence, Category, Status */}
-        <div className="bg-card p-4 rounded-2xl border border-border/70 shadow-xs space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="bg-card p-3 sm:p-4 rounded-2xl border border-border/70 shadow-xs space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
             {/* Confidence Dropdown */}
             <Select
               value={confidenceFilter}
@@ -270,7 +270,7 @@ export default function Matches() {
                 setPage(0);
               }}
             >
-              <SelectTrigger className="w-[180px] h-10 rounded-xl bg-background border-border text-xs font-medium">
+              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium">
                 <span className="text-muted-foreground mr-1">Confidence:</span>
                 <SelectValue placeholder="all" />
               </SelectTrigger>
@@ -290,7 +290,7 @@ export default function Matches() {
                 setPage(0);
               }}
             >
-              <SelectTrigger className="w-[200px] h-10 rounded-xl bg-background border-border text-xs font-medium">
+              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium">
                 <span className="text-muted-foreground mr-1">Category:</span>
                 <SelectValue placeholder="all" />
               </SelectTrigger>
@@ -312,7 +312,7 @@ export default function Matches() {
                 setPage(0);
               }}
             >
-              <SelectTrigger className="w-[180px] h-10 rounded-xl bg-background border-border text-xs font-medium">
+              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium">
                 <span className="text-muted-foreground mr-1">Status:</span>
                 <SelectValue placeholder="all" />
               </SelectTrigger>
@@ -326,16 +326,16 @@ export default function Matches() {
             </Select>
 
             {/* Quick Search */}
-            <div className="relative flex-1 min-w-[220px]">
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search material description, standard, key..."
+                placeholder="Search description, standard..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPage(0);
                 }}
-                className="pl-9 h-10 rounded-xl bg-background border-border text-xs"
+                className="pl-9 h-10 rounded-xl bg-background border-border text-xs w-full"
               />
             </div>
           </div>
@@ -498,20 +498,20 @@ export default function Matches() {
 
         {/* Candidate Detail / Review Inspection Modal matching Image 2 style */}
         <Dialog open={!!selectedCandidate} onOpenChange={(open) => !open && setSelectedCandidate(null)}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl">
+          <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-4 sm:p-6">
             {selectedCandidate && (
               <div className="space-y-5">
                 <DialogHeader>
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                     <div>
-                      <DialogTitle className="text-lg font-bold text-foreground">
+                      <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
                         Match Review: {selectedCandidate.candidate_id}
                       </DialogTitle>
                       <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                         Rank #{selectedCandidate.candidate_rank} cross-CPSE equivalence assessment
                       </DialogDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
                       <span className="font-mono font-bold text-sm text-foreground">
                         {selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100)}%
                       </span>
@@ -521,8 +521,8 @@ export default function Matches() {
                 </DialogHeader>
 
                 {/* Attribute Comparison Table matching Image 2 */}
-                <div className="border border-border/80 rounded-xl overflow-hidden bg-card">
-                  <table className="w-full text-xs border-collapse">
+                <div className="border border-border/80 rounded-xl overflow-x-auto bg-card">
+                  <table className="w-full min-w-[440px] text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-border bg-muted/40 text-muted-foreground font-medium">
                         <th className="p-3 text-left w-28">Attribute</th>
@@ -572,11 +572,11 @@ export default function Matches() {
                 </div>
 
                 {/* Footer Action Buttons matching Image 2 */}
-                <DialogFooter className="flex items-center justify-between gap-3 pt-2">
+                <DialogFooter className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2">
                   <Button
                     variant="outline"
                     onClick={() => setSelectedCandidate(null)}
-                    className="rounded-xl text-xs h-9"
+                    className="rounded-xl text-xs h-10 sm:h-9"
                   >
                     Close
                   </Button>
@@ -585,7 +585,7 @@ export default function Matches() {
                       variant="destructive"
                       disabled={actionLoading[selectedCandidate.candidate_id] || decisions[selectedCandidate.candidate_id] === 'REJECT'}
                       onClick={() => handleDecision(selectedCandidate.candidate_id, 'REJECT')}
-                      className="bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-xl text-xs h-9 px-4 gap-1.5"
+                      className="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-xl text-xs h-10 sm:h-9 px-4 gap-1.5"
                     >
                       {actionLoading[selectedCandidate.candidate_id] ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -597,7 +597,7 @@ export default function Matches() {
                     <Button
                       disabled={actionLoading[selectedCandidate.candidate_id] || decisions[selectedCandidate.candidate_id] === 'ACCEPT'}
                       onClick={() => handleDecision(selectedCandidate.candidate_id, 'ACCEPT')}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl text-xs h-9 px-4 gap-1.5 shadow-xs"
+                      className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl text-xs h-10 sm:h-9 px-4 gap-1.5 shadow-xs"
                     >
                       {actionLoading[selectedCandidate.candidate_id] ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

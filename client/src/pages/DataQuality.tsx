@@ -355,9 +355,9 @@ export default function DataQuality() {
             <CardContent className="flex-1 flex flex-col justify-between pt-0">
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart outerRadius="72%" data={cpseRadarData}>
+                  <RadarChart outerRadius="62%" data={cpseRadarData}>
                     <PolarGrid stroke="#334155" strokeDasharray="3 3" opacity={0.4} />
-                    <PolarAngleAxis dataKey="dimension" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                    <PolarAngleAxis dataKey="dimension" tick={{ fill: '#94a3b8', fontSize: 10 }} />
                     <PolarRadiusAxis angle={30} domain={[60, 100]} tick={{ fill: '#64748b', fontSize: 9 }} stroke="#334155" />
                     <RechartsTooltip content={<CustomRadarTooltip />} wrapperStyle={{ outline: 'none', zIndex: 50 }} />
                     <Radar name="ONGC" dataKey="ONGC" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.25} />
@@ -394,7 +394,7 @@ export default function DataQuality() {
         {/* Field Quality Table: Field Diagnostics & Status */}
         <Card className="border-border bg-card shadow-sm overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-foreground flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="h-4 w-4 text-primary" />
                 Field Diagnostics & Status
@@ -408,7 +408,7 @@ export default function DataQuality() {
             </CardDescription>
           </CardHeader>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[650px]">
               <TableHeader className="bg-muted/30">
                 <TableRow className="border-border">
                   <TableHead className="font-medium text-xs text-muted-foreground pl-6 py-3.5">

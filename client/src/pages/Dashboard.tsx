@@ -176,20 +176,20 @@ export default function Dashboard() {
     <AppLayout>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <PageHeader
             title="Material Harmonization Dashboard"
             description="Overview of cross-enterprise material deduplication, quality health, and harmonization pipeline."
           />
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium px-3 py-1 rounded-md bg-secondary text-secondary-foreground border border-border">
+          <div className="shrink-0 self-start sm:self-center">
+            <span className="text-xs font-medium px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground border border-border">
               Scope: {activeDatasetId}
             </span>
           </div>
         </div>
 
         {/* Primary KPI Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <KPICard
             label="Total Materials"
             value={isLoading ? '—' : totalMaterials.toLocaleString()}

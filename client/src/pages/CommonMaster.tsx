@@ -386,7 +386,7 @@ export default function CommonMaster() {
         {/* Clean, Readable Table */}
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[760px]">
               <TableHeader className="bg-muted/30">
                 <TableRow className="border-border">
                   <TableHead className="font-medium text-xs text-muted-foreground pl-5 py-3.5 w-44">
@@ -529,7 +529,7 @@ export default function CommonMaster() {
             }
           }}
         >
-          <DialogContent className="max-w-lg p-6 bg-card border-border rounded-xl shadow-xl">
+          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-card border-border rounded-xl shadow-xl">
             {selectedRecord && (
               <div className="space-y-5">
                 {/* Header with clear right padding so close X button is completely free */}

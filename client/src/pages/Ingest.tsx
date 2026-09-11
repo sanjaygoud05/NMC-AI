@@ -226,22 +226,22 @@ export default function Ingest() {
         {uploadResult && (
           <Card className="border-border bg-card animate-in fade-in-50">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  Uploaded Dataset Profile: {uploadResult.filename}
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                  <span className="truncate">Uploaded Dataset Profile: {uploadResult.filename}</span>
                 </CardTitle>
                 {uploadResult.is_official_raw_baseline ? (
-                  <Badge className="bg-emerald-600 text-white font-mono text-xs">
+                  <Badge className="bg-emerald-600 text-white font-mono text-xs shrink-0 self-start sm:self-auto">
                     OFFICIAL FROZEN BASELINE
                   </Badge>
                 ) : (
-                  <Badge variant="secondary" className="font-mono text-xs">
+                  <Badge variant="secondary" className="font-mono text-xs shrink-0 self-start sm:self-auto">
                     STAGED INGESTION DATASET
                   </Badge>
                 )}
               </div>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 {uploadResult.message} · Size: {uploadResult.size_mb} MB ({uploadResult.size_bytes.toLocaleString()} bytes)
               </CardDescription>
             </CardHeader>

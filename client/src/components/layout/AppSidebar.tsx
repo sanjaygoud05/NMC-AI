@@ -26,6 +26,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -92,6 +93,13 @@ const navItems: NavItem[] = [
 
 export function AppSidebar() {
   const { profile, role, signOut } = useAuth();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   const localProfile = (() => {
     try {
@@ -148,14 +156,15 @@ export function AppSidebar() {
                   className="animate-slide-in-left opacity-0 [animation-fill-mode:forwards] border-b border-sidebar-border m-0 p-0"
                   style={{ animationDelay: `${index * 40}ms` }}
                 >
-                  <SidebarMenuButton asChild className="h-10 m-0 p-0">
+                  <SidebarMenuButton asChild className="h-11 sm:h-10 m-0 p-0">
                     <NavLink
                       to={item.url}
-                      className="flex items-center justify-start gap-3 px-5 h-10 w-full rounded-none text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200"
+                      onClick={handleNavClick}
+                      className="flex items-center justify-start gap-3 px-5 h-11 sm:h-10 w-full rounded-none text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{item.title}</span>
+                      <span className="text-sm">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -168,6 +177,7 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-0">
         <Link
           to="/profile"
+          onClick={handleNavClick}
           className="flex items-center gap-3 p-4 hover:bg-sidebar-accent transition-colors"
         >
           <Avatar className="h-8 w-8 shrink-0">
