@@ -183,11 +183,11 @@ export default function Review() {
         </div>
 
         {/* Filter Pills & Quick Jump */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border text-xs">
-          <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3 rounded-2xl border border-border text-xs">
+          <div className="flex flex-wrap items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/50 overflow-x-auto">
             <button
               onClick={() => setFilterDecision('pending')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
                 filterDecision === 'pending'
                   ? 'bg-background font-semibold text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -197,17 +197,17 @@ export default function Review() {
             </button>
             <button
               onClick={() => setFilterDecision('all')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
                 filterDecision === 'all'
                   ? 'bg-background font-semibold text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              All Matches ({total})
+              All ({total})
             </button>
             <button
               onClick={() => setFilterDecision('accepted')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
                 filterDecision === 'accepted'
                   ? 'bg-background font-semibold text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -217,7 +217,7 @@ export default function Review() {
             </button>
             <button
               onClick={() => setFilterDecision('rejected')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all shrink-0 ${
                 filterDecision === 'rejected'
                   ? 'bg-background font-semibold text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -228,7 +228,7 @@ export default function Review() {
           </div>
 
           {/* Navigation buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-border/40">
             <Button
               variant="outline"
               size="sm"
@@ -261,12 +261,12 @@ export default function Review() {
 
         {/* Main Review Card matching Image 2 */}
         {loading ? (
-          <Card className="p-16 text-center border-border bg-card rounded-2xl space-y-3">
+          <Card className="p-10 sm:p-16 text-center border-border bg-card rounded-2xl space-y-3">
             <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
             <p className="text-sm font-medium">Loading match candidate for review...</p>
           </Card>
         ) : !currentItem ? (
-          <Card className="p-16 text-center border-border bg-card rounded-2xl space-y-3">
+          <Card className="p-10 sm:p-16 text-center border-border bg-card rounded-2xl space-y-3">
             <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
             <p className="text-base font-semibold text-foreground">Review Queue Cleared</p>
             <p className="text-xs text-muted-foreground">
@@ -286,10 +286,10 @@ export default function Review() {
             </div>
           </Card>
         ) : (
-          <div className="bg-card rounded-2xl border border-border/80 shadow-sm p-6 sm:p-8 space-y-6 animate-fade-in">
+          <div className="bg-card rounded-2xl border border-border/80 shadow-sm p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 animate-fade-in">
             {/* Header Line matching Image 2: "Match 46 of 312 pending" & "Confidence 74%" */}
-            <div className="flex items-center justify-between gap-4 text-sm font-medium border-b border-border/40 pb-4">
-              <div className="text-foreground font-semibold flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 text-sm font-medium border-b border-border/40 pb-4">
+              <div className="text-foreground font-semibold flex items-center flex-wrap gap-2">
                 <span>
                   Match {currentIndex + 1} of {total} {filterDecision === 'pending' ? 'pending' : 'candidates'}
                 </span>
@@ -307,14 +307,14 @@ export default function Review() {
                   </Badge>
                 )}
               </div>
-              <div className="text-muted-foreground text-sm font-medium">
+              <div className="text-muted-foreground text-xs sm:text-sm font-medium">
                 Confidence <span className="font-bold text-foreground">{scorePercent}%</span>
               </div>
             </div>
 
             {/* Side-by-Side Attribute Comparison Table matching Image 2 */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
+            <div className="overflow-x-auto rounded-xl border border-border/60">
+              <table className="w-full min-w-[520px] text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-border/80 text-muted-foreground">
                     <th className="py-3 px-4 text-left font-medium w-1/4">Attribute</th>

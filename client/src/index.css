@@ -424,3 +424,33 @@
 [data-sonner-toast]:not([data-type]) [data-close-button] {
   color: hsl(var(--foreground));
 }
+
+/* ============================================
+   Mobile & Responsive Enhancements
+   ============================================ */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth momentum scrolling on iOS/mobile devices */
+.overflow-x-auto, .overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Responsive scrollbar styling for tables */
+.overflow-x-auto::-webkit-scrollbar {
+  height: 6px;
+}
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: hsl(var(--border) / 0.7);
+  border-radius: 9999px;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border));
+}
+
