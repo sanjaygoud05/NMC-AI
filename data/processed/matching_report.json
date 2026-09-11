@@ -12,10 +12,10 @@
     "blocking_reduction_ratio_percent": 88.36,
     "retained_candidate_pairs": 37500,
     "average_candidates_per_material": 30.0,
-    "embedding_time_seconds": 4.57,
-    "blocking_time_seconds": 0.21,
-    "scoring_time_seconds": 8.46,
-    "total_runtime_seconds": 14.06
+    "embedding_time_seconds": 5.59,
+    "blocking_time_seconds": 0.28,
+    "scoring_time_seconds": 30.04,
+    "total_runtime_seconds": 38.46
   },
   "embedding": {
     "embedding_method": "sentence_transformer_all-MiniLM-L6-v2",

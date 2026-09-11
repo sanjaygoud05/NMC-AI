@@ -9,17 +9,42 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export const jobService = {
   async getJobs(params?: { status?: string; phase?: string; limit?: number }) {
-    console.log('[jobService] getJobs called:', params);
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/jobs`);
+      if (res.ok) {
+        const data = await res.json();
+        return data as ProcessingJob[];
+      }
+    } catch (err) {
+      console.error('[jobService] getJobs failed:', err);
+    }
     return [] as ProcessingJob[];
   },
 
   async getJob(id: string) {
-    console.log('[jobService] getJob called with id:', id);
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/jobs/${encodeURIComponent(id)}`);
+      if (res.ok) {
+        return await res.json() as ProcessingJob;
+      }
+    } catch (err) {
+      console.error('[jobService] getJob failed:', err);
+    }
     return null as ProcessingJob | null;
   },
 
   async cancelJob(id: string) {
-    console.log('[jobService] cancelJob called with id:', id);
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/jobs/${encodeURIComponent(id)}/cancel`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.cancelled === true;
+      }
+    } catch (err) {
+      console.error('[jobService] cancelJob failed:', err);
+    }
     return false;
   },
 
@@ -29,7 +54,15 @@ export const jobService = {
   },
 
   async getActiveJobs() {
-    console.log('[jobService] getActiveJobs called');
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/jobs`);
+      if (res.ok) {
+        const data = await res.json() as ProcessingJob[];
+        return data.filter(job => job.status === 'PROCESSING' || job.status === 'QUEUED');
+      }
+    } catch (err) {
+      console.error('[jobService] getActiveJobs failed:', err);
+    }
     return [] as ProcessingJob[];
   },
 

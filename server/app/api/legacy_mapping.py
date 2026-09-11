@@ -30,11 +30,33 @@ async def list_legacy_mappings(
     """
     List legacy material mappings with filtering, search, and pagination scoped by dataset_id.
     """
-    if dataset_id and dataset_id.upper() not in ["", "BASELINE"]:
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    if effective_id != "BASELINE":
         from server.services.dataset_resolver import load_dataset_dataframe
-        df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=dataset_id)
+        df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=effective_id)
         if df.empty:
-            return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
+            return {
+                "items": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": 0,
+                "dataset_id": effective_id,
+                "has_dataset": True,
+                "data_available": False,
+            }
 
         effective_cpse = cpse or source_cpse
         effective_status = status or mapping_status
@@ -88,11 +110,14 @@ async def list_legacy_mappings(
             "page": page,
             "page_size": page_size,
             "total_pages": total_pages,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": total > 0,
         }
 
     effective_cpse = cpse or source_cpse
     effective_status = status or mapping_status
-    return legacy_mapping_repository.query_mappings(
+    res = legacy_mapping_repository.query_mappings(
         search=search,
         source_cpse=effective_cpse,
         mapping_status=effective_status,
@@ -101,6 +126,10 @@ async def list_legacy_mappings(
         page=page,
         page_size=page_size,
     )
+    res["dataset_id"] = "BASELINE"
+    res["has_dataset"] = True
+    res["data_available"] = res.get("total", 0) > 0
+    return res
 
 
 @router.get("/stats", response_model=Dict[str, Any])
@@ -111,9 +140,26 @@ async def get_legacy_mapping_stats(
     """
     Get summary statistics and KPI metrics for Legacy Material Mappings.
     """
-    if dataset_id and dataset_id.upper() not in ["", "BASELINE"]:
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "total_source_materials": 0,
+            "total_mappings": 0,
+            "mapped_verified": 0,
+            "mapped_standalone": 0,
+            "review_required": 0,
+            "conflict": 0,
+            "unmapped": 0,
+            "cpse_distribution": {},
+            "mapping_coverage_pct": 0.0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    if effective_id != "BASELINE":
         from server.services.dataset_resolver import load_dataset_dataframe
-        df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=dataset_id)
+        df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=effective_id)
         total = len(df)
         cpse_dist = df["source_cpse"].value_counts().to_dict() if "source_cpse" in df.columns else {}
         return {
@@ -125,9 +171,16 @@ async def get_legacy_mapping_stats(
             "conflict": 0,
             "unmapped": 0,
             "cpse_distribution": cpse_dist,
-            "mapping_coverage_pct": 100.0,
+            "mapping_coverage_pct": 100.0 if total > 0 else 0.0,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": total > 0,
         }
-    return legacy_mapping_repository.get_stats()
+    stats = legacy_mapping_repository.get_stats()
+    stats["dataset_id"] = "BASELINE"
+    stats["has_dataset"] = True
+    stats["data_available"] = stats.get("total_mappings", 0) > 0
+    return stats
 
 
 @router.get("/by-cmm/{cmm_code}", response_model=List[Dict[str, Any]])

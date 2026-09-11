@@ -3,6 +3,7 @@ FastAPI Router for Phase 8 Common Material Master
 Provides endpoints for catalog querying, stats, detailed provenance, and human governance actions.
 """
 
+import pandas as pd
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -33,13 +34,35 @@ async def list_common_materials(
     """
     List Common Material Master records with filtering, search, pagination, and dataset scoping.
     """
-    if dataset_id and dataset_id.upper() not in ["", "BASELINE"]:
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    if effective_id != "BASELINE":
         from server.services.dataset_resolver import load_dataset_dataframe
         import json
 
-        df = load_dataset_dataframe("common_material_master.csv", dataset_id=dataset_id)
+        df = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
         if df.empty:
-            return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
+            return {
+                "items": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": 0,
+                "dataset_id": effective_id,
+                "has_dataset": True,
+                "data_available": False,
+            }
 
         if family and family != "all":
             df = df[df["material_family"].str.upper() == family.upper()]
@@ -107,9 +130,12 @@ async def list_common_materials(
             "page": page,
             "page_size": page_size,
             "total_pages": total_pages,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": total > 0,
         }
 
-    return common_master_repository.query_common_materials(
+    res = common_master_repository.query_common_materials(
         search=search,
         family=family,
         governance_status=governance_status,
@@ -117,6 +143,10 @@ async def list_common_materials(
         page=page,
         page_size=page_size,
     )
+    res["dataset_id"] = "BASELINE"
+    res["has_dataset"] = True
+    res["data_available"] = res.get("total", 0) > 0
+    return res
 
 
 @router.get("/stats", response_model=Dict[str, Any])
@@ -127,41 +157,132 @@ async def get_common_master_stats(
     """
     Get summary statistics and KPI metrics for the Common Material Master catalog.
     """
-    if dataset_id and dataset_id.upper() not in ["", "BASELINE"]:
-        from server.services.dataset_resolver import load_dataset_dataframe
-        df = load_dataset_dataframe("common_material_master.csv", dataset_id=dataset_id)
-        total_records = len(df)
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
         return {
-            "total_common_materials": total_records,
+            "total_common_materials": 0,
             "verified_harmonized_count": 0,
-            "standalone_count": total_records,
+            "standalone_count": 0,
             "approved_master_count": 0,
             "review_required_count": 0,
-            "total_source_members": total_records,
+            "total_source_members": 0,
             "coverage_stats": {
-                "single_cpse_count": total_records,
+                "single_cpse_count": 0,
                 "multi_cpse_count": 0,
             },
-            "family_distribution": df["material_family"].value_counts().to_dict() if not df.empty and "material_family" in df.columns else {},
+            "family_distribution": {},
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
         }
-    return common_master_repository.get_stats()
+
+    if effective_id != "BASELINE":
+        from server.services.dataset_resolver import load_dataset_dataframe
+        df = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
+        total_records = len(df)
+        families = sorted(list(df["material_family"].dropna().unique())) if not df.empty and "material_family" in df.columns else []
+        multi_cpse = len(df[df["cpse_coverage"].str.contains(";", na=False)]) if not df.empty and "cpse_coverage" in df.columns else 0
+        verified = len(df[df["governance_status"].isin(["VERIFIED_HARMONIZED", "APPROVED_MASTER"])]) if not df.empty and "governance_status" in df.columns else 0
+        
+        member_sum = total_records
+        if not df.empty and "member_count" in df.columns:
+            try:
+                member_sum = int(df["member_count"].astype(int).sum())
+            except Exception:
+                member_sum = total_records
+
+        return {
+            "total_common_materials": total_records,
+            "multi_cpse_harmonized": multi_cpse,
+            "verified_harmonized": verified,
+            "verified_harmonized_count": verified,
+            "standalone_count": total_records - multi_cpse,
+            "approved_master_count": len(df[df["governance_status"] == "APPROVED_MASTER"]) if not df.empty and "governance_status" in df.columns else 0,
+            "review_required_count": len(df[df["governance_status"] == "AMBIGUOUS_REVIEW_REQUIRED"]) if not df.empty and "governance_status" in df.columns else 0,
+            "total_source_members": member_sum,
+            "total_members_mapped": member_sum,
+            "unique_families": families,
+            "coverage_stats": {
+                "single_cpse_count": total_records - multi_cpse,
+                "multi_cpse_count": multi_cpse,
+            },
+            "family_distribution": df["material_family"].value_counts().to_dict() if not df.empty and "material_family" in df.columns else {},
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": total_records > 0,
+        }
+    stats = common_master_repository.get_stats()
+    stats["dataset_id"] = "BASELINE"
+    stats["has_dataset"] = True
+    stats["data_available"] = stats.get("total_common_materials", 0) > 0
+    return stats
 
 
 @router.get("/{common_id}", response_model=Dict[str, Any])
 async def get_common_material_detail(
     common_id: str,
+    dataset_id: Optional[str] = Query(None),
     user: dict = Depends(get_current_user),
 ):
     """
     Get complete detail and member provenance mapping for a single Common Material record.
     """
+    effective_id = (dataset_id or "NONE").strip().upper()
+    
+    # 1. Try DB repository
     record = common_master_repository.get_common_material(common_id)
-    if not record:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Common Material Master record '{common_id}' not found",
-        )
-    return record
+    if record:
+        return record
+
+    # 2. Try loading from dataset file
+    from server.services.dataset_resolver import load_dataset_dataframe
+    import json
+    df = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id if effective_id != "NONE" else "BASELINE")
+    if not df.empty:
+        match = df[(df["common_code"] == common_id) | (df.get("common_material_id", pd.Series()) == common_id)]
+        if not match.empty:
+            r = match.iloc[0].to_dict()
+            c_attrs = {}
+            raw_attrs = r.get("consolidated_attributes", "{}")
+            if isinstance(raw_attrs, str):
+                try:
+                    c_attrs = json.loads(raw_attrs)
+                except Exception:
+                    c_attrs = {}
+            elif isinstance(raw_attrs, dict):
+                c_attrs = raw_attrs
+
+            cov = r.get("cpse_coverage", "")
+            cov_list = cov.split(";") if isinstance(cov, str) else []
+            
+            # Load members
+            members_df = load_dataset_dataframe("common_material_members.csv", dataset_id=effective_id if effective_id != "NONE" else "BASELINE")
+            members_list = []
+            if not members_df.empty:
+                m_match = members_df[members_df["common_code"] == r.get("common_code")]
+                members_list = m_match.to_dict("records")
+
+            return {
+                "common_material_id": r.get("common_material_id", r.get("common_code")),
+                "common_code": r.get("common_code"),
+                "common_description": r.get("common_description"),
+                "material_family": r.get("material_family"),
+                "material_type": r.get("material_type"),
+                "material_grade": r.get("material_grade"),
+                "nominal_size": r.get("nominal_size"),
+                "standard_spec": r.get("standard_spec"),
+                "governance_status": r.get("governance_status", "VERIFIED_HARMONIZED"),
+                "confidence_score": float(r.get("confidence_score") or 1.0),
+                "member_count": int(r.get("member_count") or len(members_list) or 1),
+                "cpse_coverage": cov_list,
+                "consolidated_attributes": c_attrs,
+                "members": members_list,
+            }
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Common Material Master record '{common_id}' not found",
+    )
 
 
 @router.post("/{common_id}/governance", response_model=Dict[str, Any])

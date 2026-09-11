@@ -116,67 +116,14 @@ export interface StandardizedMaterialDetail {
   };
 }
 
-// Hardcoded fallback that matches the real extraction output
-const FALLBACK_REPORT: ExtractionReport = {
-  phase: 'Phase 04: Attribute Extraction',
-  dataset_rows: 1250,
-  records_processed: 1250,
-  records_with_attributes: 1250,
-  records_without_attributes: 0,
-  records_1_plus_attributes: 1250,
-  records_3_plus_attributes: 1250,
-  records_5_plus_attributes: 1250,
-  average_attributes_per_record: 11.15,
-  attribute_coverage: {
-    material_family: 1.0,
-    material_type: 1.0,
-    material_subtype: 0.1088,
-    material: 0.5984,
-    material_grade: 1.0,
-    size: 1.0,
-    diameter: 0.1016,
-    length: 0.2992,
-    pressure_class: 0.0,
-    schedule: 0.0,
-    standard: 0.9448,
-    coating: 0.8232,
-    connection_type: 0.1024,
-    construction: 0.0696,
-    orientation: 0.0136,
-    bearing_number: 0.0568,
-  },
-  rule_application_counts: {
-    GRADE_FROM_STRUCTURED_FIELD: 1250,
-    SIZE_FROM_STRUCTURED_FIELD: 1250,
-    FAMILY_FROM_CATEGORY: 1250,
-    TYPE_FROM_MATERIAL_TYPE: 1054,
-    STANDARD_FROM_SPECIFICATION: 1181,
-    COATING_FROM_STRUCTURED_FIELD: 1029,
-    MATERIAL_STAINLESS_STEEL: 748,
-    TYPE_BALL_VALVE: 196,
-    TYPE_GATE_VALVE: 55,
-    CONSTRUCTION_FLOATING: 98,
-    TYPE_BALL_BEARING: 71,
-    BEARING_NUMBER: 71,
-    ORIENTATION_HORIZONTAL: 17,
-  },
-  source_counts: {
-    structured_field: 1250,
-    specification: 1181,
-    description: 1181,
-  },
-  confidence_counts: { high: 13844, medium: 89, low: 0 },
-  total_conflicts: 520,
-  raw_dataset_unchanged: true,
-};
-
 export const standardizationService = {
-  async getAttributesSummary(): Promise<ExtractionStatus> {
+  async getAttributesSummary(datasetId?: string): Promise<ExtractionStatus> {
     try {
-      const res = await fetch(`${API_BASE}/api/standardization/attributes`);
+      const q = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      const res = await fetch(`${API_BASE}/api/standardization/attributes${q}`);
       if (res.ok) return await res.json();
     } catch { /* fallback */ }
-    return { status: 'completed', extracted_file_exists: true, report: FALLBACK_REPORT };
+    return { status: 'not_run', extracted_file_exists: false, message: 'Could not load extraction status' };
   },
 
   async getAttributesReport(): Promise<ExtractionReport | null> {
@@ -184,7 +131,7 @@ export const standardizationService = {
       const res = await fetch(`${API_BASE}/api/standardization/attributes/report`);
       if (res.ok) return await res.json();
     } catch { /* fallback */ }
-    return FALLBACK_REPORT;
+    return null;
   },
 
   async getMaterialAttributes(materialCode: string): Promise<MaterialAttributes | null> {
@@ -205,9 +152,10 @@ export const standardizationService = {
     throw new Error((err as { detail?: string }).detail || 'Extraction failed');
   },
 
-  async getStandardizationReport(): Promise<StandardizationReport | null> {
+  async getStandardizationReport(datasetId?: string): Promise<StandardizationReport | null> {
     try {
-      const res = await fetch(`${API_BASE}/api/standardization/report`);
+      const q = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      const res = await fetch(`${API_BASE}/api/standardization/report${q}`);
       if (res.ok) return await res.json();
     } catch { /* fallback */ }
     return null;

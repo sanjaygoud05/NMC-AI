@@ -171,7 +171,7 @@ export default function Settings() {
                   FastAPI Backend Service Connection
                 </CardTitle>
                 <CardDescription>
-                  Configuration for the SIH26099 Python FastAPI backend service
+                  Configuration for the NMC-AI Python FastAPI backend service
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -189,7 +189,7 @@ export default function Settings() {
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-foreground">PostgreSQL / Supabase Storage</div>
                     <div className="text-[11px] text-muted-foreground">
-                      Mock fallback active in Phase 0; Ready for real PostgreSQL connection string
+                      Ready for PostgreSQL connection string configuration
                     </div>
                   </div>
                   <Badge variant="outline" className="text-xs text-emerald-500 border-emerald-500/20">
@@ -204,28 +204,40 @@ export default function Settings() {
           <TabsContent value="connectors" className="space-y-4">
             <Card className="border-border bg-card">
               <CardHeader>
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-primary" />
-                  Registered Enterprise Systems
+                <CardTitle className="text-base font-semibold flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    Registered Enterprise Systems & ERP Schemas
+                  </div>
+                  <Badge variant="outline" className="text-xs text-amber-400 border-amber-500/20 bg-amber-500/10">
+                    Architectural Templates
+                  </Badge>
                 </CardTitle>
                 <CardDescription>
-                  SAP ECC/S4HANA, Oracle ERP, and bespoke CPSE inventory catalog connectors
+                  Pre-configured SAP S/4HANA, SAP ECC 6.0, and Oracle MM integration connectors for enterprise rollout
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-muted-foreground flex items-start gap-2.5">
+                  <span className="font-semibold text-amber-400 shrink-0">Note:</span>
+                  <span>
+                    In this prototype, material datasets are ingested directly via CSV uploads and baseline benchmarks. These connectors represent the target integration endpoints ready for live Ministry deployment.
+                  </span>
+                </div>
+
                 {[
-                  { name: 'CPCL — Chennai Petroleum Corp Ltd', erp: 'SAP S/4HANA Material Master', status: 'Connected' },
-                  { name: 'IOCL — Indian Oil Corporation Ltd', erp: 'SAP ECC 6.0 MM Module', status: 'Connected' },
-                  { name: 'ONGC — Oil & Natural Gas Corp', erp: 'SAP S/4HANA Enterprise', status: 'Connected' },
-                  { name: 'GAIL — Gas Authority of India Ltd', erp: 'SAP MM / SRM', status: 'Connected' },
-                  { name: 'BPCL — Bharat Petroleum Corp Ltd', erp: 'SAP ECC 6.0', status: 'Connected' },
+                  { name: 'CPCL — Chennai Petroleum Corp Ltd', erp: 'SAP S/4HANA Material Master', status: 'Integration Ready (Simulated)' },
+                  { name: 'IOCL — Indian Oil Corporation Ltd', erp: 'SAP ECC 6.0 MM Module', status: 'Integration Ready (Simulated)' },
+                  { name: 'ONGC — Oil & Natural Gas Corp', erp: 'SAP S/4HANA Enterprise', status: 'Integration Ready (Simulated)' },
+                  { name: 'GAIL — Gas Authority of India Ltd', erp: 'SAP MM / SRM', status: 'Integration Ready (Simulated)' },
+                  { name: 'BPCL — Bharat Petroleum Corp Ltd', erp: 'SAP ECC 6.0', status: 'Integration Ready (Simulated)' },
                 ].map((item) => (
                   <div key={item.name} className="flex items-center justify-between p-3 rounded-lg border border-border/60 bg-muted/20">
                     <div>
                       <div className="text-sm font-medium text-foreground">{item.name}</div>
                       <div className="text-xs text-muted-foreground">{item.erp}</div>
                     </div>
-                    <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
+                    <Badge variant="outline" className="text-[11px] font-medium text-muted-foreground border-border bg-muted/30">
                       {item.status}
                     </Badge>
                   </div>

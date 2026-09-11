@@ -156,6 +156,105 @@ async def get_dataset_status(dataset_id: str):
     return ds
 
 
+@router.get("/jobs")
+async def list_ingestion_jobs():
+    """
+    List all ingestion jobs with their status and metadata.
+    """
+    from server.services.dataset_registry_service import dataset_registry_service
+    datasets = dataset_registry_service.list_datasets()
+    
+    jobs = []
+    for ds in datasets:
+        job = {
+            "job_id": ds.get("dataset_id"),
+            "dataset_id": ds.get("dataset_id"),
+            "file_name": ds.get("file_name"),
+            "status": ds.get("status", "UNKNOWN"),
+            "created_at": ds.get("created_at"),
+            "started_at": ds.get("started_at"),
+            "completed_at": ds.get("completed_at"),
+            "current_phase": ds.get("current_phase"),
+            "progress": ds.get("progress", 0),
+            "error_message": ds.get("error_message"),
+        }
+        jobs.append(job)
+    
+    return jobs
+
+
+@router.get("/jobs/{job_id}")
+async def get_ingestion_job(job_id: str):
+    """
+    Get detailed information about a specific ingestion job.
+    """
+    from server.services.dataset_registry_service import dataset_registry_service
+    ds = dataset_registry_service.get_dataset(job_id)
+    if not ds:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+    
+    return {
+        "job_id": ds.get("dataset_id"),
+        "dataset_id": ds.get("dataset_id"),
+        "file_name": ds.get("file_name"),
+        "status": ds.get("status", "UNKNOWN"),
+        "created_at": ds.get("created_at"),
+        "started_at": ds.get("started_at"),
+        "completed_at": ds.get("completed_at"),
+        "current_phase": ds.get("current_phase"),
+        "progress": ds.get("progress", 0),
+        "error_message": ds.get("error_message"),
+        "row_count": ds.get("row_count"),
+        "cpse_count": ds.get("cpse_count"),
+    }
+
+
+@router.get("/jobs/{job_id}/status")
+async def get_ingestion_job_status(job_id: str):
+    """
+    Get current status of a specific ingestion job.
+    """
+    from server.services.dataset_registry_service import dataset_registry_service
+    ds = dataset_registry_service.get_dataset(job_id)
+    if not ds:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+    
+    return {
+        "job_id": job_id,
+        "status": ds.get("status", "UNKNOWN"),
+        "progress": ds.get("progress", 0),
+        "current_phase": ds.get("current_phase"),
+        "message": ds.get("error_message") or "Processing in progress",
+    }
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_ingestion_job(job_id: str):
+    """
+    Cancel a running ingestion job.
+    """
+    from server.services.dataset_registry_service import dataset_registry_service
+    ds = dataset_registry_service.get_dataset(job_id)
+    if not ds:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+    
+    if ds.get("status") in ["COMPLETED", "FAILED"]:
+        return {
+            "job_id": job_id,
+            "cancelled": False,
+            "message": f"Job cannot be cancelled (status: {ds.get('status')})",
+        }
+    
+    # Update status to CANCELLED
+    dataset_registry_service.update_dataset_status(job_id, "CANCELLED")
+    
+    return {
+        "job_id": job_id,
+        "cancelled": True,
+        "message": "Job cancellation requested",
+    }
+
+
 @router.post("/run")
 async def run_phase1_pipeline():
     """

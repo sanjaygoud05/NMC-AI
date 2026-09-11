@@ -25,14 +25,30 @@ async def get_materials(
     """
     from server.services.dataset_resolver import load_dataset_dataframe
 
-    df = load_dataset_dataframe("standardized_materials.csv", dataset_id=dataset_id)
+    effective_id = (dataset_id or "NONE").strip().upper()
+    has_dataset = effective_id not in ["", "NONE"]
+
+    if not has_dataset:
+        return {
+            "materials": [],
+            "total": 0,
+            "skip": skip,
+            "limit": limit,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    df = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
     if df.empty:
         return {
             "materials": [],
             "total": 0,
             "skip": skip,
             "limit": limit,
-            "dataset_id": dataset_id or "BASELINE",
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": False,
         }
 
     # Filter by CPSE
@@ -61,26 +77,38 @@ async def get_materials(
     for _, r in page_df.iterrows():
         code = str(r.get("Material_Code", ""))
         cpse_val = str(r.get("CPSE", ""))
-        ds_val = str(r.get("dataset_id", dataset_id or "BASELINE"))
+        ds_val = str(r.get("dataset_id", effective_id))
         m_id = f"{ds_val}:{cpse_val}:{code}"
 
         materials_list.append({
             "id": m_id,
-            "materialCode": code,
-            "cpseId": cpse_val,
-            "datasetId": ds_val,
+            "material_code": code,
+            "materialCode": code,  # Legacy compatibility
+            "cpse": cpse_val,
+            "cpseId": cpse_val,  # Legacy compatibility
+            "dataset_id": ds_val,
+            "datasetId": ds_val,  # Legacy compatibility
             "description": str(r.get("Material_Description", "")),
-            "normalizedDescription": str(r.get("Normalized_Description", "")),
-            "standardizedDescription": str(r.get("Standardized_Description", "")),
+            "normalized_description": str(r.get("Normalized_Description", "")),
+            "normalizedDescription": str(r.get("Normalized_Description", "")),  # Legacy compatibility
+            "standardized_description": str(r.get("Standardized_Description", "")),
+            "standardizedDescription": str(r.get("Standardized_Description", "")),  # Legacy compatibility
             "category": str(r.get("Material_Category", "")),
-            "materialType": str(r.get("Material_Type", "")),
-            "unit": str(r.get("Unit", "")),
+            "material_type": str(r.get("Material_Type", "")),
+            "materialType": str(r.get("Material_Type", "")),  # Legacy compatibility
+            "unit_of_measure": str(r.get("Unit", "")),
+            "unit": str(r.get("Unit", "")),  # Legacy compatibility
             "manufacturer": str(r.get("Manufacturer", "")),
-            "standardizationStatus": "standardized",
-            "matchStatus": "pending",
-            "confidenceScore": 0.95,
-            "createdAt": "2026-03-31T00:00:00Z",
-            "updatedAt": "2026-03-31T00:00:00Z",
+            "standardization_status": "standardized",
+            "standardizationStatus": "standardized",  # Legacy compatibility
+            "match_status": "pending",
+            "matchStatus": "pending",  # Legacy compatibility
+            "confidence_score": 0.95,
+            "confidenceScore": 0.95,  # Legacy compatibility
+            "created_at": "2026-03-31T00:00:00Z",
+            "createdAt": "2026-03-31T00:00:00Z",  # Legacy compatibility
+            "updated_at": "2026-03-31T00:00:00Z",
+            "updatedAt": "2026-03-31T00:00:00Z",  # Legacy compatibility
         })
 
     return {
@@ -88,7 +116,9 @@ async def get_materials(
         "total": total,
         "skip": skip,
         "limit": limit,
-        "dataset_id": dataset_id or "BASELINE",
+        "dataset_id": effective_id,
+        "has_dataset": True,
+        "data_available": total > 0,
     }
 
 
@@ -121,26 +151,38 @@ async def get_material(
     r = match.iloc[0]
     return {
         "id": material_id,
-        "materialCode": str(r.get("Material_Code", "")),
-        "cpseId": str(r.get("CPSE", "")),
-        "datasetId": str(r.get("dataset_id", eff_dataset or "BASELINE")),
+        "material_code": str(r.get("Material_Code", "")),
+        "materialCode": str(r.get("Material_Code", "")),  # Legacy compatibility
+        "cpse": str(r.get("CPSE", "")),
+        "cpseId": str(r.get("CPSE", "")),  # Legacy compatibility
+        "dataset_id": str(r.get("dataset_id", eff_dataset or "BASELINE")),
+        "datasetId": str(r.get("dataset_id", eff_dataset or "BASELINE")),  # Legacy compatibility
         "description": str(r.get("Material_Description", "")),
-        "normalizedDescription": str(r.get("Normalized_Description", "")),
-        "standardizedDescription": str(r.get("Standardized_Description", "")),
+        "normalized_description": str(r.get("Normalized_Description", "")),
+        "normalizedDescription": str(r.get("Normalized_Description", "")),  # Legacy compatibility
+        "standardized_description": str(r.get("Standardized_Description", "")),
+        "standardizedDescription": str(r.get("Standardized_Description", "")),  # Legacy compatibility
         "category": str(r.get("Material_Category", "")),
-        "materialType": str(r.get("Material_Type", "")),
-        "unit": str(r.get("Unit", "")),
+        "material_type": str(r.get("Material_Type", "")),
+        "materialType": str(r.get("Material_Type", "")),  # Legacy compatibility
+        "unit_of_measure": str(r.get("Unit", "")),
+        "unit": str(r.get("Unit", "")),  # Legacy compatibility
         "manufacturer": str(r.get("Manufacturer", "")),
-        "standardizationStatus": "standardized",
-        "matchStatus": "pending",
-        "confidenceScore": 0.95,
+        "standardization_status": "standardized",
+        "standardizationStatus": "standardized",  # Legacy compatibility
+        "match_status": "pending",
+        "matchStatus": "pending",  # Legacy compatibility
+        "confidence_score": 0.95,
+        "confidenceScore": 0.95,  # Legacy compatibility
         "attributes": {
             "size": str(r.get("Canonical_Size", "")),
             "grade": str(r.get("Canonical_Material_Grade", "")),
             "spec": str(r.get("Canonical_Standard", "")),
         },
-        "createdAt": "2026-03-31T00:00:00Z",
-        "updatedAt": "2026-03-31T00:00:00Z",
+        "created_at": "2026-03-31T00:00:00Z",
+        "createdAt": "2026-03-31T00:00:00Z",  # Legacy compatibility
+        "updated_at": "2026-03-31T00:00:00Z",
+        "updatedAt": "2026-03-31T00:00:00Z",  # Legacy compatibility
     }
 
 

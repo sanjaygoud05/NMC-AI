@@ -1,3 +1,0 @@
-cmm_code,common_description,material_family,governance_status,member_count,cpse_count,consuming_cpses,primary_uom,total_annual_consumption,avg_consumption_per_member,plant_count,dominant_plant,earliest_purchase_date,latest_purchase_date,purchase_recency_days,active_member_count,inactive_member_count,distinct_manufacturers_count,manufacturers_list,dataset_id
-CMM-VALVE-11-008-001,VALVE | BALL VALVE | ASTM A216 WCB | 2 IN | API 600 | FLANGED,VALVE,STANDALONE_CANDIDATE,1,1,ONGC,NOS,150.0,150.0,1,Plant-A,2025-05-15,2025-05-15,180,1,0,1,L&T,UPLOAD-20260911-008
-CMM-VALVE-11-008-002,VALVE | GATE VALVE | ASTM A216 WCB | 2 IN | API 600 | FLANGED,VALVE,STANDALONE_CANDIDATE,1,1,IOCL,NOS,320.0,320.0,1,Plant-B,2025-06-20,2025-06-20,180,1,0,1,BHEL,UPLOAD-20260911-008

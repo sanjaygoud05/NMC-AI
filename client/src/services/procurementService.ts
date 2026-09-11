@@ -208,9 +208,10 @@ export const procurementService = {
   /**
    * Fetch enterprise CPSE procurement summaries (4 CPSEs)
    */
-  async getCPSESummaries(): Promise<CPSEProcurementSummaryRecord[]> {
+  async getCPSESummaries(datasetId?: string): Promise<CPSEProcurementSummaryRecord[]> {
     const token = localStorage.getItem('supabase.auth.token') || '';
-    const res = await fetch(`${API_BASE}/api/procurement/cpse-summary`, {
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/procurement/cpse-summary${query}`, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

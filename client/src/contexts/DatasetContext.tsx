@@ -9,6 +9,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 export interface DatasetItem {
   dataset_id: string;
@@ -37,8 +38,9 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const STORAGE_KEY = 'sih26099_active_dataset_id';
 
 export function DatasetProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY) || 'BASELINE';
+    return localStorage.getItem(STORAGE_KEY) || 'NONE';
   });
   const [datasets, setDatasets] = useState<DatasetItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,22 +52,16 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data: DatasetItem[] = await res.json();
         setDatasets(data);
+        // If persisted selection is a specific upload that no longer exists, reset to NONE
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved && saved.startsWith('UPLOAD-') && !data.some((d) => d.dataset_id === saved)) {
+          setActiveDatasetId('NONE');
+          localStorage.setItem(STORAGE_KEY, 'NONE');
+        }
       }
     } catch {
-      // Backend offline fallback - maintain BASELINE
-      setDatasets([
-        {
-          dataset_id: 'BASELINE',
-          file_name: 'CPSE_Material_Master_cleaned.csv',
-          file_hash: '1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1',
-          row_count: 1250,
-          column_count: 18,
-          cpse_summary: { ONGC: 332, IOCL: 319, HPCL: 301, CPCL: 298 },
-          status: 'COMPLETED',
-          is_baseline: true,
-          uploaded_at: '2026-03-31T00:00:00Z',
-        },
-      ]);
+      // Backend offline - maintain empty state without auto-selecting baseline
+      setDatasets([]);
     } finally {
       setIsLoading(false);
     }
@@ -90,6 +86,8 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   const selectDataset = (id: string) => {
     setActiveDatasetId(id);
     localStorage.setItem(STORAGE_KEY, id);
+    // Invalidate all dataset-dependent queries to ensure fresh data
+    queryClient.invalidateQueries();
   };
 
   return (

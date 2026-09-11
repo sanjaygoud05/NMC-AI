@@ -19,14 +19,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Search, Filter, ExternalLink, Loader2 } from 'lucide-react';
+import { Search, Filter, ExternalLink, Loader2, Database, Upload } from 'lucide-react';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { materialService } from '@/services/materialService';
 import { useDataset } from '@/contexts/DatasetContext';
 import type { Material } from '@/types';
 import { Link } from 'react-router-dom';
 
 export default function Materials() {
-  const { activeDatasetId } = useDataset();
+  const { activeDatasetId, selectDataset } = useDataset();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -34,6 +35,12 @@ export default function Materials() {
 
   useEffect(() => {
     let isCurrent = true;
+    if (activeDatasetId === 'NONE') {
+      setMaterials([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     materialService
       .getMaterials({
@@ -56,6 +63,41 @@ export default function Materials() {
       isCurrent = false;
     };
   }, [activeDatasetId, search]);
+
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <PageHeader
+            title="Material Explorer"
+            description="Browse, search, and filter all CPSE materials across the harmonization pipeline"
+          />
+          <Card className="border-border bg-card p-12">
+            <EmptyState
+              icon={Database}
+              title="No Dataset Selected"
+              description="Upload a material master dataset or explicitly select an existing dataset to begin."
+              action={{
+                label: "Upload Dataset",
+                icon: Upload,
+                href: "/ingest",
+              }}
+            />
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectDataset('BASELINE')}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Or select Frozen Baseline (1,250 records)
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

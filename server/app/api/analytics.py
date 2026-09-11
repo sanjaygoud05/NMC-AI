@@ -11,10 +11,8 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
     """
     Get real dashboard metrics computed from active dataset scope (BASELINE, UPLOAD-..., or ALL)
     """
-    from server.services.dataset_resolver import load_dataset_dataframe
-
-    # Check for empty scope
-    if dataset_id and dataset_id.upper() == "NONE":
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
         return {
             "total_materials": 0,
             "total_cpse": 0,
@@ -26,10 +24,14 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
             "data_quality_score": 0,
             "processing_progress": 0,
             "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
         }
 
-    df_std = load_dataset_dataframe("standardized_materials.csv", dataset_id=dataset_id)
-    if df_std.empty and dataset_id not in [None, "BASELINE"]:
+    from server.services.dataset_resolver import load_dataset_dataframe
+
+    df_std = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
+    if df_std.empty and effective_id != "BASELINE":
         return {
             "total_materials": 0,
             "total_cpse": 0,
@@ -40,30 +42,59 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
             "duplicate_candidates": 0,
             "data_quality_score": 0,
             "processing_progress": 0,
-            "dataset_id": dataset_id,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": False,
         }
 
-    total_mats = len(df_std) if not df_std.empty else 1250
-    cpses = set(df_std["CPSE"].dropna()) if not df_std.empty else {"ONGC", "IOCL", "HPCL", "CPCL"}
-    unique_desc = len(set(df_std["Standardized_Description"].dropna())) if not df_std.empty else 349
-    unique_codes = len(set(df_std["Material_Code"].dropna())) if not df_std.empty else 1250
+    total_mats = len(df_std) if not df_std.empty else 0
+    cpses = set(df_std["CPSE"].dropna()) if not df_std.empty and "CPSE" in df_std.columns else set()
+    unique_desc = len(set(df_std["Standardized_Description"].dropna())) if not df_std.empty and "Standardized_Description" in df_std.columns else 0
 
     # Load match candidates count
-    df_cands = load_dataset_dataframe("match_candidates.csv", dataset_id=dataset_id)
-    cand_count = len(df_cands) if not df_cands.empty else 37500
-    high_conf = len(df_cands[df_cands["confidence_level"] == "HIGH"]) if not df_cands.empty and "confidence_level" in df_cands.columns else 12191
+    df_cands = load_dataset_dataframe("match_candidates.csv", dataset_id=effective_id)
+    cand_count = len(df_cands) if not df_cands.empty else 0
+    high_conf = int(len(df_cands[df_cands["confidence_level"] == "HIGH"])) if not df_cands.empty and "confidence_level" in df_cands.columns else 0
+
+    # Load review queue pending count
+    df_reviews = load_dataset_dataframe("validated_candidates.csv", dataset_id=effective_id)
+    from server.app.db.review_repository import review_repository
+    decisions_map = review_repository.get_all_decisions()
+    pending_cnt = 0
+    if not df_reviews.empty and "candidate_id" in df_reviews.columns:
+        active_ids = set(df_reviews[df_reviews["review_priority"].isin(["CRITICAL", "HIGH"])]["candidate_id"]) if "review_priority" in df_reviews.columns else set(df_reviews["candidate_id"])
+        reviewed_ids = set(decisions_map.keys()).intersection(active_ids)
+        pending_cnt = len(active_ids) - len(reviewed_ids)
+
+    is_baseline = effective_id == "BASELINE"
+
+    # Calculate actual data quality score from the dataset
+    data_quality_score = 0
+    if total_mats > 0:
+        try:
+            from server.services.dataset_resolver import resolve_artifact_path
+            norm_path = resolve_artifact_path("normalized_materials.csv", dataset_id=effective_id)
+            if norm_path and norm_path.exists():
+                df_norm = load_dataset_dataframe("normalized_materials.csv", dataset_id=effective_id)
+                if not df_norm.empty:
+                    profile = profiling_service.profile_dataset(df_norm)
+                    data_quality_score = profile["quality_score"]["overall_score"]
+        except Exception:
+            data_quality_score = 0
 
     return {
         "total_materials": total_mats,
         "total_cpse": len(cpses),
         "standardized_materials": total_mats,
         "harmonized_groups": unique_desc,
-        "pending_reviews": 0 if dataset_id and dataset_id.startswith("UPLOAD-") else 14,
+        "pending_reviews": pending_cnt,
         "high_confidence_matches": high_conf,
         "duplicate_candidates": cand_count,
-        "data_quality_score": 93,
-        "processing_progress": 100,
-        "dataset_id": dataset_id or "BASELINE",
+        "data_quality_score": data_quality_score,
+        "processing_progress": 100 if total_mats > 0 else 0,
+        "dataset_id": effective_id,
+        "has_dataset": True,
+        "data_available": total_mats > 0,
     }
 
 
@@ -72,14 +103,25 @@ async def get_cpse_analytics(dataset_id: Optional[str] = Query(None)):
     """
     Get CPSE analytics computed from active dataset scope distribution
     """
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "cpse_data": {},
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
     from server.services.dataset_resolver import load_dataset_dataframe
 
-    if dataset_id and dataset_id.upper() == "NONE":
-        return {"cpse_data": {}, "dataset_id": "NONE"}
-
-    df = load_dataset_dataframe("standardized_materials.csv", dataset_id=dataset_id)
+    df = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
     if df.empty:
-        df = ingestion_service.load_raw_dataframe()
+        return {
+            "cpse_data": {},
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": False,
+        }
 
     counts = df["CPSE"].value_counts().to_dict() if "CPSE" in df.columns else {}
     cpse_data = {}
@@ -91,17 +133,65 @@ async def get_cpse_analytics(dataset_id: Optional[str] = Query(None)):
 
     return {
         "cpse_data": cpse_data,
-        "dataset_id": dataset_id or "BASELINE",
-        "message": f"CPSE distribution generated for dataset scope: {dataset_id or 'BASELINE'}",
+        "dataset_id": effective_id,
+        "has_dataset": True,
+        "data_available": len(df) > 0,
+        "message": f"CPSE distribution generated for dataset scope: {effective_id}",
     }
 
 
 @router.get("/data-quality")
-async def get_data_quality_metrics():
+async def get_data_quality_metrics(dataset_id: Optional[str] = Query(None)):
     """
-    Get data quality metrics from Phase 1 profiling engine
+    Get data quality metrics scoped by dataset_id.
+    For BASELINE (default): runs Phase 1 profiling on frozen raw dataset.
+    For UPLOAD datasets: profiles the uploaded source CSV.
     """
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "data_quality_score": 0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+            "quality_scoring": {},
+            "column_profiles": {},
+            "missingness": {},
+            "quality_flags": [],
+        }
+
+    from server.services.dataset_resolver import resolve_artifact_path
+    import pandas as _pd
+
     try:
+        if effective_id != "BASELINE":
+            norm_path = resolve_artifact_path("normalized_materials.csv", dataset_id=effective_id)
+            if norm_path and norm_path.exists():
+                df = _pd.read_csv(norm_path, dtype=str)
+                profile = profiling_service.profile_dataset(df)
+                return {
+                    "data_quality_score": profile["quality_score"]["overall_score"],
+                    "quality_scoring": profile["quality_score"],
+                    "column_profiles": profile["column_profiles"],
+                    "missingness": profile["missingness_analysis"],
+                    "quality_flags": profile["quality_flags"],
+                    "dataset_id": effective_id,
+                    "has_dataset": True,
+                    "data_available": True,
+                }
+            else:
+                return {
+                    "data_quality_score": 0,
+                    "quality_scoring": {},
+                    "column_profiles": {},
+                    "missingness": {},
+                    "quality_flags": [],
+                    "dataset_id": effective_id,
+                    "has_dataset": True,
+                    "data_available": False,
+                    "message": "Processing not yet complete for this dataset",
+                }
+        # Baseline: profile raw frozen CSV
         df = ingestion_service.load_raw_dataframe()
         profile = profiling_service.profile_dataset(df)
         return {
@@ -110,9 +200,18 @@ async def get_data_quality_metrics():
             "column_profiles": profile["column_profiles"],
             "missingness": profile["missingness_analysis"],
             "quality_flags": profile["quality_flags"],
+            "dataset_id": "BASELINE",
+            "has_dataset": True,
+            "data_available": True,
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "error": str(e),
+            "data_quality_score": 0,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": False,
+        }
 
 
 @router.get("/procurement")

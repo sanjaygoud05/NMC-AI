@@ -58,6 +58,17 @@ export interface SimilarityScore {
   passed: boolean;
 }
 
+export interface MatchFilters {
+  skip?: number;
+  limit?: number;
+  source_cpse?: string;
+  candidate_cpse?: string;
+  confidence_level?: string;
+  cross_cpse_only?: boolean;
+  min_score?: number;
+  dataset_id?: string;
+}
+
 export interface AttributeComparison {
   attributeName: string;
   sourceValue: string;

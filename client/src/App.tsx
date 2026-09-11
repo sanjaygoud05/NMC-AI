@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 
 // Lazy-loaded pages — Phase 0 shells
 const Ingest = lazy(() => import("./pages/Ingest"));
+const DatasetHistory = lazy(() => import("./pages/DatasetHistory"));
 const Materials = lazy(() => import("./pages/Materials"));
 const MaterialDetail = lazy(() => import("./pages/MaterialDetail"));
 const Matches = lazy(() => import("./pages/Matches"));
@@ -73,6 +74,8 @@ const App = () => {
                   {/* Core pages */}
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/ingest" element={<Ingest />} />
+                  <Route path="/dataset-history" element={<DatasetHistory />} />
+                  <Route path="/history" element={<Navigate to="/dataset-history" replace />} />
 
                   {/* Material Explorer */}
                   <Route path="/materials" element={<Materials />} />

@@ -1,14 +1,35 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import type { StandardizationStatus } from '@/types';
 
-type RequestStatus = 'draft' | 'submitted' | 'pending' | 'in_review' | 'approved' | 'rejected' | 'change_requested';
+export type RequestStatus = 
+  | 'draft' 
+  | 'submitted' 
+  | 'pending' 
+  | 'in_review' 
+  | 'approved' 
+  | 'rejected' 
+  | 'change_requested'
+  | StandardizationStatus;
 
 interface StatusBadgeProps {
-  status: RequestStatus;
+  status: RequestStatus | string;
   className?: string;
 }
 
-const statusConfig: Record<RequestStatus, { label: string; variant: string }> = {
+const statusConfig: Record<string, { label: string; variant: string }> = {
+  raw: {
+    label: 'Raw',
+    variant: 'bg-muted text-muted-foreground',
+  },
+  standardized: {
+    label: 'Standardized',
+    variant: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+  },
+  harmonized: {
+    label: 'Harmonized',
+    variant: 'bg-primary/20 text-primary',
+  },
   draft: {
     label: 'Draft',
     variant: 'bg-[hsl(var(--status-draft))]/20 text-[hsl(var(--status-draft))]',
@@ -40,13 +61,16 @@ const statusConfig: Record<RequestStatus, { label: string; variant: string }> = 
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || {
+    label: String(status || 'Unknown'),
+    variant: 'bg-muted text-muted-foreground',
+  };
   
   return (
     <Badge 
       variant="secondary" 
       className={cn(
-        'font-medium border-0',
+        'font-medium border-0 capitalize',
         config.variant,
         className
       )}

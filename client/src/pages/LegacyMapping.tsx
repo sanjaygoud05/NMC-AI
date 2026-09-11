@@ -50,15 +50,17 @@ import {
 } from 'lucide-react';
 import {
   legacyMappingService,
-  LegacyMappingRecord,
+  LegacyMaterialMappingRecord,
   LegacyMappingStats,
 } from '@/services/legacyMappingService';
 import { useDataset } from '@/contexts/DatasetContext';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { Database, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function LegacyMapping() {
-  const { activeDatasetId } = useDataset();
-  const [mappings, setMappings] = useState<LegacyMappingRecord[]>([]);
+  const { activeDatasetId, selectDataset } = useDataset();
+  const [mappings, setMappings] = useState<LegacyMaterialMappingRecord[]>([]);
   const [stats, setStats] = useState<LegacyMappingStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -69,10 +71,16 @@ export default function LegacyMapping() {
   const [totalPages, setTotalPages] = useState(1);
 
   // Provenance inspection modal
-  const [selectedRecord, setSelectedRecord] = useState<LegacyMappingRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<LegacyMaterialMappingRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchRegistry = async () => {
+    if (!activeDatasetId || activeDatasetId === 'NONE') {
+      setMappings([]);
+      setStats(null);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const [registryData, statsData] = await Promise.all([
@@ -164,10 +172,45 @@ export default function LegacyMapping() {
     }
   };
 
-  const openProvenance = (rec: LegacyMappingRecord) => {
+  const openProvenance = (rec: LegacyMaterialMappingRecord) => {
     setSelectedRecord(rec);
     setIsModalOpen(true);
   };
+
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <PageHeader
+            title="Legacy Material Cross-Walk & Mapping Registry"
+            description="Traceability matrix mapping 100% of CPSE local material records to Common Master Material keys"
+          />
+          <Card className="border-border bg-card p-12">
+            <EmptyState
+              icon={Database}
+              title="No Dataset Selected"
+              description="Upload a material master dataset or explicitly select an existing dataset to begin."
+              action={{
+                label: "Upload Dataset",
+                icon: Upload,
+                href: "/ingest",
+              }}
+            />
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectDataset('BASELINE')}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Or select Frozen Baseline (1,250 records)
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -185,7 +228,7 @@ export default function LegacyMapping() {
             <p>
               <strong>STANDALONE_IDENTITY does not mean cross-CPSE equivalence or universal interchangeability.</strong>{' '}
               Standalone records preserve deterministic 1-to-1 linkage between an isolated CPSE catalog item and its standalone CMM candidate.
-              Only <strong>MAPPED_VERIFIED</strong> records represent human-validated multi-CPSE harmonized equivalents traceable to accepted Phase 7 decisions.
+              Cross-CPSE equivalence is strictly designated as <strong>MAPPED_VERIFIED</strong> with explicit multi-CPSE provenance.
             </p>
           </div>
         </div>
@@ -210,7 +253,7 @@ export default function LegacyMapping() {
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> Cross-CPSE Verified
               </span>
               <div className="text-2xl font-bold tracking-tight text-emerald-400">
-                {stats ? stats.verified_mapped : 2}
+                {stats ? stats.mapped_verified : 2}
               </div>
               <span className="text-[10px] text-muted-foreground font-mono">CAN-000331 (Valve)</span>
             </CardContent>
@@ -222,7 +265,7 @@ export default function LegacyMapping() {
                 <Layers className="h-3.5 w-3.5 text-blue-400" /> Standalone Mappings
               </span>
               <div className="text-2xl font-bold tracking-tight text-blue-400">
-                {stats ? stats.standalone_mapped.toLocaleString() : '1,248'}
+                {stats ? stats.mapped_standalone.toLocaleString() : '1,248'}
               </div>
               <span className="text-[10px] text-muted-foreground font-mono">Single-CPSE Isolates</span>
             </CardContent>
@@ -246,7 +289,7 @@ export default function LegacyMapping() {
                 <GitFork className="h-3.5 w-3.5 text-purple-400" /> Transitive Verified
               </span>
               <div className="text-2xl font-bold tracking-tight">
-                {stats ? stats.transitive_verified : 0}
+                {(stats as { transitive_verified?: number } | null)?.transitive_verified ?? 0}
               </div>
               <span className="text-[10px] text-muted-foreground font-mono">No Inferred Links</span>
             </CardContent>
@@ -398,8 +441,8 @@ export default function LegacyMapping() {
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-[340px]">
-                      <span className="text-xs text-foreground line-clamp-2" title={rec.raw_material_name}>
-                        {rec.raw_material_name}
+                      <span className="text-xs text-foreground line-clamp-2" title={rec.source_description}>
+                        {rec.source_description}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -502,7 +545,7 @@ export default function LegacyMapping() {
                 <div className="space-y-1">
                   <span className="text-muted-foreground font-semibold">Raw Legacy Description:</span>
                   <p className="p-2 rounded bg-muted/50 border border-border text-foreground font-mono text-[11px] leading-relaxed">
-                    {selectedRecord.raw_material_name}
+                    {selectedRecord.source_description}
                   </p>
                 </div>
 

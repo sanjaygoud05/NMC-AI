@@ -92,8 +92,8 @@ def load_matching_config(config_path: str = "config/matching.yaml") -> dict:
         },
         "blocking": {
             "max_candidates_per_source": 30,
-            "prioritize_cross_cpse": true,
-            "retain_same_cpse": true,
+            "prioritize_cross_cpse": True,
+            "retain_same_cpse": True,
         },
     }
 

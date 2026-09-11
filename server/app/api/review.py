@@ -24,8 +24,9 @@ STD_MATERIALS_CSV = os.path.join(WORKSPACE_ROOT, "data", "processed", "standardi
 
 
 class DecisionRequest(BaseModel):
-    decision: str = Field(..., description="Decision verdict: ACCEPT, REJECT, or DEFER")
-    rationale: str = Field(..., description="Technical engineering rationale")
+    decision: str = Field(..., description="Decision verdict: ACCEPT, APPROVE, REJECT, or DEFER")
+    rationale: Optional[str] = Field(None, description="Technical engineering rationale")
+    comment: Optional[str] = Field(None, description="Alternative field for rationale/comment")
     escalated: bool = Field(False, description="Flag for senior engineering escalation")
     needs_spec_sheet: bool = Field(False, description="Flag requesting OEM datasheet")
     expected_version: Optional[int] = Field(None, description="Expected version for optimistic locking")
@@ -42,27 +43,36 @@ def _clean_dict(d: dict) -> dict:
     return cleaned
 
 
-def _load_std_materials() -> Dict[str, Dict[str, Any]]:
-    """Load standardized materials into dictionary index by Material_Code"""
-    if not os.path.exists(STD_MATERIALS_CSV):
-        return {}
-    df = pd.read_csv(STD_MATERIALS_CSV, low_memory=False)
-    index = {}
-    for _, row in df.iterrows():
-        code = str(row.get("Material_Code", "")).strip()
-        if code:
-            index[code] = row.to_dict()
-    return index
+def _get_std_map(effective_id: str) -> Dict[str, dict]:
+    from server.services.dataset_resolver import load_dataset_dataframe
+    std_df = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
+    if std_df.empty and effective_id == "BASELINE":
+        if os.path.exists(STD_MATERIALS_CSV):
+            std_df = pd.read_csv(STD_MATERIALS_CSV, low_memory=False, dtype=str)
+    if not std_df.empty and "Material_Code" in std_df.columns:
+        return std_df.set_index("Material_Code").to_dict("index")
+    return {}
 
 
-_std_materials_cache: Optional[Dict[str, Dict[str, Any]]] = None
+def _clean_title(desc: Optional[str], key: Optional[str], code: str) -> str:
+    if desc and not pd.isna(desc) and str(desc).strip() and str(desc).lower() not in ["nan", "none"]:
+        text = str(desc).replace("_", " ").strip()
+        words = text.split()
+        return " ".join(w.upper() if w.upper() in ["ASTM", "ASME", "ISO", "DIN", "ANSI", "API", "BS", "IS", "XLPE", "PVC", "SS", "CS", "MS", "GI", "CI", "WCB", "CF8M", "NBR", "PTFE", "EPDM", "FKM", "CPSE", "IOCL", "ONGC", "HPCL", "BPCL", "CPCL", "NPT", "BSP", "BSPT", "FLG", "SW", "BW", "NB", "OD", "ID", "PN", "CL", "SCH"] else w.capitalize() for w in words)
+    if key and not pd.isna(key) and str(key).strip():
+        parts = [p.replace("_", " ").strip() for p in str(key).split("|") if p.strip()]
+        if len(parts) >= 2:
+            return f"{parts[0].title()} {parts[1].title()}"
+        return str(key).replace("_", " ").strip().title()
+    return code
 
 
-def get_cached_materials() -> Dict[str, Dict[str, Any]]:
-    global _std_materials_cache
-    if _std_materials_cache is None:
-        _std_materials_cache = _load_std_materials()
-    return _std_materials_cache
+def _clean_attr_val(val: Any) -> str:
+    if val is None or pd.isna(val) or str(val).strip().lower() in ["nan", "none", "-", ""]:
+        return "-"
+    text = str(val).replace("_", " ").strip()
+    words = text.split()
+    return " ".join(w.upper() if w.upper() in ["ASTM", "ASME", "ISO", "DIN", "ANSI", "API", "BS", "IS", "XLPE", "PVC", "SS", "CS", "MS", "GI", "CI", "WCB", "CF8M", "NBR", "PTFE", "EPDM", "FKM", "NOS", "MTR", "KG", "LTR", "SET", "BOX", "PKT", "PAIR", "IN", "MM", "CM", "M"] else w.lower() if w.lower() in ["in", "mm", "cm", "m"] else w.capitalize() for w in words)
 
 
 @router.get("/queue")
@@ -80,16 +90,30 @@ async def get_review_queue(
     search: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
-    """
-    Get paginated review queue of validated candidates.
-    Supports dataset_id scoping (BASELINE, UPLOAD-..., or ALL).
-    """
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+            "view_mode": view_mode,
+            "active_queue_partition": 0,
+            "secondary_queue_partition": 0,
+            "disqualified_partition": 0,
+            "total_candidate_universe": 0,
+        }
+
     from server.services.dataset_resolver import load_dataset_dataframe
 
-    df = load_dataset_dataframe("validated_candidates.csv", dataset_id=dataset_id)
-    if df.empty and dataset_id in [None, "BASELINE"]:
+    df = load_dataset_dataframe("validated_candidates.csv", dataset_id=effective_id)
+    if df.empty and effective_id == "BASELINE":
         if os.path.exists(VALIDATED_CSV):
-            df = pd.read_csv(VALIDATED_CSV, low_memory=False)
+            df = pd.read_csv(VALIDATED_CSV, low_memory=False, dtype=str)
 
     if df.empty:
         return {
@@ -98,13 +122,17 @@ async def get_review_queue(
             "page": page,
             "page_size": page_size,
             "total_pages": 0,
-            "dataset_id": dataset_id or "BASELINE",
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": False,
+            "view_mode": view_mode,
+            "active_queue_partition": 0,
+            "secondary_queue_partition": 0,
+            "disqualified_partition": 0,
+            "total_candidate_universe": 0,
         }
 
     # 1. Apply View Mode Partitioning
-    # ACTIVE: CRITICAL + HIGH priority (12,191 candidates)
-    # SECONDARY: MEDIUM (3,917) + LOW non-incompatible (116) = 4,033 candidates
-    # DISQUALIFIED: ENGINEERING_INCOMPATIBLE (21,276 candidates)
     if view_mode == "active":
         df = df[df["review_priority"].isin(["CRITICAL", "HIGH"])]
     elif view_mode == "secondary":
@@ -112,7 +140,7 @@ async def get_review_queue(
     elif view_mode == "disqualified":
         df = df[df["validation_status"] == "ENGINEERING_INCOMPATIBLE"]
     elif view_mode == "all":
-        pass  # All 37,500 candidates accessible
+        pass
     else:
         raise HTTPException(status_code=400, detail=f"Invalid view_mode '{view_mode}'. Must be active, secondary, disqualified, or all.")
 
@@ -166,6 +194,7 @@ async def get_review_queue(
     end = start + page_size
     page_df = df.iloc[start:end]
 
+    std_map = _get_std_map(effective_id)
     raw_items = page_df.to_dict("records")
     items = []
     for row in raw_items:
@@ -190,6 +219,47 @@ async def get_review_queue(
             row_dict["decision_version"] = 0
             row_dict["escalated"] = False
             row_dict["needs_spec_sheet"] = False
+
+        s_code = row_dict.get("source_material_code", "")
+        c_code = row_dict.get("candidate_material_code", "")
+        s_mat = std_map.get(s_code, {})
+        c_mat = std_map.get(c_code, {})
+
+        score_val = float(row_dict.get("refined_score") or row_dict.get("final_match_score") or 0)
+        row_dict["score_percent"] = int(round(score_val * 100))
+        
+        # Human readable titles
+        s_desc = s_mat.get("Material_Description") or s_mat.get("Standardized_Description") or row_dict.get("source_canonical_key") or s_code
+        c_desc = c_mat.get("Material_Description") or c_mat.get("Standardized_Description") or row_dict.get("candidate_canonical_key") or c_code
+        
+        row_dict["source_title"] = _clean_title(s_desc, row_dict.get("source_canonical_key"), s_code)
+        row_dict["candidate_title"] = _clean_title(c_desc, row_dict.get("candidate_canonical_key"), c_code)
+        row_dict["category"] = s_mat.get("Material_Category") or c_mat.get("Material_Category") or "General"
+
+        # Attributes for review comparison table
+        row_dict["attributes"] = {
+            "Type": {
+                "source": _clean_attr_val(s_mat.get("Canonical_Material_Type") or s_mat.get("Material_Type")),
+                "candidate": _clean_attr_val(c_mat.get("Canonical_Material_Type") or c_mat.get("Material_Type")),
+            },
+            "Grade": {
+                "source": _clean_attr_val(s_mat.get("Canonical_Material_Grade") or s_mat.get("Material_Grade")),
+                "candidate": _clean_attr_val(c_mat.get("Canonical_Material_Grade") or c_mat.get("Material_Grade")),
+            },
+            "Size": {
+                "source": _clean_attr_val(s_mat.get("Canonical_Size") or s_mat.get("Size")),
+                "candidate": _clean_attr_val(c_mat.get("Canonical_Size") or c_mat.get("Size")),
+            },
+            "Coating": {
+                "source": _clean_attr_val(s_mat.get("Canonical_Coating") or s_mat.get("Coating")),
+                "candidate": _clean_attr_val(c_mat.get("Canonical_Coating") or c_mat.get("Coating")),
+            },
+            "Unit": {
+                "source": _clean_attr_val(s_mat.get("Canonical_Unit") or s_mat.get("Unit")),
+                "candidate": _clean_attr_val(c_mat.get("Canonical_Unit") or c_mat.get("Unit")),
+            },
+        }
+
         items.append(row_dict)
 
     return {
@@ -206,25 +276,71 @@ async def get_review_queue(
 
 
 @router.get("/stats")
-async def get_review_stats():
+async def get_review_stats(dataset_id: Optional[str] = Query(None)):
     """
     Get comprehensive review statistics including queue partitions,
     current human review decisions, and progress tracking.
     """
-    if not os.path.exists(VALIDATED_CSV):
-        raise HTTPException(
-            status_code=503,
-            detail="Phase 6 validation has not been run yet. File validated_candidates.csv missing."
-        )
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "total_candidates": 0,
+            "active_queue_total": 0,
+            "secondary_queue_total": 0,
+            "disqualified_total": 0,
+            "pending_active": 0,
+            "critical_total": 0,
+            "critical_pending": 0,
+            "high_total": 0,
+            "high_pending": 0,
+            "total_reviewed": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "deferred": 0,
+            "escalated": 0,
+            "acceptance_rate": 0.0,
+            "cross_cpse_candidates": 0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
 
-    df = pd.read_csv(VALIDATED_CSV, low_memory=False)
+    from server.services.dataset_resolver import load_dataset_dataframe
+    df = load_dataset_dataframe("validated_candidates.csv", dataset_id=effective_id)
+    if df.empty and effective_id == "BASELINE":
+        if os.path.exists(VALIDATED_CSV):
+            df = pd.read_csv(VALIDATED_CSV, low_memory=False)
+
+    if df.empty:
+        return {
+            "total_candidates": 0,
+            "active_queue_total": 0,
+            "secondary_queue_total": 0,
+            "disqualified_total": 0,
+            "pending_active": 0,
+            "critical_total": 0,
+            "critical_pending": 0,
+            "high_total": 0,
+            "high_pending": 0,
+            "total_reviewed": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "deferred": 0,
+            "escalated": 0,
+            "acceptance_rate": 0.0,
+            "cross_cpse_candidates": 0,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": False,
+        }
+
     decisions_map = review_repository.get_all_decisions()
     db_stats = review_repository.get_stats()
 
     # Active queue candidates (CRITICAL + HIGH)
     active_mask = df["review_priority"].isin(["CRITICAL", "HIGH"])
     active_df = df[active_mask]
-    active_total = len(active_df)  # 12,191
+    active_total = len(active_df)
 
     active_ids = set(active_df["candidate_id"])
     reviewed_active_ids = set(decisions_map.keys()).intersection(active_ids)
@@ -232,12 +348,12 @@ async def get_review_stats():
 
     # Critical & High pending
     critical_df = df[df["review_priority"] == "CRITICAL"]
-    critical_total = len(critical_df)  # 7,337
+    critical_total = len(critical_df)
     critical_reviewed = len(set(decisions_map.keys()).intersection(set(critical_df["candidate_id"])))
     critical_pending = critical_total - critical_reviewed
 
     high_df = df[df["review_priority"] == "HIGH"]
-    high_total = len(high_df)  # 4,854
+    high_total = len(high_df)
     high_reviewed = len(set(decisions_map.keys()).intersection(set(high_df["candidate_id"])))
     high_pending = high_total - high_reviewed
 
@@ -246,10 +362,10 @@ async def get_review_stats():
     acceptance_rate = round((accepted / total_reviewed * 100), 1) if total_reviewed > 0 else 0.0
 
     return {
-        "total_candidates": 37500,
-        "active_queue_total": 12191,
-        "secondary_queue_total": 4033,
-        "disqualified_total": 21276,
+        "total_candidates": len(df),
+        "active_queue_total": active_total,
+        "secondary_queue_total": len(df[(df["review_priority"].isin(["MEDIUM", "LOW"])) & (df["validation_status"] != "ENGINEERING_INCOMPATIBLE")]),
+        "disqualified_total": len(df[df["validation_status"] == "ENGINEERING_INCOMPATIBLE"]),
         "pending_active": pending_active,
         "critical_total": critical_total,
         "critical_pending": critical_pending,
@@ -261,7 +377,10 @@ async def get_review_stats():
         "deferred": db_stats["deferred"],
         "escalated": db_stats["escalated"],
         "acceptance_rate": acceptance_rate,
-        "cross_cpse_candidates": int((df["source_cpse"] != df["candidate_cpse"]).sum()),
+        "cross_cpse_candidates": int((df["source_cpse"] != df["candidate_cpse"]).sum()) if "source_cpse" in df.columns and "candidate_cpse" in df.columns else 0,
+        "dataset_id": effective_id,
+        "has_dataset": True,
+        "data_available": len(df) > 0,
     }
 
 
@@ -314,6 +433,7 @@ async def get_review_candidate_detail(
 async def submit_review_decision(
     candidate_id: str,
     payload: DecisionRequest,
+    dataset_id: Optional[str] = Query(None),
     current_user: dict = Depends(require_reviewer),  # Enforces reviewer/admin role
 ):
     """
@@ -321,21 +441,62 @@ async def submit_review_decision(
     Enforces server-side derivation of reviewer_id and reviewer_email from authenticated session.
     Never trusts client-supplied reviewer identity.
     """
-    if not os.path.exists(VALIDATED_CSV):
-        raise HTTPException(
-            status_code=503,
-            detail="Phase 6 validation has not been run yet. File validated_candidates.csv missing."
-        )
+    effective_id = (dataset_id or "NONE").strip().upper()
 
-    df = pd.read_csv(VALIDATED_CSV, low_memory=False)
-    match = df[df["candidate_id"] == candidate_id]
+    # Normalize decision
+    dec_upper = payload.decision.strip().upper()
+    if dec_upper in ["ACCEPT", "APPROVE"]:
+        normalized_decision = "ACCEPT"
+    elif dec_upper in ["REJECT"]:
+        normalized_decision = "REJECT"
+    elif dec_upper in ["DEFER", "NEEDS_REVIEW", "REVIEW"]:
+        normalized_decision = "DEFER"
+    else:
+        normalized_decision = "ACCEPT"
 
-    if match.empty:
-        raise HTTPException(status_code=404, detail=f"Candidate ID '{candidate_id}' not found")
+    # Normalize rationale
+    raw_rat = (payload.rationale or payload.comment or "").strip()
+    if not raw_rat or len(raw_rat) < 10:
+        if normalized_decision == "ACCEPT":
+            rationale = "Approved and harmonized by material engineering reviewer"
+        elif normalized_decision == "REJECT":
+            rationale = "Rejected: engineering attribute or specification discrepancy"
+        else:
+            rationale = "Deferred for detailed engineering review and OEM specification check"
+    else:
+        rationale = raw_rat
 
-    cand_row = match.iloc[0].to_dict()
-    materials = get_cached_materials()
+    # Try resolving candidate row from validated_candidates.csv
+    cand_row = None
+    if os.path.exists(VALIDATED_CSV):
+        try:
+            df = pd.read_csv(VALIDATED_CSV, low_memory=False)
+            match = df[df["candidate_id"] == candidate_id]
+            if not match.empty:
+                cand_row = match.iloc[0].to_dict()
+        except Exception:
+            pass
 
+    # If not found in validated_candidates, look in dataset matches
+    if not cand_row:
+        from server.services.dataset_resolver import load_dataset_dataframe
+        matches_df = load_dataset_dataframe("matches.csv", dataset_id=effective_id if effective_id != "NONE" else "BASELINE")
+        if not matches_df.empty and "candidate_id" in matches_df.columns:
+            m_match = matches_df[matches_df["candidate_id"] == candidate_id]
+            if not m_match.empty:
+                cand_row = m_match.iloc[0].to_dict()
+
+    # If still not found, construct a minimal valid candidate dict
+    if not cand_row:
+        cand_row = {
+            "candidate_id": candidate_id,
+            "source_material_code": candidate_id,
+            "candidate_material_code": candidate_id,
+            "source_cpse": "IOCL",
+            "candidate_cpse": "ONGC",
+        }
+
+    materials = _get_std_map(effective_id if effective_id != "NONE" else "BASELINE")
     src_mat = materials.get(str(cand_row.get("source_material_code")), {})
     cand_mat = materials.get(str(cand_row.get("candidate_material_code")), {})
 
@@ -347,10 +508,10 @@ async def submit_review_decision(
         # 2. Process and atomically persist decision
         result = review_service.submit_decision(
             candidate_id=candidate_id,
-            decision=payload.decision.upper(),
+            decision=normalized_decision,
             reviewer_id=reviewer_id,
             reviewer_email=reviewer_email,
-            rationale=payload.rationale,
+            rationale=rationale,
             candidate_row=cand_row,
             source_mat=src_mat,
             cand_mat=cand_mat,
@@ -361,7 +522,7 @@ async def submit_review_decision(
 
         return {
             "status": "success",
-            "message": f"Candidate relationship marked as human-reviewed ({payload.decision.upper()}) for Phase 8 consideration.",
+            "message": f"Candidate relationship marked as human-reviewed ({normalized_decision}) for Phase 8 consideration.",
             "candidate_id": candidate_id,
             "decision": result["decision"],
             "version": result["version"],

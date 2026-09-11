@@ -25,15 +25,19 @@ def resolve_dataset_files(
     """
     Resolves artifact path(s) for a given filename based on dataset_id.
     Returns (list_of_paths, effective_scope).
+    - If dataset_id is None, empty, or 'NONE': returns ([], 'NONE')
+    - If dataset_id is 'BASELINE': returns ([data/processed/filename], 'BASELINE')
+    - If dataset_id is 'ALL': returns baseline + all completed upload datasets
+    - If dataset_id is 'UPLOAD-...': returns upload directory file
     """
-    scope = (dataset_id or "BASELINE").strip().upper()
+    if not dataset_id or not dataset_id.strip() or dataset_id.strip().upper() == "NONE":
+        return ([], "NONE")
 
-    if scope in ["", "BASELINE", "DEFAULT"]:
+    scope = dataset_id.strip().upper()
+
+    if scope == "BASELINE":
         base_path = PROCESSED_BASE / filename
         return ([base_path] if base_path.exists() else [], "BASELINE")
-
-    if scope == "NONE":
-        return ([], "NONE")
 
     if scope == "ALL":
         # Combine baseline + all completed upload datasets

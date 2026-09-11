@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useDataset } from '@/contexts/DatasetContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,18 +18,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Building2, Layers, TrendingUp, Network, CheckCircle, BarChart3 } from 'lucide-react';
+import { Building2, Layers, TrendingUp, Network, CheckCircle, BarChart3, Database, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 import { procurementService, CPSEProcurementSummaryRecord } from '@/services/procurementService';
 
 export default function CPSEAnalytics() {
+  const { activeDatasetId, selectDataset } = useDataset();
   const [cpseSummaries, setCpseSummaries] = useState<CPSEProcurementSummaryRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
+      if (!activeDatasetId || activeDatasetId === 'NONE') {
+        setCpseSummaries([]);
+        setLoading(false);
+        return;
+      }
       try {
-        const data = await procurementService.getCPSESummaries();
+        const data = await procurementService.getCPSESummaries(activeDatasetId);
         setCpseSummaries(data);
       } catch (err) {
         console.error('Failed to load CPSE summaries:', err);
@@ -37,11 +46,46 @@ export default function CPSEAnalytics() {
       }
     }
     loadData();
-  }, []);
+  }, [activeDatasetId]);
 
-  const totalMaterials = cpseSummaries.reduce((acc, c) => acc + c.total_material_records, 0) || 1250;
-  const totalActive = cpseSummaries.reduce((acc, c) => acc + c.active_material_count, 0) || 1106;
-  const totalNosVolume = cpseSummaries.reduce((acc, c) => acc + c.total_volume_nos, 0) || 9144354;
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <PageHeader
+            title="CPSE Cross-Enterprise Analytics"
+            description="Enterprise-level comparisons, catalog volumes, and verified cross-CPSE harmonization"
+          />
+          <Card className="border-border bg-card p-12">
+            <EmptyState
+              icon={Database}
+              title="No Dataset Selected"
+              description="Upload a material master dataset or explicitly select an existing dataset to begin."
+              action={{
+                label: "Upload Dataset",
+                icon: Upload,
+                href: "/ingest",
+              }}
+            />
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectDataset('BASELINE')}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Or select Frozen Baseline (1,250 records)
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const totalMaterials = cpseSummaries.reduce((acc, c) => acc + c.total_material_records, 0);
+  const totalActive = cpseSummaries.reduce((acc, c) => acc + c.active_material_count, 0);
+  const totalNosVolume = cpseSummaries.reduce((acc, c) => acc + c.total_volume_nos, 0);
 
   const catalogChartData = cpseSummaries.map((c, i) => ({
     cpse: c.source_cpse,
@@ -54,6 +98,46 @@ export default function CPSEAnalytics() {
     volume: c.total_volume_nos,
     fill: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'][i % 4],
   }));
+
+  const CustomCatalogTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0];
+      return (
+        <div className="bg-card text-foreground border border-border px-4 py-3 rounded-lg shadow-xl text-xs space-y-1.5 select-none pointer-events-none z-50">
+          <div className="font-semibold text-foreground flex items-center gap-2 text-sm">
+            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: data.payload.fill }} />
+            {label} Petroleum
+          </div>
+          <div className="flex items-center justify-between gap-6 text-muted-foreground pt-0.5">
+            <span>Material Records:</span>
+            <span className="font-bold text-foreground text-xs">{data.value?.toLocaleString()} items</span>
+          </div>
+          <div className="text-[11px] text-muted-foreground">Directly queried from CPSE Catalog</div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const CustomVolumeTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0];
+      return (
+        <div className="bg-card text-foreground border border-border px-4 py-3 rounded-lg shadow-xl text-xs space-y-1.5 select-none pointer-events-none z-50">
+          <div className="font-semibold text-foreground flex items-center gap-2 text-sm">
+            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: data.payload.fill }} />
+            {label} Petroleum
+          </div>
+          <div className="flex items-center justify-between gap-6 text-muted-foreground pt-0.5">
+            <span>Annual Volume:</span>
+            <span className="font-bold text-foreground text-xs">{data.value?.toLocaleString()} NOS</span>
+          </div>
+          <div className="text-[11px] text-muted-foreground">Conserved Physical Discrete Units (NOS)</div>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <AppLayout>
@@ -68,8 +152,10 @@ export default function CPSEAnalytics() {
           <Card className="border-border bg-card">
             <CardContent className="pt-6">
               <div className="text-xs text-muted-foreground">Connected CPSEs</div>
-              <div className="text-3xl font-bold text-foreground mt-1">4</div>
-              <div className="text-[11px] text-muted-foreground mt-1">ONGC, IOCL, HPCL, CPCL</div>
+              <div className="text-3xl font-bold text-foreground mt-1">{cpseSummaries.length}</div>
+              <div className="text-[11px] text-muted-foreground mt-1">
+                {cpseSummaries.length > 0 ? cpseSummaries.map(c => c.source_cpse).join(', ') : 'No CPSE data'}
+              </div>
             </CardContent>
           </Card>
 
@@ -85,7 +171,7 @@ export default function CPSEAnalytics() {
             <CardContent className="pt-6">
               <div className="text-xs text-muted-foreground">Active Materials</div>
               <div className="text-3xl font-bold text-emerald-500 mt-1">
-                {((totalActive / totalMaterials) * 100).toFixed(1)}%
+                {totalMaterials > 0 ? ((totalActive / totalMaterials) * 100).toFixed(1) : '—'}%
               </div>
               <div className="text-[11px] text-muted-foreground mt-1">{totalActive.toLocaleString()} active items</div>
             </CardContent>
@@ -113,33 +199,30 @@ export default function CPSEAnalytics() {
               <CardDescription>Directly queried from Phase 10 CPSE summaries</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={catalogChartData.length > 0 ? catalogChartData : [
-                    { cpse: 'CPCL', count: 298, fill: '#3b82f6' },
-                    { cpse: 'HPCL', count: 301, fill: '#10b981' },
-                    { cpse: 'IOCL', count: 319, fill: '#f59e0b' },
-                    { cpse: 'ONGC', count: 332, fill: '#8b5cf6' },
-                  ]}>
-                    <XAxis dataKey="cpse" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                      formatter={(val: number) => [`${val} materials`, 'Catalog Volume']}
-                    />
-                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                      {(catalogChartData.length > 0 ? catalogChartData : [
-                        { fill: '#3b82f6' },
-                        { fill: '#10b981' },
-                        { fill: '#f59e0b' },
-                        { fill: '#8b5cf6' },
-                      ]).map((entry, index) => (
-                        <Cell key={`cell-cat-${index}`} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {catalogChartData.length > 0 ? (
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={catalogChartData}>
+                      <XAxis dataKey="cpse" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip
+                        cursor={false}
+                        content={<CustomCatalogTooltip />}
+                        wrapperStyle={{ outline: 'none', zIndex: 50 }}
+                      />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                        {catalogChartData.map((entry, index) => (
+                          <Cell key={`cell-cat-${index}`} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 w-full flex items-center justify-center text-muted-foreground text-sm">
+                  No CPSE data available
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -152,33 +235,30 @@ export default function CPSEAnalytics() {
               <CardDescription>UOM: NOS (Number / Pieces) — Conserved physical volume</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={nosChartData.length > 0 ? nosChartData : [
-                    { cpse: 'CPCL', volume: 2283064, fill: '#3b82f6' },
-                    { cpse: 'HPCL', volume: 2222649, fill: '#10b981' },
-                    { cpse: 'IOCL', volume: 2414354, fill: '#f59e0b' },
-                    { cpse: 'ONGC', volume: 2224287, fill: '#8b5cf6' },
-                  ]}>
-                    <XAxis dataKey="cpse" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                      formatter={(val: number) => [`${val.toLocaleString()} NOS`, 'Annual Consumption']}
-                    />
-                    <Bar dataKey="volume" radius={[4, 4, 0, 0]}>
-                      {(nosChartData.length > 0 ? nosChartData : [
-                        { fill: '#3b82f6' },
-                        { fill: '#10b981' },
-                        { fill: '#f59e0b' },
-                        { fill: '#8b5cf6' },
-                      ]).map((entry, index) => (
-                        <Cell key={`cell-vol-${index}`} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {nosChartData.length > 0 ? (
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={nosChartData}>
+                      <XAxis dataKey="cpse" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`} />
+                      <Tooltip
+                        cursor={false}
+                        content={<CustomVolumeTooltip />}
+                        wrapperStyle={{ outline: 'none', zIndex: 50 }}
+                      />
+                      <Bar dataKey="volume" radius={[4, 4, 0, 0]}>
+                        {nosChartData.map((entry, index) => (
+                          <Cell key={`cell-vol-${index}`} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 w-full flex items-center justify-center text-muted-foreground text-sm">
+                  No volume data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -237,7 +317,7 @@ export default function CPSEAnalytics() {
           })}
         </div>
 
-        {/* Verified Overlap Matrix */}
+        {/* Verified Overlap Matrix - removed hardcoded data, will be replaced with API */}
         <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -248,41 +328,10 @@ export default function CPSEAnalytics() {
               Technically validated and human-reviewed cross-enterprise common materials
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Common Material Master (CMM)</TableHead>
-                  <TableHead>Source CPSE</TableHead>
-                  <TableHead>Source Material Code</TableHead>
-                  <TableHead>Target CPSE</TableHead>
-                  <TableHead>Target Material Code</TableHead>
-                  <TableHead className="text-center">Validation Status</TableHead>
-                  <TableHead className="text-right">Governance Decision</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow className="hover:bg-muted/30">
-                  <TableCell className="font-mono font-semibold text-sm text-primary">
-                    CMM-VALVE-A79389-001
-                  </TableCell>
-                  <TableCell className="font-semibold text-sm">ONGC</TableCell>
-                  <TableCell className="font-mono text-sm">ONGC-437562</TableCell>
-                  <TableCell className="font-semibold text-sm">IOCL</TableCell>
-                  <TableCell className="font-mono text-sm">IOCL-875352</TableCell>
-                  <TableCell className="text-center">
-                    <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs">
-                      VALIDATED_COMPATIBLE
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant="outline" className="font-mono text-xs">
-                      DIRECT_ACCEPTED (CAN-000331)
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+          <CardContent>
+            <div className="text-center py-16 text-muted-foreground text-sm">
+              Verified multi-CPSE harmonization relationships will appear here after dataset-driven API integration.
+            </div>
           </CardContent>
         </Card>
       </div>

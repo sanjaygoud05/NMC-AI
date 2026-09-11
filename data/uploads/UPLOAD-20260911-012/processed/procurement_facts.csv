@@ -1,3 +1,0 @@
-fact_id,source_cpse,material_code,material_description,cmm_code,material_category,material_type,unit_of_measure,plant,material_status,annual_consumption,last_purchase_date,manufacturer,manufacturer_part_no,dataset_id
-FACT:UPLOAD-20260911-012:TEST-001,ONGC,TEST-001,BALL VALVE FLANGED 2 IN ASTM A216 WCB,CMM-VALVE-11-012-001,Valves,Mechanical,NOS,Plant-A,Active,150.0,2025-05-15,L&T,LT-BV-200,UPLOAD-20260911-012
-FACT:UPLOAD-20260911-012:TEST-002,IOCL,TEST-002,GATE VALVE FLANGED 2 in,CMM-VALVE-11-012-002,Valves,Mechanical,NOS,Plant-B,Active,320.0,2025-06-20,BHEL,BH-GV-100,UPLOAD-20260911-012

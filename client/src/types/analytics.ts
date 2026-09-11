@@ -18,11 +18,21 @@ export interface DashboardMetrics {
 export interface DataQualityMetrics {
   overallScore: number;
   completeness: number;
-  accuracy: number;
+  accuracy?: number;
   consistency: number;
   validity: number;
-  completenessByField: FieldQuality[];
-  errorCounts: ErrorCounts;
+  uniqueness?: number;
+  missingnessRate?: number;
+  duplicateRate?: number;
+  fieldQuality?: Array<{
+    field: string;
+    completeness: number;
+    validity: number;
+    consistency: number;
+    status: string;
+  }>;
+  completenessByField?: FieldQuality[];
+  errorCounts?: ErrorCounts;
 }
 
 export interface FieldQuality {
@@ -76,9 +86,15 @@ export interface QualityStats {
 
 export interface TemporalData {
   date: string;
-  ingested: number;
-  standardized: number;
-  harmonized: number;
+  count: number;
+  cumulativeCount: number;
+}
+
+export interface EvaluationMetrics {
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1Score: number;
 }
 
 export interface EvaluationReport {

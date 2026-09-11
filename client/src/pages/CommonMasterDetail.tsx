@@ -34,10 +34,12 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { commonMasterService, CommonMaterialRecord } from '@/services/commonMasterService';
+import { useDataset } from '@/contexts/DatasetContext';
 import { toast } from 'sonner';
 
 export default function CommonMasterDetail() {
   const { commonCode } = useParams<{ commonCode: string }>();
+  const { activeDatasetId } = useDataset();
   const [material, setMaterial] = useState<CommonMaterialRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [rationale, setRationale] = useState('');
@@ -47,7 +49,7 @@ export default function CommonMasterDetail() {
     if (!commonCode) return;
     try {
       setLoading(true);
-      const data = await commonMasterService.getDetail(commonCode);
+      const data = await commonMasterService.getDetail(commonCode, activeDatasetId);
       setMaterial(data);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load common material details';
@@ -59,7 +61,7 @@ export default function CommonMasterDetail() {
 
   useEffect(() => {
     fetchDetail();
-  }, [commonCode]);
+  }, [commonCode, activeDatasetId]);
 
   const handleGovernanceApproval = async () => {
     if (!material) return;

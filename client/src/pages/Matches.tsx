@@ -1,24 +1,10 @@
-/**
- * Matches Explorer Page (Phase 5)
- * Cross-CPSE candidate generation, multi-signal scoring, and explainable engineering evidence.
- * Strictly complies with Phase 6 boundary: candidate inspection only, no auto-approval or merging.
- */
-
 import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -32,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Search,
@@ -43,65 +30,115 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Database,
+  Upload,
+  Check,
+  X,
+  Loader2,
+  SlidersHorizontal,
+  ArrowRight,
 } from 'lucide-react';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { matchingService, type MatchCandidateRecord, type MatchingReport } from '@/services/matchingService';
+import { reviewService } from '@/services/reviewService';
 import { useDataset } from '@/contexts/DatasetContext';
+import { toast } from 'sonner';
 
 export default function Matches() {
-  const { activeDatasetId } = useDataset();
+  const { activeDatasetId, datasets, selectDataset } = useDataset();
   const [report, setReport] = useState<MatchingReport | null>(null);
   const [matches, setMatches] = useState<MatchCandidateRecord[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [decisions, setDecisions] = useState<Record<string, 'ACCEPT' | 'REJECT' | 'DEFER'>>({});
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
-  // Filters
+  const activeDataset = datasets.find((d) => d.dataset_id === activeDatasetId);
+
+  // Filters matching Image 1: Confidence, Category, Status
+  const [confidenceFilter, setConfidenceFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [sourceCpse, setSourceCpse] = useState('all');
   const [candidateCpse, setCandidateCpse] = useState('all');
-  const [confidenceFilter, setConfidenceFilter] = useState('all');
   const [crossCpseOnly, setCrossCpseOnly] = useState(false);
-  const [exactKeyOnly, setExactKeyOnly] = useState(false);
-  const [incompatibleOnly, setIncompatibleOnly] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(0);
-  const pageSize = 25;
+  const pageSize = 20;
 
-  // Selected candidate for evidence modal
+  // Selected candidate for side-by-side evidence inspection modal
   const [selectedCandidate, setSelectedCandidate] = useState<MatchCandidateRecord | null>(null);
+
+  const availableCpses = Array.from(
+    new Set([
+      ...Object.keys(report?.cpse_distribution || {}),
+      ...Object.keys(activeDataset?.cpse_summary || {}),
+      'IOCL',
+      'ONGC',
+      'HPCL',
+      'BPCL',
+      'CPCL',
+    ])
+  ).filter(Boolean);
 
   const loadReport = useCallback(async () => {
     try {
-      const rep = await matchingService.getMatchingReport();
+      const rep = await matchingService.getMatchingReport(activeDatasetId);
       setReport(rep);
     } catch (err) {
       console.error('Failed to load matching report', err);
     }
-  }, []);
+  }, [activeDatasetId]);
 
   const loadMatches = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await matchingService.getMatches({
-        skip: page * pageSize,
-        limit: pageSize,
-        source_cpse: sourceCpse,
-        candidate_cpse: candidateCpse,
-        confidence_level: confidenceFilter,
-        cross_cpse_only: crossCpseOnly,
-        exact_key_only: exactKeyOnly,
-        incompatible_only: incompatibleOnly,
-        search: search.trim() || undefined,
-        dataset_id: activeDatasetId,
-      });
-      setMatches(data.matches);
-      setTotalMatches(data.total);
+      const [matchData, queueData] = await Promise.allSettled([
+        matchingService.getMatches({
+          skip: page * pageSize,
+          limit: pageSize,
+          confidence_level: confidenceFilter,
+          category: categoryFilter,
+          status_filter: statusFilter,
+          source_cpse: sourceCpse,
+          candidate_cpse: candidateCpse,
+          cross_cpse_only: crossCpseOnly,
+          search: search.trim() || undefined,
+          dataset_id: activeDatasetId,
+        }),
+        reviewService.getReviewQueue({
+          page: 1,
+          page_size: 100,
+          dataset_id: activeDatasetId,
+        }),
+      ]);
+
+      if (matchData.status === 'fulfilled') {
+        setMatches(matchData.value.matches);
+        setTotalMatches(matchData.value.total);
+        if (matchData.value.categories && matchData.value.categories.length > 0) {
+          setCategories(matchData.value.categories);
+        }
+      }
+
+      if (queueData.status === 'fulfilled' && queueData.value.items) {
+        const decMap: Record<string, 'ACCEPT' | 'REJECT' | 'DEFER'> = {};
+        queueData.value.items.forEach((item) => {
+          if (item.human_decision && item.human_decision !== 'PENDING') {
+            decMap[item.candidate_id] = item.human_decision;
+          }
+        });
+        setDecisions((prev) => ({ ...decMap, ...prev }));
+      }
     } catch (err) {
       console.error('Failed to load matches', err);
     } finally {
       setLoading(false);
     }
-  }, [page, sourceCpse, candidateCpse, confidenceFilter, crossCpseOnly, exactKeyOnly, incompatibleOnly, search, activeDatasetId]);
+  }, [page, confidenceFilter, categoryFilter, statusFilter, sourceCpse, candidateCpse, crossCpseOnly, search, activeDatasetId]);
 
   useEffect(() => {
     loadReport();
@@ -111,233 +148,201 @@ export default function Matches() {
     loadMatches();
   }, [loadMatches]);
 
-  const getConfidenceBadge = (level: string) => {
-    switch (level) {
-      case 'HIGH':
-        return (
-          <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-mono text-xs">
-            HIGH ({level})
-          </Badge>
-        );
-      case 'MEDIUM':
-        return (
-          <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20 font-mono text-xs">
-            MEDIUM ({level})
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="secondary" className="font-mono text-xs text-muted-foreground">
-            LOW ({level})
-          </Badge>
-        );
+  const handleDecision = async (
+    candidateId: string,
+    decision: 'ACCEPT' | 'REJECT',
+    e?: React.MouseEvent
+  ) => {
+    e?.stopPropagation();
+    setActionLoading((prev) => ({ ...prev, [candidateId]: true }));
+    try {
+      await reviewService.submitDecision(candidateId, {
+        decision,
+        rationale: `${decision === 'ACCEPT' ? 'Approved' : 'Rejected'} via Matching & Harmonization`,
+      });
+      setDecisions((prev) => ({ ...prev, [candidateId]: decision }));
+      toast.success(
+        `Candidate match ${candidateId} ${decision === 'ACCEPT' ? 'Approved' : 'Rejected'}`
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to record decision';
+      toast.error(msg);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [candidateId]: false }));
     }
   };
 
-  const getConflictClassBadge = (conflictClass: string) => {
-    switch (conflictClass) {
-      case 'NO_CONFLICT':
+  const getStatusBadge = (tier: string | undefined, score: number) => {
+    const effectiveTier = tier || (score >= 95 ? 'Exact' : score >= 85 ? 'Equivalent' : score >= 60 ? 'Review' : 'Not match');
+    switch (effectiveTier) {
+      case 'Exact':
         return (
-          <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs">
-            No Conflict
-          </Badge>
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300/40">
+            Exact
+          </span>
         );
-      case 'REPRESENTATION_DIFFERENCE':
+      case 'Equivalent':
         return (
-          <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-500/30 text-xs">
-            Representation Diff
-          </Badge>
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300/40">
+            Equivalent
+          </span>
         );
-      case 'SOFT_ENGINEERING_DIFFERENCE':
+      case 'Review':
         return (
-          <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs">
-            Soft Difference
-          </Badge>
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300/40">
+            Review
+          </span>
         );
-      case 'HARD_INCOMPATIBLE':
-        return (
-          <Badge variant="destructive" className="text-xs">
-            Hard Incompatible
-          </Badge>
-        );
+      case 'Not match':
       default:
-        return <Badge variant="outline">{conflictClass}</Badge>;
+        return (
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300/40">
+            Not match
+          </span>
+        );
     }
   };
 
   const totalPages = Math.ceil(totalMatches / pageSize);
 
-  return (
-    <AppLayout>
-      <div className="space-y-6">
-        <PageHeader
-          title="Cross-CPSE Candidate Generation & Semantic Matching"
-          description="Phase 5: Intelligent multi-blocking, 384-d sentence embeddings, null-aware attribute comparison, and explainable engineering scoring."
-        />
-
-        {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-border bg-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-foreground">
-                    {report?.candidate_summary?.total_candidates?.toLocaleString() ?? '37,500'}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">Retained Candidate Pairs</div>
-                </div>
-                <div className="p-3 bg-primary/10 rounded-xl text-primary">
-                  <GitCompare className="h-5 w-5" />
-                </div>
-              </div>
-              <div className="mt-3 text-xs text-muted-foreground flex items-center gap-1">
-                <span className="text-emerald-500 font-semibold">{report?.performance?.blocking_reduction_ratio_percent ?? 88.36}%</span>
-                <span>blocking reduction vs naive</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-emerald-500">
-                    {report?.candidate_summary?.high_confidence_candidates?.toLocaleString() ?? '9,136'}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">High-Confidence Candidates</div>
-                </div>
-                <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-              </div>
-              <div className="mt-3 text-xs text-muted-foreground">
-                Score ≥ 0.85 (Candidate evidence only)
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-blue-500">
-                    {report?.candidate_summary?.cross_cpse_candidates?.toLocaleString() ?? '29,398'}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">Cross-CPSE Candidates</div>
-                </div>
-                <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500">
-                  <Layers className="h-5 w-5" />
-                </div>
-              </div>
-              <div className="mt-3 text-xs text-muted-foreground">
-                Prioritized across 5 Central PSEs
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-2xl font-bold text-amber-500">
-                    {report?.candidate_summary?.exact_canonical_key_candidates?.toLocaleString() ?? '1,250'}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">Exact Canonical Key Signals</div>
-                </div>
-                <div className="p-3 bg-amber-500/10 rounded-xl text-amber-500">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-              </div>
-              <div className="mt-3 text-xs text-muted-foreground">
-                Strong deterministic evidence
-              </div>
-            </CardContent>
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <PageHeader
+            title="Matching & Harmonization"
+            description="Intelligent multi-blocking, sentence embeddings, null-aware attribute comparison, and explainable equivalence scoring."
+          />
+          <Card className="border-border bg-card p-12">
+            <EmptyState
+              icon={Database}
+              title="No Dataset Selected"
+              description="Upload a material master dataset or explicitly select an existing dataset to begin."
+              action={{
+                label: "Upload Dataset",
+                icon: Upload,
+                href: "/ingest",
+              }}
+            />
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectDataset('BASELINE')}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Or select Frozen Baseline (1,250 records)
+              </Button>
+            </div>
           </Card>
         </div>
+      </AppLayout>
+    );
+  }
 
-        {/* Filter Controls */}
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Filter className="h-4 w-4 text-primary" /> Filter & Search Candidates
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search code, key, text..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(0);
-                  }}
-                  className="pl-9"
-                />
-              </div>
+  return (
+    <AppLayout>
+      <div className="space-y-6 max-w-7xl mx-auto">
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/40 pb-4">
+          <PageHeader
+            title="Matching & Harmonization"
+            description="Cross-CPSE candidate generation, semantic embeddings, and engineering equivalence classification"
+          />
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="text-xs h-9">
+              <a href="/review">
+                Review Queue ({report?.candidate_summary?.total_candidates?.toLocaleString() ?? '37,500'})
+                <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+              </a>
+            </Button>
+          </div>
+        </div>
 
-              <Select
-                value={sourceCpse}
-                onValueChange={(val) => {
-                  setSourceCpse(val);
+        {/* Filter Controls matching Image 1: Confidence, Category, Status */}
+        <div className="bg-card p-4 rounded-2xl border border-border/70 shadow-xs space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Confidence Dropdown */}
+            <Select
+              value={confidenceFilter}
+              onValueChange={(val) => {
+                setConfidenceFilter(val);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="w-[180px] h-10 rounded-xl bg-background border-border text-xs font-medium">
+                <span className="text-muted-foreground mr-1">Confidence:</span>
+                <SelectValue placeholder="all" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">all</SelectItem>
+                <SelectItem value="HIGH">High (&ge; 85%)</SelectItem>
+                <SelectItem value="MEDIUM">Medium (60-84%)</SelectItem>
+                <SelectItem value="LOW">Low (&lt; 60%)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Category Dropdown */}
+            <Select
+              value={categoryFilter}
+              onValueChange={(val) => {
+                setCategoryFilter(val);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="w-[200px] h-10 rounded-xl bg-background border-border text-xs font-medium">
+                <span className="text-muted-foreground mr-1">Category:</span>
+                <SelectValue placeholder="all" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">all</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Status Dropdown */}
+            <Select
+              value={statusFilter}
+              onValueChange={(val) => {
+                setStatusFilter(val);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="w-[180px] h-10 rounded-xl bg-background border-border text-xs font-medium">
+                <span className="text-muted-foreground mr-1">Status:</span>
+                <SelectValue placeholder="all" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">all</SelectItem>
+                <SelectItem value="Exact">Exact</SelectItem>
+                <SelectItem value="Equivalent">Equivalent</SelectItem>
+                <SelectItem value="Review">Review</SelectItem>
+                <SelectItem value="Not match">Not match</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Quick Search */}
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search material description, standard, key..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
                   setPage(0);
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Source CPSE" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Source CPSEs</SelectItem>
-                  <SelectItem value="IOCL">IOCL</SelectItem>
-                  <SelectItem value="ONGC">ONGC</SelectItem>
-                  <SelectItem value="HPCL">HPCL</SelectItem>
-                  <SelectItem value="BPCL">BPCL</SelectItem>
-                  <SelectItem value="CPCL">CPCL</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={candidateCpse}
-                onValueChange={(val) => {
-                  setCandidateCpse(val);
-                  setPage(0);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Candidate CPSE" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Candidate CPSEs</SelectItem>
-                  <SelectItem value="IOCL">IOCL</SelectItem>
-                  <SelectItem value="ONGC">ONGC</SelectItem>
-                  <SelectItem value="HPCL">HPCL</SelectItem>
-                  <SelectItem value="BPCL">BPCL</SelectItem>
-                  <SelectItem value="CPCL">CPCL</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={confidenceFilter}
-                onValueChange={(val) => {
-                  setConfidenceFilter(val);
-                  setPage(0);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Confidence" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Confidence Tiers</SelectItem>
-                  <SelectItem value="HIGH">High Confidence (≥ 0.85)</SelectItem>
-                  <SelectItem value="MEDIUM">Medium Confidence (≥ 0.65)</SelectItem>
-                  <SelectItem value="LOW">Low Confidence (&lt; 0.65)</SelectItem>
-                </SelectContent>
-              </Select>
+                className="pl-9 h-10 rounded-xl bg-background border-border text-xs"
+              />
             </div>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-muted-foreground border-t border-border/40">
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={crossCpseOnly}
@@ -345,150 +350,129 @@ export default function Matches() {
                     setCrossCpseOnly(e.target.checked);
                     setPage(0);
                   }}
-                  className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                  className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
                 />
-                <span className="text-foreground font-medium">Cross-CPSE Only</span>
+                <span className="text-foreground font-medium text-xs">Cross-CPSE Only</span>
               </label>
 
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={exactKeyOnly}
+              {/* Source CPSE filter */}
+              <div className="flex items-center gap-1">
+                <span>CPSE:</span>
+                <select
+                  value={sourceCpse}
                   onChange={(e) => {
-                    setExactKeyOnly(e.target.checked);
+                    setSourceCpse(e.target.value);
                     setPage(0);
                   }}
-                  className="rounded border-border text-primary focus:ring-primary h-4 w-4"
-                />
-                <span className="text-foreground font-medium">Exact Canonical Key Only</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={incompatibleOnly}
-                  onChange={(e) => {
-                    setIncompatibleOnly(e.target.checked);
-                    setPage(0);
-                  }}
-                  className="rounded border-border text-primary focus:ring-primary h-4 w-4"
-                />
-                <span className="text-foreground font-medium">Incompatible Pairs Only</span>
-              </label>
-
-              <div className="ml-auto text-muted-foreground font-mono">
-                Showing {totalMatches.toLocaleString()} candidate matches
+                  className="bg-background border border-border rounded px-2 py-0.5 text-xs text-foreground focus:outline-none"
+                >
+                  <option value="all">All CPSEs</option>
+                  {availableCpses.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Candidate Matches Table */}
-        <Card className="border-border bg-card">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12 text-center">Rank</TableHead>
-                  <TableHead>Source Material</TableHead>
-                  <TableHead>Candidate Material</TableHead>
-                  <TableHead>Exact Key</TableHead>
-                  <TableHead className="text-right">Emb Sim</TableHead>
-                  <TableHead className="text-right">Attr Agree</TableHead>
-                  <TableHead>Conflict Status</TableHead>
-                  <TableHead className="text-right">Score</TableHead>
-                  <TableHead>Confidence</TableHead>
-                  <TableHead className="text-center">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
-                      Loading candidate pairs...
-                    </TableCell>
-                  </TableRow>
-                ) : matches.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
-                      No candidate matches found matching the criteria.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  matches.map((cand) => (
-                    <TableRow key={cand.candidate_id} className="hover:bg-muted/50 cursor-pointer" onClick={() => setSelectedCandidate(cand)}>
-                      <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                        #{cand.candidate_rank}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs font-mono">
-                            {cand.source_cpse}
-                          </Badge>
-                          <span className="font-mono text-xs font-semibold text-foreground">
-                            {cand.source_material_code}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs font-mono">
-                            {cand.candidate_cpse}
-                          </Badge>
-                          <span className="font-mono text-xs font-semibold text-foreground">
-                            {cand.candidate_material_code}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {cand.canonical_key_exact ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 text-xs">
-                            EXACT
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground font-mono">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
-                        {(cand.embedding_similarity * 100).toFixed(1)}%
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs">
-                        {(cand.attribute_agreement * 100).toFixed(1)}%
-                      </TableCell>
-                      <TableCell>
-                        {getConflictClassBadge(cand.engineering_conflict_class)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs font-bold text-foreground">
-                        {cand.final_match_score.toFixed(3)}
-                      </TableCell>
-                      <TableCell>
-                        {getConfidenceBadge(cand.confidence_level)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedCandidate(cand);
-                          }}
-                          className="h-7 px-2 text-xs"
-                        >
-                          Evidence
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+            <div className="font-mono text-xs text-muted-foreground">
+              Showing {totalMatches.toLocaleString()} matching candidate pairs
+            </div>
+          </div>
+        </div>
+
+        {/* Candidate List Display matching Image 1 */}
+        {loading ? (
+          <div className="p-12 text-center text-muted-foreground bg-card rounded-2xl border border-border space-y-3">
+            <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+            <p className="text-sm font-medium">Loading candidate matches...</p>
+          </div>
+        ) : matches.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground bg-card rounded-2xl border border-border space-y-3">
+            <GitCompare className="h-8 w-8 mx-auto text-muted-foreground/50" />
+            <p className="text-sm font-medium text-foreground">No candidate matches found</p>
+            <p className="text-xs text-muted-foreground">Try adjusting your filters or search keywords.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {matches.map((item) => {
+              const currentDecision = decisions[item.candidate_id];
+              const isBusy = actionLoading[item.candidate_id];
+              const score = item.score_percent ?? Math.round((item.final_match_score || 0) * 100);
+
+              const sourceTitle = item.source_title || item.source_material_code;
+              const candidateTitle = item.candidate_title || item.candidate_material_code;
+
+              return (
+                <div
+                  key={item.candidate_id}
+                  onClick={() => setSelectedCandidate(item)}
+                  className={`p-4 rounded-xl border transition-all duration-150 cursor-pointer bg-card hover:bg-muted/30 hover:border-border/80 shadow-xs ${
+                    currentDecision === 'ACCEPT'
+                      ? 'border-emerald-500/40 bg-emerald-500/[0.02]'
+                      : currentDecision === 'REJECT'
+                      ? 'border-rose-500/40 bg-rose-500/[0.02]'
+                      : 'border-border/70'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    {/* Left Column: Material comparison title & Subtitle */}
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="flex items-center flex-wrap gap-1.5 text-sm sm:text-base leading-snug">
+                        <span className="font-bold text-foreground hover:text-primary transition-colors">
+                          {sourceTitle}
+                        </span>
+                        <span className="text-muted-foreground font-normal">
+                          ({item.source_cpse})
+                        </span>
+                        <span className="text-muted-foreground/80 mx-1 font-mono">
+                          &rarr;
+                        </span>
+                        <span className="font-bold text-foreground hover:text-primary transition-colors">
+                          {candidateTitle}
+                        </span>
+                        <span className="text-muted-foreground font-normal">
+                          ({item.candidate_cpse})
+                        </span>
+                      </div>
+
+                      {/* Subtitle matching Image 1: Explainable Summary */}
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {item.explainable_summary || 'Multi-attribute canonical evaluation completed'}
+                      </p>
+                    </div>
+
+                    {/* Right Column: Score % + Status Badge matching Image 1 */}
+                    <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
+                      <span className="font-bold font-mono text-base text-foreground">
+                        {score}%
+                      </span>
+                      {getStatusBadge(item.status_tier, score)}
+
+                      {/* Decision Badge if already reviewed */}
+                      {currentDecision === 'ACCEPT' && (
+                        <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[11px] font-semibold py-0.5 px-2">
+                          APPROVED
+                        </Badge>
+                      )}
+                      {currentDecision === 'REJECT' && (
+                        <Badge className="bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30 text-[11px] font-semibold py-0.5 px-2">
+                          REJECTED
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Pagination */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-2">
           <div className="text-xs text-muted-foreground">
-            Page {page + 1} of {Math.max(1, totalPages)} ({totalMatches.toLocaleString()} items)
+            Page {page + 1} of {Math.max(1, totalPages)} ({totalMatches.toLocaleString()} pairs)
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -496,122 +480,134 @@ export default function Matches() {
               size="sm"
               disabled={page === 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="h-8 text-xs"
             >
-              <ChevronLeft className="h-4 w-4" /> Previous
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
             </Button>
             <Button
               variant="outline"
               size="sm"
               disabled={page >= totalPages - 1}
               onClick={() => setPage((p) => p + 1)}
+              className="h-8 text-xs"
             >
-              Next <ChevronRight className="h-4 w-4" />
+              Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
             </Button>
           </div>
         </div>
 
-        {/* Candidate Evidence Inspection Modal */}
+        {/* Candidate Detail / Review Inspection Modal matching Image 2 style */}
         <Dialog open={!!selectedCandidate} onOpenChange={(open) => !open && setSelectedCandidate(null)}>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl">
             {selectedCandidate && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <DialogHeader>
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                        Candidate Pair: {selectedCandidate.candidate_id}
+                      <DialogTitle className="text-lg font-bold text-foreground">
+                        Match Review: {selectedCandidate.candidate_id}
                       </DialogTitle>
-                      <DialogDescription className="text-xs text-muted-foreground mt-1">
-                        Rank #{selectedCandidate.candidate_rank} match evaluation for source material
+                      <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                        Rank #{selectedCandidate.candidate_rank} cross-CPSE equivalence assessment
                       </DialogDescription>
                     </div>
-                    <div>
-                      {getConfidenceBadge(selectedCandidate.confidence_level)}
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-sm text-foreground">
+                        {selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100)}%
+                      </span>
+                      {getStatusBadge(selectedCandidate.status_tier, selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100))}
                     </div>
                   </div>
                 </DialogHeader>
 
-                {/* Material Comparison Banner */}
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-muted/40 border border-border">
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Source Material</div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs font-mono">{selectedCandidate.source_cpse}</Badge>
-                      <span className="font-mono font-bold text-sm text-foreground">{selectedCandidate.source_material_code}</span>
-                    </div>
-                    <div className="text-xs font-mono text-muted-foreground truncate" title={selectedCandidate.source_canonical_key}>
-                      {selectedCandidate.source_canonical_key || 'No canonical key'}
-                    </div>
-                  </div>
+                {/* Attribute Comparison Table matching Image 2 */}
+                <div className="border border-border/80 rounded-xl overflow-hidden bg-card">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/40 text-muted-foreground font-medium">
+                        <th className="p-3 text-left w-28">Attribute</th>
+                        <th className="p-3 text-left">
+                          <span className="font-semibold text-foreground">
+                            {selectedCandidate.source_title || selectedCandidate.source_material_code}
+                          </span>{' '}
+                          <span className="text-muted-foreground">— {selectedCandidate.source_cpse}</span>
+                        </th>
+                        <th className="p-3 text-left">
+                          <span className="font-semibold text-foreground">
+                            {selectedCandidate.candidate_title || selectedCandidate.candidate_material_code}
+                          </span>{' '}
+                          <span className="text-muted-foreground">— {selectedCandidate.candidate_cpse}</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {['Type', 'Grade', 'Size', 'Coating', 'Unit'].map((attr) => {
+                        const attrObj = selectedCandidate.attributes?.[attr];
+                        const sVal = attrObj?.source || '-';
+                        const cVal = attrObj?.candidate || '-';
+                        const isDiff = sVal !== '-' && cVal !== '-' && sVal.toLowerCase() !== cVal.toLowerCase();
 
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Candidate Material</div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs font-mono">{selectedCandidate.candidate_cpse}</Badge>
-                      <span className="font-mono font-bold text-sm text-foreground">{selectedCandidate.candidate_material_code}</span>
-                    </div>
-                    <div className="text-xs font-mono text-muted-foreground truncate" title={selectedCandidate.candidate_canonical_key}>
-                      {selectedCandidate.candidate_canonical_key || 'No canonical key'}
-                    </div>
-                  </div>
+                        return (
+                          <tr key={attr} className="hover:bg-muted/20 transition-colors">
+                            <td className="p-3 font-semibold text-muted-foreground">{attr}</td>
+                            <td className={`p-3 font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
+                              {sVal}
+                            </td>
+                            <td className={`p-3 font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
+                              {cVal}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Score Breakdown Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-lg bg-card border border-border">
-                    <div className="text-xs text-muted-foreground">Final Score</div>
-                    <div className="text-xl font-bold font-mono text-foreground mt-1">{selectedCandidate.final_match_score.toFixed(3)}</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-card border border-border">
-                    <div className="text-xs text-muted-foreground">Embedding Sim</div>
-                    <div className="text-xl font-bold font-mono text-foreground mt-1">{(selectedCandidate.embedding_similarity * 100).toFixed(1)}%</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-card border border-border">
-                    <div className="text-xs text-muted-foreground">Description Sim</div>
-                    <div className="text-xl font-bold font-mono text-foreground mt-1">{(selectedCandidate.description_similarity * 100).toFixed(1)}%</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-card border border-border">
-                    <div className="text-xs text-muted-foreground">Attr Agreement</div>
-                    <div className="text-xl font-bold font-mono text-foreground mt-1">{(selectedCandidate.attribute_agreement * 100).toFixed(1)}%</div>
-                  </div>
+                {/* Explainable summary quote */}
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
+                  <span className="font-semibold uppercase tracking-wider text-[11px] text-foreground">Evidence:</span>
+                  <p className="text-foreground leading-relaxed font-mono text-xs">
+                    {selectedCandidate.explainable_summary || selectedCandidate.evidence_summary}
+                  </p>
                 </div>
 
-                {/* Engineering Conflict Status & Blocking */}
-                <div className="p-4 rounded-xl bg-card border border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase text-muted-foreground">Conflict Classification</span>
-                    {getConflictClassBadge(selectedCandidate.engineering_conflict_class)}
+                {/* Footer Action Buttons matching Image 2 */}
+                <DialogFooter className="flex items-center justify-between gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedCandidate(null)}
+                    className="rounded-xl text-xs h-9"
+                  >
+                    Close
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="destructive"
+                      disabled={actionLoading[selectedCandidate.candidate_id] || decisions[selectedCandidate.candidate_id] === 'REJECT'}
+                      onClick={() => handleDecision(selectedCandidate.candidate_id, 'REJECT')}
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-xl text-xs h-9 px-4 gap-1.5"
+                    >
+                      {actionLoading[selectedCandidate.candidate_id] ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <X className="h-3.5 w-3.5" />
+                      )}
+                      &times; Reject
+                    </Button>
+                    <Button
+                      disabled={actionLoading[selectedCandidate.candidate_id] || decisions[selectedCandidate.candidate_id] === 'ACCEPT'}
+                      onClick={() => handleDecision(selectedCandidate.candidate_id, 'ACCEPT')}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl text-xs h-9 px-4 gap-1.5 shadow-xs"
+                    >
+                      {actionLoading[selectedCandidate.candidate_id] ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                      &check; Approve
+                    </Button>
                   </div>
-                  {selectedCandidate.penalty_applied > 0 && (
-                    <div className="text-xs text-amber-500 font-mono">
-                      Penalty applied: -{selectedCandidate.penalty_applied.toFixed(2)} to composite score
-                    </div>
-                  )}
-                  {selectedCandidate.conflict_details && (
-                    <div className="text-xs p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-mono">
-                      {selectedCandidate.conflict_details}
-                    </div>
-                  )}
-                  <div className="text-xs text-muted-foreground flex items-center gap-2">
-                    <span className="font-semibold">Blocking Strategies:</span>
-                    <span className="font-mono text-foreground">{selectedCandidate.blocking_strategies}</span>
-                  </div>
-                </div>
-
-                {/* Explainable Evidence Summary */}
-                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-2">
-                  <div className="text-xs font-semibold uppercase text-primary flex items-center gap-1.5">
-                    <Info className="h-4 w-4" /> Explainable Matching Evidence
-                  </div>
-                  <div className="text-xs text-foreground font-mono leading-relaxed">
-                    {selectedCandidate.evidence_summary}
-                  </div>
-                </div>
-
-                {/* Phase Boundary Notice */}
-                <div className="text-xs text-muted-foreground italic border-t border-border pt-4">
-                  Note: In compliance with Phase 5 boundaries, candidates are generated and ranked for technical review. Common Material Master creation, harmonization approval, and code generation occur in Phase 6.
-                </div>
+                </DialogFooter>
               </div>
             )}
           </DialogContent>

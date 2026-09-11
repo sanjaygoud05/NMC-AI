@@ -42,16 +42,57 @@ def _invalidate_cache():
 
 
 @router.get("/attributes")
-async def get_attributes_summary():
+async def get_attributes_summary(dataset_id: Optional[str] = None):
     """
-    Get Phase 3 attribute extraction summary.
+    Get Phase 3 attribute extraction summary, scoped by dataset_id.
     Returns persisted extraction report if available.
     """
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "status": "not_run",
+            "message": "No dataset selected.",
+            "extracted_file_exists": False,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    from server.services.dataset_resolver import resolve_artifact_path
+    import json as _json
+
+    # Resolve extraction report for specific dataset
+    if effective_id != "BASELINE":
+        report_path = resolve_artifact_path("attribute_extraction_report.json", dataset_id=effective_id)
+        if report_path and report_path.exists():
+            with open(report_path, encoding="utf-8") as f:
+                report = _json.load(f)
+            extracted_path = resolve_artifact_path("extracted_attributes.csv", dataset_id=effective_id)
+            return {
+                "status": "completed",
+                "extracted_file_exists": extracted_path is not None and extracted_path.exists(),
+                "report": report,
+                "dataset_id": effective_id,
+                "has_dataset": True,
+                "data_available": True,
+            }
+        return {
+            "status": "not_run",
+            "message": f"Attribute extraction not yet completed for dataset {effective_id}.",
+            "extracted_file_exists": False,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": False,
+        }
+
     if not EXTRACTION_REPORT_PATH.exists():
         return {
             "status": "not_run",
             "message": "Phase 3 attribute extraction has not been executed yet. POST /api/standardization/extract-attributes to run.",
             "extracted_file_exists": False,
+            "dataset_id": "BASELINE",
+            "has_dataset": True,
+            "data_available": False,
         }
 
     try:
@@ -61,6 +102,9 @@ async def get_attributes_summary():
             "status": "completed",
             "extracted_file_exists": EXTRACTED_CSV_PATH.exists(),
             "report": report,
+            "dataset_id": "BASELINE",
+            "has_dataset": True,
+            "data_available": True,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read extraction report: {str(e)}")
@@ -176,10 +220,50 @@ def _invalidate_standardization_cache():
 
 
 @router.get("/report")
-async def get_standardization_report():
+async def get_standardization_report(dataset_id: Optional[str] = None):
     """
-    Get Phase 4 Material Standardization & Canonicalization report.
+    Get Phase 4 Material Standardization & Canonicalization report, scoped by dataset_id.
     """
+    from server.services.dataset_resolver import resolve_artifact_path
+
+    effective_id = dataset_id.strip().upper() if dataset_id else "NONE"
+    if effective_id == "NONE":
+        return {
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+            "total_materials": 0,
+            "standardized_count": 0,
+            "canonicalized_count": 0,
+            "coverage_pct": 0.0,
+            "domain_coverage": {},
+            "attribute_distributions": {},
+            "categories": [],
+            "status": "no_dataset_selected",
+        }
+
+    # Resolve for specific upload dataset
+    if effective_id not in ["BASELINE", "ALL"]:
+        rpt_path = resolve_artifact_path("standardization_report.json", dataset_id=dataset_id)
+        if rpt_path and rpt_path.exists():
+            try:
+                with open(rpt_path, encoding="utf-8") as f:
+                    raw_text = f.read()
+                import re
+                sanitized = re.sub(r"\bNaN\b", "null", raw_text)
+                data = json.loads(sanitized)
+                data["dataset_id"] = dataset_id
+                data["has_dataset"] = True
+                data["data_available"] = True
+                return data
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to read standardization report: {str(e)}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Standardization report not found for dataset {dataset_id}. Processing may not be complete.",
+        )
+
+    # Only BASELINE / ALL when explicit
     if not STANDARDIZATION_REPORT_PATH.exists():
         raise HTTPException(
             status_code=404,
@@ -190,7 +274,11 @@ async def get_standardization_report():
             raw_text = f.read()
         import re
         sanitized = re.sub(r"\bNaN\b", "null", raw_text)
-        return json.loads(sanitized)
+        data = json.loads(sanitized)
+        data["dataset_id"] = effective_id
+        data["has_dataset"] = True
+        data["data_available"] = True
+        return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read standardization report: {str(e)}")
 
@@ -206,14 +294,21 @@ async def get_standardized_material(
     """
     from server.services.dataset_resolver import load_dataset_dataframe
 
+    effective_id = dataset_id.strip().upper() if dataset_id else "NONE"
+    if effective_id == "NONE":
+        raise HTTPException(
+            status_code=404,
+            detail="No dataset selected.",
+        )
+
     df = load_dataset_dataframe("standardized_materials.csv", dataset_id=dataset_id)
-    if df.empty:
+    if df.empty and effective_id == "BASELINE":
         df = _load_standardized_df()
 
     if df is None or df.empty:
         raise HTTPException(
             status_code=404,
-            detail="Standardized materials dataset not found.",
+            detail=f"Standardized materials dataset not found for dataset '{dataset_id}'.",
         )
 
     mask = df["Material_Code"] == material_code

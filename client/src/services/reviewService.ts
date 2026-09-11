@@ -46,6 +46,14 @@ export interface ValidatedCandidateRecord {
   decision_version: number;
   escalated: boolean;
   needs_spec_sheet: boolean;
+
+  // Enriched material fields
+  source_title?: string;
+  candidate_title?: string;
+  category?: string;
+  status_tier?: 'Exact' | 'Equivalent' | 'Review' | 'Not match';
+  score_percent?: number;
+  attributes?: Record<string, { source: string; candidate: string }>;
 }
 
 export interface ReviewStats {
@@ -197,7 +205,7 @@ export const reviewService = {
     return await res.json();
   },
 
-  async getReviewDetail(candidateId: string): Promise<{
+  async getReviewDetail(candidateId: string, datasetId?: string): Promise<{
     candidate: ValidatedCandidateRecord;
     evidence_package: EvidencePackage;
     evidence_snapshot_hash: string;
@@ -205,7 +213,8 @@ export const reviewService = {
     history_count: number;
     is_read_only: boolean;
   }> {
-    const res = await fetch(`${API_BASE}/api/review/${candidateId}`);
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/review/${candidateId}${query}`);
     if (!res.ok) {
       throw new Error(`Failed to load review candidate details: ${res.statusText}`);
     }

@@ -29,10 +29,32 @@ async def get_procurement_kpis(
     Get enterprise procurement KPIs partitioned strictly by UOM scoped by dataset_id.
     Never aggregates mixed physical units into a single sum.
     """
-    if dataset_id and dataset_id.upper() not in ["", "BASELINE"]:
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "total_materials_analyzed": 0,
+            "total_cmm_entities": 0,
+            "multi_cpse_cmms_count": 0,
+            "standalone_cmms_count": 0,
+            "volume_by_uom": {},
+            "multi_cpse_volume_by_uom": {},
+            "active_materials_count": 0,
+            "inactive_materials_count": 0,
+            "active_materials_pct": 0,
+            "distinct_plants_count": 0,
+            "distinct_manufacturers_count": 0,
+            "opportunities_by_type": {},
+            "total_opportunities_count": 0,
+            "analysis_reference_date": "2026-03-31",
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    if effective_id != "BASELINE":
         from server.services.dataset_resolver import load_dataset_dataframe
-        df_facts = load_dataset_dataframe("procurement_facts.csv", dataset_id=dataset_id)
-        df_cmm = load_dataset_dataframe("common_material_master.csv", dataset_id=dataset_id)
+        df_facts = load_dataset_dataframe("procurement_facts.csv", dataset_id=effective_id)
+        df_cmm = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
 
         volume_by_uom: Dict[str, float] = {}
         if not df_facts.empty and "unit_of_measure" in df_facts.columns and "annual_consumption" in df_facts.columns:
@@ -43,7 +65,7 @@ async def get_procurement_kpis(
         total_mats = len(df_facts)
         total_cmm = len(df_cmm)
         active_count = len(df_facts[df_facts["material_status"].str.lower() == "active"]) if not df_facts.empty and "material_status" in df_facts.columns else total_mats
-        plants_count = df_facts["plant"].nunique() if not df_facts.empty and "plant" in df_facts.columns else 1
+        plants_count = df_facts["plant"].nunique() if not df_facts.empty and "plant" in df_facts.columns else (1 if total_mats > 0 else 0)
         mfg_count = df_facts["manufacturer"].nunique() if not df_facts.empty and "manufacturer" in df_facts.columns else 0
 
         return {
@@ -61,8 +83,15 @@ async def get_procurement_kpis(
             "opportunities_by_type": {},
             "total_opportunities_count": 0,
             "analysis_reference_date": "2026-03-31",
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": total_mats > 0,
         }
-    return procurement_repository.get_kpis()
+    kpis = procurement_repository.get_kpis()
+    kpis["dataset_id"] = "BASELINE"
+    kpis["has_dataset"] = True
+    kpis["data_available"] = kpis.get("total_materials_analyzed", 0) > 0
+    return kpis
 
 
 @router.get("/cmm-summary", response_model=Dict[str, Any])
@@ -80,11 +109,33 @@ async def list_cmm_summaries(
     """
     List Common Material Master procurement summaries with filtering, pagination, and dataset scoping.
     """
-    if dataset_id and dataset_id.upper() not in ["", "BASELINE"]:
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    if effective_id != "BASELINE":
         from server.services.dataset_resolver import load_dataset_dataframe
-        df = load_dataset_dataframe("cmm_consumption_summary.csv", dataset_id=dataset_id)
+        df = load_dataset_dataframe("cmm_consumption_summary.csv", dataset_id=effective_id)
         if df.empty:
-            return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
+            return {
+                "items": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": 0,
+                "dataset_id": effective_id,
+                "has_dataset": True,
+                "data_available": False,
+            }
 
         if material_family and material_family != "all":
             df = df[df["material_family"].str.upper() == material_family.upper()]
@@ -136,9 +187,12 @@ async def list_cmm_summaries(
             "page": page,
             "page_size": page_size,
             "total_pages": total_pages,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": total > 0,
         }
 
-    return procurement_repository.query_cmm_summaries(
+    res = procurement_repository.query_cmm_summaries(
         search=search,
         material_family=material_family,
         primary_uom=primary_uom,
@@ -147,6 +201,10 @@ async def list_cmm_summaries(
         page=page,
         page_size=page_size,
     )
+    res["dataset_id"] = "BASELINE"
+    res["has_dataset"] = True
+    res["data_available"] = res.get("total", 0) > 0
+    return res
 
 
 @router.get("/cmm-summary/{cmm_code}", response_model=Dict[str, Any])
@@ -168,16 +226,48 @@ async def get_cmm_summary_detail(
 
 @router.get("/cpse-summary", response_model=List[Dict[str, Any]])
 async def get_cpse_summaries(
+    dataset_id: Optional[str] = Query(None),
     user: dict = Depends(get_current_user),
 ):
     """
-    Get enterprise summaries across all 4 CPSEs (CPCL, HPCL, IOCL, ONGC) partitioned by UOM.
+    Get enterprise summaries across participating CPSEs partitioned by UOM.
     """
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return []
+
+    if effective_id != "BASELINE":
+        from server.services.dataset_resolver import load_dataset_dataframe
+        df_facts = load_dataset_dataframe("procurement_facts.csv", dataset_id=effective_id)
+        if df_facts.empty:
+            return []
+        summaries = []
+        for cpse_name, grp in df_facts.groupby("source_cpse"):
+            nos_vol = float(grp[grp["unit_of_measure"] == "NOS"]["annual_consumption"].astype(float).sum()) if "annual_consumption" in grp.columns else 0.0
+            mtr_vol = float(grp[grp["unit_of_measure"] == "MTR"]["annual_consumption"].astype(float).sum()) if "annual_consumption" in grp.columns else 0.0
+            set_vol = float(grp[grp["unit_of_measure"] == "SET"]["annual_consumption"].astype(float).sum()) if "annual_consumption" in grp.columns else 0.0
+            active_cnt = int((grp["material_status"].str.lower() == "active").sum()) if "material_status" in grp.columns else len(grp)
+            summaries.append({
+                "source_cpse": str(cpse_name),
+                "total_material_records": len(grp),
+                "active_material_count": active_cnt,
+                "inactive_material_count": len(grp) - active_cnt,
+                "total_volume_nos": nos_vol,
+                "total_volume_mtr": mtr_vol,
+                "total_volume_set": set_vol,
+                "total_volume_other": 0.0,
+                "distinct_plants_count": grp["plant"].nunique() if "plant" in grp.columns else 1,
+                "distinct_manufacturers_count": grp["manufacturer"].nunique() if "manufacturer" in grp.columns else 0,
+                "multi_cpse_harmonized_members": 0,
+            })
+        return summaries
+
     return procurement_repository.get_cpse_summaries()
 
 
 @router.get("/opportunities", response_model=Dict[str, Any])
 async def list_procurement_opportunities(
+    dataset_id: Optional[str] = Query(None),
     opportunity_type: Optional[str] = Query(None, description="Filter by opportunity type"),
     cmm_code: Optional[str] = Query(None, description="Filter by CMM code"),
     source_cpse: Optional[str] = Query(None, description="Filter by source CPSE"),
@@ -187,31 +277,96 @@ async def list_procurement_opportunities(
     user: dict = Depends(get_current_user),
 ):
     """
-    List auditable procurement opportunities with complete provenance fields:
-    trigger_metric, trigger_value, threshold, reason, evidence_reference.
+    List auditable procurement opportunities with complete provenance fields.
     """
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    if effective_id != "BASELINE":
+        from server.services.dataset_resolver import load_dataset_dataframe
+        df_opps = load_dataset_dataframe("procurement_opportunities.csv", dataset_id=effective_id)
+        if df_opps.empty:
+            return {
+                "items": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": 0,
+                "dataset_id": effective_id,
+                "has_dataset": True,
+                "data_available": False,
+            }
+        # In upload datasets, df_opps is columns-only until approved CMM pairs exist
+        return {
+            "items": df_opps.to_dict(orient="records"),
+            "total": len(df_opps),
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 1 if len(df_opps) > 0 else 0,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": len(df_opps) > 0,
+        }
+
     effective_cpse = cpse or source_cpse
-    return procurement_repository.query_opportunities(
+    res = procurement_repository.query_opportunities(
         opportunity_type=opportunity_type,
         cmm_code=cmm_code,
         source_cpse=effective_cpse,
         page=page,
         page_size=page_size,
     )
+    res["dataset_id"] = "BASELINE"
+    res["has_dataset"] = True
+    res["data_available"] = res.get("total", 0) > 0
+    return res
 
 
 @router.get("/plants", response_model=List[Dict[str, Any]])
 async def get_plant_distribution(
+    dataset_id: Optional[str] = Query(None),
     user: dict = Depends(get_current_user),
 ):
     """
     Get consumption volume breakdown strictly per plant and UOM.
     """
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return []
+
+    if effective_id != "BASELINE":
+        from server.services.dataset_resolver import load_dataset_dataframe
+        df_facts = load_dataset_dataframe("procurement_facts.csv", dataset_id=effective_id)
+        if df_facts.empty:
+            return []
+        plants = []
+        for (p_name, uom_val), grp in df_facts.groupby(["plant", "unit_of_measure"]):
+            tot_vol = float(grp["annual_consumption"].astype(float).sum()) if "annual_consumption" in grp.columns else 0.0
+            plants.append({
+                "plant": str(p_name),
+                "source_cpse": str(grp["source_cpse"].iloc[0]) if "source_cpse" in grp.columns else "UNKNOWN",
+                "unit_of_measure": str(uom_val),
+                "total_volume": tot_vol,
+                "material_count": len(grp),
+            })
+        return plants
+
     return procurement_repository.get_plant_distribution()
 
 
 @router.get("/facts", response_model=Dict[str, Any])
 async def list_procurement_facts(
+    dataset_id: Optional[str] = Query(None),
     source_cpse: Optional[str] = Query(None, description="Filter by CPSE"),
     cmm_code: Optional[str] = Query(None, description="Filter by CMM code"),
     search: Optional[str] = Query(None, description="Search material code, description, or plant"),
@@ -222,10 +377,54 @@ async def list_procurement_facts(
     """
     List line-level procurement facts with filtering and pagination.
     """
-    return procurement_repository.query_facts(
+    effective_id = (dataset_id or "NONE").strip().upper()
+    if effective_id in ["", "NONE"]:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0,
+            "dataset_id": "NONE",
+            "has_dataset": False,
+            "data_available": False,
+        }
+
+    if effective_id != "BASELINE":
+        from server.services.dataset_resolver import load_dataset_dataframe
+        df_facts = load_dataset_dataframe("procurement_facts.csv", dataset_id=effective_id)
+        if df_facts.empty:
+            return {
+                "items": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": 0,
+                "dataset_id": effective_id,
+                "has_dataset": True,
+                "data_available": False,
+            }
+        start = (page - 1) * page_size
+        page_df = df_facts.iloc[start : start + page_size]
+        return {
+            "items": page_df.to_dict(orient="records"),
+            "total": len(df_facts),
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (len(df_facts) + page_size - 1) // page_size,
+            "dataset_id": effective_id,
+            "has_dataset": True,
+            "data_available": len(df_facts) > 0,
+        }
+
+    res = procurement_repository.query_facts(
         source_cpse=source_cpse,
         cmm_code=cmm_code,
         search=search,
         page=page,
         page_size=page_size,
     )
+    res["dataset_id"] = "BASELINE"
+    res["has_dataset"] = True
+    res["data_available"] = res.get("total", 0) > 0
+    return res
