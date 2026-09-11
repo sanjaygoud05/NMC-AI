@@ -58,15 +58,19 @@ export default function Auth() {
 
     if (isLogin) {
       try {
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(email.trim(), password);
         if (error) {
-          toast.error(error.message || 'Invalid email or password');
+          if (error.message?.toLowerCase().includes('invalid login credentials')) {
+            toast.error('Account not found with these credentials. Click "Register New Officer Credentials" below to create it first, or use 1-Click Demo Login.');
+          } else {
+            toast.error(error.message || 'Invalid email or password');
+          }
         } else {
           toast.success(`Welcome to NMC-AI (${selectedCpse})`);
           navigate('/dashboard');
         }
       } catch {
-        toast.error('Sign in failed. Please try again.');
+        toast.error('Sign in failed. Please check your credentials or network.');
       } finally {
         setIsLoading(false);
       }
@@ -75,18 +79,35 @@ export default function Auth() {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || selectedCpse;
 
-      const { error } = await signUp(email.trim(), password, firstName, lastName);
-      if (error) {
-        toast.error(error.message || 'Registration failed');
-      } else {
-        // Supabase may require email confirmation — show appropriate message
-        toast.success('Registration successful! Check your email to confirm your account, then sign in.', {
-          duration: 6000,
-        });
-        // Switch to login mode so they can sign in after confirming
-        setIsLogin(true);
-        setPassword('');
+      try {
+        const { error } = await signUp(email.trim(), password, firstName, lastName);
+        if (error) {
+          toast.error(error.message || 'Registration failed');
+        } else {
+          toast.success(`Account created! Welcome to NMC-AI (${selectedCpse})`);
+          navigate('/dashboard');
+        }
+      } catch {
+        toast.error('Registration failed. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
+    }
+  };
+
+  const handleDemoSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const { error } = await signIn('officer.demo@ongc.co.in', 'Password@123');
+      if (error) {
+        toast.error(error.message || 'Demo sign in failed');
+      } else {
+        toast.success('Signed in as ONGC Officer (Demo)');
+        navigate('/dashboard');
+      }
+    } catch {
+      toast.error('Demo sign in failed');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -209,6 +230,24 @@ export default function Auth() {
                   : 'Register Officer Account'}
               </Button>
             </form>
+
+            {/* 1-Click Quick Demo Login */}
+            <div className="pt-2">
+              <div className="relative flex py-1.5 items-center">
+                <div className="flex-grow border-t border-border/60"></div>
+                <span className="flex-shrink mx-2 text-[10px] text-muted-foreground uppercase tracking-wider">or quick demo</span>
+                <div className="flex-grow border-t border-border/60"></div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDemoSignIn}
+                disabled={isLoading}
+                className="w-full h-9 text-xs font-medium border-border/80 hover:bg-muted/40 hover:text-foreground text-muted-foreground transition-all"
+              >
+                ⚡ 1-Click Demo Officer Access
+              </Button>
+            </div>
 
             {/* Toggle Sign In / Register */}
             <div className="text-center pt-2 border-t border-border/40">
