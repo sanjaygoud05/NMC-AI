@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { ClipboardCheck, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 const emailSchema = z
   .string()
@@ -60,40 +60,32 @@ export default function Auth() {
       try {
         const { error } = await signIn(email, password);
         if (error) {
-          // Store session profile for local session
-          localStorage.setItem('user_profile_data', JSON.stringify({
-            firstName: email.split('@')[0] || 'Officer',
-            lastName: selectedCpse,
-            email,
-            cpse: `${selectedCpse} Enterprise`,
-            role: 'admin',
-          }));
-          toast.success(`Signed in as ${selectedCpse} Officer`);
-          navigate('/dashboard');
+          toast.error(error.message || 'Invalid email or password');
         } else {
           toast.success(`Welcome to NMC-AI (${selectedCpse})`);
           navigate('/dashboard');
         }
       } catch {
-        toast.success(`Signed in as ${selectedCpse} Officer`);
-        navigate('/dashboard');
+        toast.error('Sign in failed. Please try again.');
       } finally {
         setIsLoading(false);
       }
     } else {
-      const { error } = await signUp(email.trim(), password, officerName.trim());
+      const nameParts = officerName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || selectedCpse;
+
+      const { error } = await signUp(email.trim(), password, firstName, lastName);
       if (error) {
         toast.error(error.message || 'Registration failed');
       } else {
-        localStorage.setItem('user_profile_data', JSON.stringify({
-          firstName: officerName.split(' ')[0] || 'Officer',
-          lastName: officerName.split(' ')[1] || selectedCpse,
-          email,
-          cpse: `${selectedCpse} Enterprise`,
-          role: 'employee',
-        }));
-        toast.success('Officer Account Registered');
-        navigate('/dashboard');
+        // Supabase may require email confirmation — show appropriate message
+        toast.success('Registration successful! Check your email to confirm your account, then sign in.', {
+          duration: 6000,
+        });
+        // Switch to login mode so they can sign in after confirming
+        setIsLogin(true);
+        setPassword('');
       }
       setIsLoading(false);
     }
@@ -103,10 +95,14 @@ export default function Auth() {
     <div className="dark min-h-screen flex flex-col items-center justify-center bg-background p-4 select-none">
       <div className="w-full max-w-sm space-y-6">
 
-        {/* Minimalist Portal Header */}
-        <div className="text-center space-y-1.5">
-          <div className="inline-flex items-center justify-center p-2.5 rounded-xl bg-primary/10 text-primary mb-1">
-            <ClipboardCheck className="h-6 w-6 text-primary" />
+        {/* Portal Header with NMC Logo */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center mb-1">
+            <img
+              src="/favicon.png"
+              alt="NMC Logo"
+              className="h-28 w-28 object-contain drop-shadow-lg"
+            />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             NMC-AI
