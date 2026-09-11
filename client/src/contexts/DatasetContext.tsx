@@ -40,9 +40,17 @@ const STORAGE_KEY = 'sih26099_active_dataset_id';
 export function DatasetProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY) || 'NONE';
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored && stored !== 'NONE' ? stored : 'BASELINE';
   });
-  const [datasets, setDatasets] = useState<DatasetItem[]>([]);
+  const [datasets, setDatasets] = useState<DatasetItem[]>(() => {
+    try {
+      const cached = localStorage.getItem('nmc_cached_datasets');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchDatasets = async () => {
@@ -52,6 +60,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data: DatasetItem[] = await res.json();
         setDatasets(data);
+        localStorage.setItem('nmc_cached_datasets', JSON.stringify(data));
         // If persisted selection is a specific upload that no longer exists, reset to NONE
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved && saved.startsWith('UPLOAD-') && !data.some((d) => d.dataset_id === saved)) {
@@ -60,8 +69,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch {
-      // Backend offline - maintain empty state without auto-selecting baseline
-      setDatasets([]);
+      // Backend offline - maintain cached state if available
     } finally {
       setIsLoading(false);
     }

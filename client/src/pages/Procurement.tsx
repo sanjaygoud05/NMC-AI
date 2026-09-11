@@ -268,7 +268,7 @@ export default function Procurement() {
         </div>
 
         {/* Top KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="border-border bg-card">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between text-muted-foreground">
@@ -348,20 +348,20 @@ export default function Procurement() {
 
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="bg-muted p-1 rounded-lg">
-            <TabsTrigger value="opportunities" className="gap-2">
+          <TabsList className="w-full flex overflow-x-auto justify-start sm:justify-center p-1 rounded-lg bg-muted scrollbar-none">
+            <TabsTrigger value="opportunities" className="gap-2 shrink-0">
               <Sparkles className="h-4 w-4" />
               Sourcing Opportunities ({oppTotal})
             </TabsTrigger>
-            <TabsTrigger value="cmm_demand" className="gap-2">
+            <TabsTrigger value="cmm_demand" className="gap-2 shrink-0">
               <Layers className="h-4 w-4" />
               CMM Demand Explorer
             </TabsTrigger>
-            <TabsTrigger value="cpse_comparison" className="gap-2">
+            <TabsTrigger value="cpse_comparison" className="gap-2 shrink-0">
               <Building2 className="h-4 w-4" />
               CPSE Demand Comparison
             </TabsTrigger>
-            <TabsTrigger value="plants" className="gap-2">
+            <TabsTrigger value="plants" className="gap-2 shrink-0">
               <Factory className="h-4 w-4" />
               Facility & Plant Distribution
             </TabsTrigger>
@@ -444,8 +444,9 @@ export default function Procurement() {
 
             {/* Opportunities Table */}
             <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <Table>
-                <TableHeader>
+              <div className="overflow-x-auto w-full">
+                <Table className="min-w-[850px]">
+                  <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
                     <TableHead className="w-[220px]">Signal Type</TableHead>
                     <TableHead className="w-[180px]">CMM Code</TableHead>
@@ -515,6 +516,7 @@ export default function Procurement() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </div>
 
             {/* Opportunities Pagination */}
@@ -610,8 +612,9 @@ export default function Procurement() {
 
             {/* CMM Summaries Table */}
             <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <Table>
-                <TableHeader>
+              <div className="overflow-x-auto w-full">
+                <Table className="min-w-[850px]">
+                  <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
                     <TableHead className="w-[180px]">CMM Code</TableHead>
                     <TableHead>Common Description</TableHead>
@@ -715,6 +718,7 @@ export default function Procurement() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </div>
 
             {/* CMM Pagination */}
@@ -921,8 +925,9 @@ export default function Procurement() {
 
             {/* Plant Distribution Table */}
             <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <Table>
-                <TableHeader>
+              <div className="overflow-x-auto w-full">
+                <Table className="min-w-[650px]">
+                  <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
                     <TableHead>Operating Plant / Refinery</TableHead>
                     <TableHead className="w-[140px]">Parent CPSE</TableHead>
@@ -963,13 +968,14 @@ export default function Procurement() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
 
         {/* CMM Drill-Down Modal */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[85vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base font-mono">
                 <Layers className="h-5 w-5 text-primary" />

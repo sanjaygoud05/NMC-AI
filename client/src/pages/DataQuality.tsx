@@ -212,7 +212,7 @@ export default function DataQuality() {
               Field-level completeness, schema validity, and enterprise ingestion health diagnostics.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <span className="text-xs font-medium px-3 py-1 rounded-md bg-secondary text-secondary-foreground border border-border">
               Scope: {activeDatasetId}
             </span>
@@ -280,16 +280,16 @@ export default function DataQuality() {
         </div>
 
         {/* Quality Dimensions Chart & CPSE Radar Matrix */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-w-0">
           {/* Chart 1: Quality Dimensions Breakdown */}
-          <Card className="border-border bg-card shadow-sm flex flex-col">
+          <Card className="border-border bg-card shadow-sm flex flex-col min-w-0 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-foreground flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-primary" />
-                  Quality Dimensions Breakdown
+                  <BarChart3 className="h-4 w-4 text-primary shrink-0" />
+                  <span>Quality Dimensions</span>
                 </div>
-                <Badge variant="outline" className="text-xs font-normal">
+                <Badge variant="outline" className="text-xs font-normal shrink-0">
                   4 Core Pillars
                 </Badge>
               </CardTitle>
@@ -298,7 +298,7 @@ export default function DataQuality() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col justify-between pt-2">
-              <div className="h-64 w-full">
+              <div className="h-64 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dimensionChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} vertical={false} />
@@ -328,7 +328,7 @@ export default function DataQuality() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-border/40 mt-1">
                 {dimensionChartData.map((dim) => (
                   <div key={dim.name} className="p-2 rounded-lg bg-muted/20 border border-border/40 text-center">
-                    <div className="text-[11px] text-muted-foreground">{dim.name}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{dim.name}</div>
                     <div className="text-sm font-bold text-foreground mt-0.5" style={{ color: dim.color }}>{dim.score}%</div>
                   </div>
                 ))}
@@ -337,14 +337,14 @@ export default function DataQuality() {
           </Card>
 
           {/* Chart 2: CPSE Ingestion Quality Matrix (Unique Radar Graph View) */}
-          <Card className="border-border bg-card shadow-sm flex flex-col">
+          <Card className="border-border bg-card shadow-sm flex flex-col min-w-0 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-semibold text-foreground flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-primary" />
-                  CPSE Ingestion Quality Matrix
+                  <Building2 className="h-4 w-4 text-primary shrink-0" />
+                  <span>CPSE Quality Matrix</span>
                 </div>
-                <Badge variant="outline" className="text-xs font-normal">
+                <Badge variant="outline" className="text-xs font-normal shrink-0">
                   Radar Benchmark
                 </Badge>
               </CardTitle>
@@ -353,9 +353,9 @@ export default function DataQuality() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col justify-between pt-0">
-              <div className="h-64 w-full">
+              <div className="h-64 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart outerRadius="62%" data={cpseRadarData}>
+                  <RadarChart outerRadius="60%" data={cpseRadarData}>
                     <PolarGrid stroke="#334155" strokeDasharray="3 3" opacity={0.4} />
                     <PolarAngleAxis dataKey="dimension" tick={{ fill: '#94a3b8', fontSize: 10 }} />
                     <PolarRadiusAxis angle={30} domain={[60, 100]} tick={{ fill: '#64748b', fontSize: 9 }} stroke="#334155" />
@@ -391,13 +391,13 @@ export default function DataQuality() {
           </Card>
         </div>
 
-        {/* Field Quality Table: Field Diagnostics & Status */}
-        <Card className="border-border bg-card shadow-sm overflow-hidden">
+        {/* Field Quality: Field Diagnostics & Status */}
+        <Card className="border-border bg-card shadow-sm overflow-hidden min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold text-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-4 w-4 text-primary" />
-                Field Diagnostics & Status
+                <FileSpreadsheet className="h-4 w-4 text-primary shrink-0" />
+                <span>Field Diagnostics & Status</span>
               </div>
               <span className="text-xs text-muted-foreground font-normal">
                 {fieldList.length} Core Schema Attributes Analyzed
@@ -407,7 +407,70 @@ export default function DataQuality() {
               Detailed breakdown of field-level population completeness, format validity, and data health status
             </CardDescription>
           </CardHeader>
-          <div className="overflow-x-auto">
+
+          {/* Mobile Card List View (< sm) */}
+          <div className="block sm:hidden divide-y divide-border/60 p-4 space-y-3">
+            {fieldList.map((f: any) => (
+              <div key={f.field} className="pt-3 first:pt-0 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs font-semibold text-foreground break-all">
+                    {f.field}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
+                      f.status === 'Healthy'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : f.status === 'Fair'
+                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        f.status === 'Healthy'
+                          ? 'bg-emerald-400'
+                          : f.status === 'Fair'
+                          ? 'bg-blue-400'
+                          : 'bg-amber-400'
+                      }`}
+                    />
+                    {f.status || 'Healthy'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Data Type</div>
+                    <span className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono inline-block mt-0.5">
+                      {f.dataType || 'String'}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">Unique Values</div>
+                    <span className="font-mono text-xs font-medium text-foreground">
+                      {f.uniqueCount ? f.uniqueCount.toLocaleString() : '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">Completeness</span>
+                    <span className="font-semibold text-foreground">{f.completeness}%</span>
+                  </div>
+                  <Progress value={f.completeness} className="h-1.5" />
+                </div>
+
+                <div className="flex justify-between text-[11px] pt-0.5">
+                  <span className="text-muted-foreground">Validity Score</span>
+                  <span className="font-medium text-foreground">{f.validity || 98}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop & Tablet Table View (>= sm) */}
+          <div className="hidden sm:block overflow-x-auto">
             <Table className="min-w-[650px]">
               <TableHeader className="bg-muted/30">
                 <TableRow className="border-border">

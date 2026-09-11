@@ -40,13 +40,36 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize from cache for instant 0ms refresh
+  const getCached = <T,>(key: string): T | null => {
+    try {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const cachedUser = getCached<User>('nmc_cached_user');
+  const cachedProfile = getCached<Profile>('nmc_cached_profile');
+  const cachedRole = (localStorage.getItem('nmc_cached_role') as AppRole) || null;
+  const cachedRoles = getCached<AppRole[]>('nmc_cached_available_roles') || [];
+
+  const [user, setUser] = useState<User | null>(cachedUser);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
-  const [availableRoles, setAvailableRoles] = useState<AppRole[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(cachedProfile);
+  const [role, setRole] = useState<AppRole | null>(cachedRole);
+  const [availableRoles, setAvailableRoles] = useState<AppRole[]>(cachedRoles);
+  // If we already have a cached user, we don't need to block rendering!
+  const [isLoading, setIsLoading] = useState(!cachedUser);
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
+
+  const clearAuthCache = () => {
+    localStorage.removeItem('nmc_cached_user');
+    localStorage.removeItem('nmc_cached_profile');
+    localStorage.removeItem('nmc_cached_role');
+    localStorage.removeItem('nmc_cached_available_roles');
+  };
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -59,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profileData) {
         setProfile(profileData as Profile);
+        localStorage.setItem('nmc_cached_profile', JSON.stringify(profileData));
       }
 
       // Fetch role (get highest privilege role)
@@ -72,63 +96,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Priority: admin > manager > employee
         const roles = roleData.map(r => r.role as AppRole);
         setAvailableRoles(roles);
-        if (roles.includes('admin')) {
-          setRole('admin');
-        } else if (roles.includes('manager')) {
-          setRole('manager');
-        } else {
-          setRole('employee');
-        }
+        localStorage.setItem('nmc_cached_available_roles', JSON.stringify(roles));
+
+        const activeRole = roles.includes('admin')
+          ? 'admin'
+          : roles.includes('manager')
+          ? 'manager'
+          : 'employee';
+        setRole(activeRole);
+        localStorage.setItem('nmc_cached_role', activeRole);
       } else {
         setAvailableRoles([]);
       }
     } catch (error) {
-      setProfile(null);
-      setRole(null);
-      setAvailableRoles([]);
+      // Keep cached state if offline/network error occurs
+      console.warn('Silent background auth fetch notice:', error);
     }
   };
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      (event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
 
-        if (session?.user) {
-          // Defer Supabase calls with setTimeout to prevent deadlock
+        if (newSession?.user) {
+          localStorage.setItem('nmc_cached_user', JSON.stringify(newSession.user));
           setTimeout(() => {
-            fetchUserData(session.user.id);
+            fetchUserData(newSession.user.id);
           }, 0);
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           setProfile(null);
           setRole(null);
           setAvailableRoles([]);
+          clearAuthCache();
         }
         setIsLoading(false);
       }
     );
 
-    // THEN check for existing authenticated user (server-validated)
+    // Fast session validation via local session first
     void (async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-
-      if (error || !user) {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setRole(null);
-        setAvailableRoles([]);
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession?.user) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+          localStorage.setItem('nmc_cached_user', JSON.stringify(currentSession.user));
+          setIsLoading(false);
+          // Background refresh user data without blocking
+          fetchUserData(currentSession.user.id);
+        } else {
+          // If no local session found, check user once
+          const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+          if (error || !currentUser) {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            setRole(null);
+            setAvailableRoles([]);
+            clearAuthCache();
+          } else {
+            setUser(currentUser);
+            localStorage.setItem('nmc_cached_user', JSON.stringify(currentUser));
+            fetchUserData(currentUser.id);
+          }
+          setIsLoading(false);
+        }
+      } catch {
         setIsLoading(false);
-        return;
       }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(user);
-      await fetchUserData(user.id);
-      setIsLoading(false);
     })();
 
     return () => subscription.unsubscribe();
@@ -198,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setRole(null);
     setAvailableRoles([]);
+    clearAuthCache();
   };
 
   const refreshProfile = async () => {

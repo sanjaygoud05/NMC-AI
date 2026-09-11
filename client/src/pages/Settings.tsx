@@ -52,16 +52,16 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue="matching" className="space-y-6">
-          <TabsList className="bg-muted/50 border border-border">
-            <TabsTrigger value="matching" className="gap-2">
+          <TabsList className="w-full flex overflow-x-auto justify-start sm:justify-center bg-muted/50 border border-border scrollbar-none p-1">
+            <TabsTrigger value="matching" className="gap-2 shrink-0 text-xs sm:text-sm">
               <Sliders className="h-4 w-4" />
               Matching & AI Thresholds
             </TabsTrigger>
-            <TabsTrigger value="endpoints" className="gap-2">
+            <TabsTrigger value="endpoints" className="gap-2 shrink-0 text-xs sm:text-sm">
               <Server className="h-4 w-4" />
               API & Microservices
             </TabsTrigger>
-            <TabsTrigger value="connectors" className="gap-2">
+            <TabsTrigger value="connectors" className="gap-2 shrink-0 text-xs sm:text-sm">
               <Building2 className="h-4 w-4" />
               CPSE ERP Connectors
             </TabsTrigger>

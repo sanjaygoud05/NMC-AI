@@ -148,7 +148,7 @@ export default function CPSEAnalytics() {
         />
 
         {/* Global KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="border-border bg-card">
             <CardContent className="pt-6">
               <div className="text-xs text-muted-foreground">Connected CPSEs</div>
@@ -264,7 +264,7 @@ export default function CPSEAnalytics() {
         </div>
 
         {/* CPSE Breakdown Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {cpseSummaries.map((cpse) => {
             const activePct = ((cpse.active_material_count / cpse.total_material_records) * 100).toFixed(0);
 

@@ -322,7 +322,7 @@ export default function Ingest() {
             </div>
 
             {/* Quality score row */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
                 <div className="text-2xl font-bold text-foreground">1,250</div>
                 <div className="text-xs text-muted-foreground mt-0.5">Records</div>
@@ -342,7 +342,7 @@ export default function Ingest() {
         {/* Phase 2 — Normalization Results */}
         <Card className="border-border bg-card">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" />
@@ -357,7 +357,7 @@ export default function Ingest() {
                   size="sm"
                   onClick={handleRunNormalization}
                   disabled={normLoading}
-                  className="gap-2"
+                  className="gap-2 self-start sm:self-auto"
                 >
                   {normLoading ? (
                     <Clock className="h-4 w-4 animate-spin" />

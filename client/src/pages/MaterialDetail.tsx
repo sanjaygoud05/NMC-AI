@@ -88,7 +88,7 @@ export default function MaterialDetail() {
               <CardTitle className="text-base font-semibold">Material Details</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                 {[
                   { label: 'Material Code', value: material.material_code || material.materialCode },
                   { label: 'CPSE', value: material.cpse || material.cpseId },

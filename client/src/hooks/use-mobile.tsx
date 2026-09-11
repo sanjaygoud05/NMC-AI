@@ -31,8 +31,7 @@ export function useBreakpoint() {
   };
 }
 
-// Keep existing useIsMobile for backward compatibility
 export function useIsMobile() {
-  const { isMobile } = useBreakpoint();
-  return isMobile;
+  const { isMobileOrTablet } = useBreakpoint();
+  return isMobileOrTablet;
 }

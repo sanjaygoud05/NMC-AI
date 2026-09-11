@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -10,40 +10,33 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
-
-// Lazy-loaded pages — Phase 0 shells
-const Ingest = lazy(() => import("./pages/Ingest"));
-const DatasetHistory = lazy(() => import("./pages/DatasetHistory"));
-const Materials = lazy(() => import("./pages/Materials"));
-const MaterialDetail = lazy(() => import("./pages/MaterialDetail"));
-const Matches = lazy(() => import("./pages/Matches"));
-const MatchDetail = lazy(() => import("./pages/MatchDetail"));
-const Review = lazy(() => import("./pages/Review"));
-const Standardization = lazy(() => import("./pages/Standardization"));
-const CommonMaster = lazy(() => import("./pages/CommonMaster"));
-const CommonMasterDetail = lazy(() => import("./pages/CommonMasterDetail"));
-const LegacyMapping = lazy(() => import("./pages/LegacyMapping"));
-const Procurement = lazy(() => import("./pages/Procurement"));
-const DataQuality = lazy(() => import("./pages/DataQuality"));
-const CPSEAnalytics = lazy(() => import("./pages/CPSEAnalytics"));
-const Evaluation = lazy(() => import("./pages/Evaluation"));
-const Jobs = lazy(() => import("./pages/Jobs"));
-const Settings = lazy(() => import("./pages/Settings"));
+import Ingest from "./pages/Ingest";
+import DatasetHistory from "./pages/DatasetHistory";
+import Materials from "./pages/Materials";
+import MaterialDetail from "./pages/MaterialDetail";
+import Matches from "./pages/Matches";
+import MatchDetail from "./pages/MatchDetail";
+import Review from "./pages/Review";
+import Standardization from "./pages/Standardization";
+import CommonMaster from "./pages/CommonMaster";
+import CommonMasterDetail from "./pages/CommonMasterDetail";
+import LegacyMapping from "./pages/LegacyMapping";
+import Procurement from "./pages/Procurement";
+import DataQuality from "./pages/DataQuality";
+import CPSEAnalytics from "./pages/CPSEAnalytics";
+import Evaluation from "./pages/Evaluation";
+import Jobs from "./pages/Jobs";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
       retry: 1,
     },
   },
 });
-
-const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen bg-background">
-    <div className="text-muted-foreground text-sm">Loading…</div>
-  </div>
-);
 
 const App = () => {
   // Force dark mode as default on initial load
@@ -63,8 +56,7 @@ const App = () => {
             <TooltipProvider>
               <Sonner />
               <BrowserRouter>
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
+                <Routes>
                   {/* Root redirect */}
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
@@ -98,10 +90,12 @@ const App = () => {
                   {/* Legacy Mapping */}
                   <Route path="/legacy-mapping" element={<LegacyMapping />} />
 
-                  {/* Analytics */}
+                  {/* Procurement */}
+                  <Route path="/procurement" element={<Procurement />} />
+
+                  {/* Analytics & Quality */}
                   <Route path="/data-quality" element={<DataQuality />} />
                   <Route path="/cpse-analytics" element={<CPSEAnalytics />} />
-                  <Route path="/procurement" element={<Procurement />} />
                   <Route path="/evaluation" element={<Evaluation />} />
 
                   {/* System */}
@@ -112,12 +106,11 @@ const App = () => {
                   {/* 404 */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </TooltipProvider>
-        </DatasetProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+              </BrowserRouter>
+            </TooltipProvider>
+          </DatasetProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 };

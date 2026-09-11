@@ -44,9 +44,11 @@ import {
 import { useDataset } from '@/contexts/DatasetContext';
 import { toast } from 'sonner';
 
-/** Format uppercase or raw strings into clean readable title case while preserving standards */
-function formatReadableText(text: string | null | undefined): string {
-  if (!text || text.trim() === '' || text.trim() === '-') return '—';
+/** Format uppercase or raw strings/numbers into clean readable title case while preserving standards */
+function formatReadableText(text: unknown): string {
+  if (text === null || text === undefined) return '—';
+  const str = String(text).trim();
+  if (str === '' || str === '-') return '—';
   const acronyms = new Set([
     'ASTM', 'ASME', 'ISO', 'DIN', 'ANSI', 'API', 'BS', 'IS', 'XLPE', 'PVC',
     'SS', 'CS', 'MS', 'GI', 'CI', 'WCB', 'CF8M', 'NBR', 'PTFE', 'EPDM',
@@ -55,7 +57,7 @@ function formatReadableText(text: string | null | undefined): string {
     'SCH', 'NOS', 'MTR', 'KG', 'LTR', 'SET', 'BOX', 'PKT', 'PAIR', 'IN', 'MM', 'CM', 'M'
   ]);
 
-  const clean = text.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  const clean = str.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
   const words = clean.split(' ');
   return words
     .map((w) => {
@@ -65,6 +67,15 @@ function formatReadableText(text: string | null | undefined): string {
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     })
     .join(' ');
+}
+
+/** Guarantee an array of CPSE strings to prevent runtime map/join crashes */
+function getCpseList(coverage: unknown): string[] {
+  if (Array.isArray(coverage)) return coverage.filter(Boolean).map(String);
+  if (typeof coverage === 'string') {
+    return coverage.split(';').map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
 }
 
 export default function CommonMaster() {
@@ -84,6 +95,15 @@ export default function CommonMaster() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailRecord, setDetailRecord] = useState<CommonMaterialRecord | null>(null);
 
+  // If no dataset selected, automatically default to BASELINE so user never lands on a blank view
+  useEffect(() => {
+    if (!activeDatasetId || activeDatasetId === 'NONE') {
+      selectDataset('BASELINE');
+    }
+  }, [activeDatasetId, selectDataset]);
+
+  const effectiveDatasetId = activeDatasetId && activeDatasetId !== 'NONE' ? activeDatasetId : 'BASELINE';
+
   const fetchCatalog = async () => {
     try {
       setLoading(true);
@@ -92,11 +112,11 @@ export default function CommonMaster() {
           search: search.trim() || undefined,
           family: familyFilter,
           governance_status: statusFilter,
-          dataset_id: activeDatasetId,
+          dataset_id: effectiveDatasetId,
           page,
           page_size: 15,
         }),
-        commonMasterService.getStats(activeDatasetId).catch(() => null),
+        commonMasterService.getStats(effectiveDatasetId).catch(() => null),
       ]);
 
       setMaterials(catData.items || []);
@@ -113,13 +133,13 @@ export default function CommonMaster() {
 
   useEffect(() => {
     fetchCatalog();
-  }, [search, familyFilter, statusFilter, page, activeDatasetId]);
+  }, [search, familyFilter, statusFilter, page, effectiveDatasetId]);
 
   const openInspector = async (record: CommonMaterialRecord) => {
     setSelectedRecord(record);
     setDetailLoading(true);
     try {
-      const full = await commonMasterService.getDetail(record.common_code, activeDatasetId);
+      const full = await commonMasterService.getDetail(record.common_code, effectiveDatasetId);
       setDetailRecord(full);
     } catch {
       setDetailRecord(record);
@@ -207,45 +227,6 @@ export default function CommonMaster() {
     );
   };
 
-  if (activeDatasetId === 'NONE') {
-    return (
-      <AppLayout>
-        <div className="space-y-6">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Common Material Master
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Governed multi-CPSE master catalog unifying material descriptions and specifications.
-            </p>
-          </div>
-          <Card className="border-border bg-card p-12">
-            <EmptyState
-              icon={Database}
-              title="No Dataset Selected"
-              description="Please upload or select a material dataset to view the Common Material Master."
-              action={{
-                label: 'Upload Dataset',
-                icon: Upload,
-                href: '/ingest',
-              }}
-            />
-            <div className="mt-4 flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => selectDataset('BASELINE')}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Or select Frozen Baseline (1,250 records)
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </AppLayout>
-    );
-  }
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -302,8 +283,8 @@ export default function CommonMaster() {
         </div>
 
         {/* Clean Filter Controls */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 bg-card border border-border p-2.5 rounded-xl shadow-sm">
-          <div className="relative flex-1 w-full">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 sm:gap-3 bg-card border border-border p-2.5 rounded-xl shadow-sm">
+          <div className="relative flex-1 w-full min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search code, description, category, grade..."
@@ -312,7 +293,7 @@ export default function CommonMaster() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="pl-9 pr-8 bg-background border-border text-sm h-9"
+              className="pl-9 pr-8 bg-background border-border text-sm h-9 w-full"
             />
             {search && (
               <button
@@ -327,7 +308,7 @@ export default function CommonMaster() {
             )}
           </div>
 
-          <div className="w-full sm:w-48">
+          <div className="w-full md:w-48">
             <Select
               value={familyFilter}
               onValueChange={(val) => {
@@ -335,21 +316,23 @@ export default function CommonMaster() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 text-sm bg-background border-border">
+              <SelectTrigger className="h-9 text-sm bg-background border-border w-full">
                 <SelectValue placeholder="All Families" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Families</SelectItem>
-                {(stats?.unique_families || []).map((fam) => (
-                  <SelectItem key={fam} value={fam}>
-                    {formatReadableText(fam)}
-                  </SelectItem>
-                ))}
+                {(stats?.unique_families || [])
+                  .filter((fam) => Boolean(fam && String(fam).trim()))
+                  .map((fam) => (
+                    <SelectItem key={String(fam)} value={String(fam)}>
+                      {formatReadableText(fam)}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="w-full sm:w-52">
+          <div className="w-full md:w-52">
             <Select
               value={statusFilter}
               onValueChange={(val) => {
@@ -357,7 +340,7 @@ export default function CommonMaster() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 text-sm bg-background border-border">
+              <SelectTrigger className="h-9 text-sm bg-background border-border w-full">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -375,7 +358,7 @@ export default function CommonMaster() {
               variant="ghost"
               size="sm"
               onClick={resetFilters}
-              className="h-9 text-xs text-muted-foreground hover:text-foreground gap-1"
+              className="h-9 text-xs text-muted-foreground hover:text-foreground gap-1 self-end md:self-auto"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Reset
@@ -383,9 +366,9 @@ export default function CommonMaster() {
           )}
         </div>
 
-        {/* Clean, Readable Table */}
+        {/* Clean, Readable Enterprise Table */}
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto w-full">
             <Table className="min-w-[760px]">
               <TableHeader className="bg-muted/30">
                 <TableRow className="border-border">
@@ -429,11 +412,12 @@ export default function CommonMaster() {
                   materials.map((m) => {
                     const readableTitle = formatReadableText(m.common_description);
                     const specs = [
-                      m.material_grade && m.material_grade !== '-' ? `Grade: ${formatReadableText(m.material_grade)}` : null,
-                      m.nominal_size && m.nominal_size !== '-' ? `Size: ${formatReadableText(m.nominal_size)}` : null,
-                      m.standard_spec && m.standard_spec !== '-' ? `Std: ${m.standard_spec.toUpperCase()}` : null,
-                      m.unit_of_measure && m.unit_of_measure !== '-' ? `UOM: ${m.unit_of_measure.toUpperCase()}` : null,
+                      m.material_grade && String(m.material_grade) !== '-' ? `Grade: ${formatReadableText(m.material_grade)}` : null,
+                      m.nominal_size && String(m.nominal_size) !== '-' ? `Size: ${formatReadableText(m.nominal_size)}` : null,
+                      m.standard_spec && String(m.standard_spec) !== '-' ? `Std: ${String(m.standard_spec).toUpperCase()}` : null,
+                      m.unit_of_measure && String(m.unit_of_measure) !== '-' ? `UOM: ${String(m.unit_of_measure).toUpperCase()}` : null,
                     ].filter(Boolean);
+                    const coverageList = getCpseList(m.cpse_coverage);
 
                     return (
                       <TableRow
@@ -459,11 +443,11 @@ export default function CommonMaster() {
                         </TableCell>
                         <TableCell className="py-3.5">
                           <div className="flex flex-wrap gap-1">
-                            {m.cpse_coverage.map((cpse) => getCpseBadge(cpse))}
+                            {coverageList.map((cpse) => getCpseBadge(cpse))}
                           </div>
                         </TableCell>
                         <TableCell className="py-3.5 text-center text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{m.member_count}</span>
+                          <span className="font-medium text-foreground">{m.member_count ?? 1}</span>
                         </TableCell>
                         <TableCell className="py-3.5">
                           {getStatusBadge(m.governance_status)}
@@ -544,9 +528,9 @@ export default function CommonMaster() {
                     {formatReadableText(selectedRecord.common_description)}
                   </DialogTitle>
                   <div className="text-xs text-muted-foreground flex items-center gap-2 pt-0.5">
-                    <span>CPSEs: {selectedRecord.cpse_coverage.join(', ')}</span>
+                    <span>CPSEs: {getCpseList(selectedRecord.cpse_coverage).join(', ') || 'N/A'}</span>
                     <span>•</span>
-                    <span>{selectedRecord.member_count} Mapped Items</span>
+                    <span>{selectedRecord.member_count ?? 1} Mapped Items</span>
                   </div>
                 </DialogHeader>
 
@@ -611,7 +595,7 @@ export default function CommonMaster() {
                       ))
                     ) : (
                       <div className="p-3 text-muted-foreground">
-                        Participating CPSEs: {selectedRecord.cpse_coverage.join(', ')}
+                        Participating CPSEs: {getCpseList(selectedRecord.cpse_coverage).join(', ') || 'N/A'}
                       </div>
                     )}
                   </div>

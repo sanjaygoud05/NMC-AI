@@ -225,7 +225,7 @@ export default function Standardization() {
         {activeTab === 'canonicalization' && (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
               <Card className="border-border bg-card">
                 <CardContent className="pt-4">
                   <div className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 font-medium">
@@ -315,8 +315,8 @@ export default function Standardization() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="overflow-x-auto w-full">
+                  <Table className="min-w-[720px]">
                     <TableHeader>
                       <TableRow className="border-border hover:bg-transparent">
                         <TableHead className="w-28 text-xs">Code</TableHead>
