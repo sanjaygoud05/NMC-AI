@@ -4,7 +4,7 @@
  * atomic decision submission, and append-only audit history.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE } from './apiConfig';
 
 export interface ValidatedCandidateRecord {
   candidate_id: string;

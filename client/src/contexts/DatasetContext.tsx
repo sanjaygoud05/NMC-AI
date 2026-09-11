@@ -34,7 +34,7 @@ interface DatasetContextType {
 
 const DatasetContext = createContext<DatasetContextType | undefined>(undefined);
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE } from '@/services/apiConfig';
 const STORAGE_KEY = 'sih26099_active_dataset_id';
 
 export function DatasetProvider({ children }: { children: ReactNode }) {
