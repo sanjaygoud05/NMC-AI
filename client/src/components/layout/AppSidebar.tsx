@@ -11,6 +11,7 @@ import {
   Activity,
   History,
   Layers,
+  ShoppingCart,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Link } from 'react-router-dom';
@@ -73,6 +74,11 @@ const navItems: NavItem[] = [
     title: 'Common Material Master',
     url: '/common-master',
     icon: Database,
+  },
+  {
+    title: 'Procurement Intelligence',
+    url: '/procurement',
+    icon: ShoppingCart,
   },
   {
     title: 'Data Quality',
