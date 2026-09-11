@@ -63,6 +63,12 @@ class DatasetRegistryService:
                         "error_message": None,
                         "data_dir": "data/processed",
                         "source_file": "data/raw/CPSE_Material_Master_cleaned.csv",
+                        "current_phase": "COMPLETED",
+                        "progress": 100,
+                        "created_at": "2026-03-31T00:00:00Z",
+                        "started_at": "2026-03-31T00:00:00Z",
+                        "completed_at": "2026-03-31T00:00:00Z",
+                        "cpse_count": 4,
                     }
                 },
             }
@@ -135,7 +141,7 @@ class DatasetRegistryService:
         now_str = datetime.now(timezone.utc).isoformat()
         if status == "PROCESSING" and not entry.get("processing_started_at"):
             entry["processing_started_at"] = now_str
-        elif status in ["COMPLETED", "FAILED"]:
+        elif status in ["COMPLETED", "FAILED", "CANCELLED"]:
             entry["processing_completed_at"] = now_str
         if extra_fields:
             entry.update(extra_fields)
@@ -246,6 +252,12 @@ class DatasetRegistryService:
             "error_message": error_msg,
             "data_dir": str(dataset_dir / "processed"),
             "source_file": str(source_path),
+            "current_phase": None,
+            "progress": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": None,
+            "completed_at": None,
+            "cpse_count": len(val_result.get("cpse_summary", {})),
         }
 
         manifest = self._load_manifest()

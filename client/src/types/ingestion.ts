@@ -18,6 +18,13 @@ export interface IngestionJob {
   metadata: Record<string, unknown>;
 }
 
+export interface IngestionResult {
+  jobId: string;
+  totalRecords: number;
+  validRecords: number;
+  errorCount: number;
+}
+
 export interface ValidationResult {
   isValid: boolean;
   errors: ValidationError[];
@@ -67,18 +74,13 @@ export interface FieldAnalysis {
   nullCount: number;
 }
 
+import type { JobStatus } from './jobs';
+
 export type IngestionType = 
   | 'initial_import'
   | 'incremental_update'
   | 'bulk_upload'
   | 'api_sync';
-
-export type JobStatus = 
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
 
 export interface IngestionStatus {
   jobId: string;

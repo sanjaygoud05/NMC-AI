@@ -21,6 +21,15 @@ from fastapi.testclient import TestClient
 from server.app.main import app
 
 client = TestClient(app)
+_orig_get = client.get
+
+def _get_with_baseline(url, *args, **kwargs):
+    if "dataset_id=" not in url and not (kwargs.get("params") and "dataset_id" in kwargs["params"]):
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}dataset_id=BASELINE"
+    return _orig_get(url, *args, **kwargs)
+
+client.get = _get_with_baseline
 
 RAW_BASELINE_PATH = "data/raw/CPSE_Material_Master_cleaned.csv"
 EXPECTED_RAW_SHA256 = "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1"

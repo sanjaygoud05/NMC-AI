@@ -10,14 +10,49 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Package } from 'lucide-react';
-import { mockMaterials } from '@/lib/mock/materials';
+import { ArrowLeft, Package, Loader2 } from 'lucide-react';
+import { useDataset } from '@/contexts/DatasetContext';
+import { materialService } from '@/services/materialService';
+import { useQuery } from '@tanstack/react-query';
+import type { Material } from '@/types';
 
 export default function MaterialDetail() {
   const { id } = useParams<{ id: string }>();
-  const material = mockMaterials.find((m) => m.id === id);
+  const { activeDatasetId } = useDataset();
 
-  if (!material) {
+  const { data: material, isLoading, error } = useQuery({
+    queryKey: ['material', id, activeDatasetId],
+    queryFn: () => materialService.getMaterialById(id!),
+    enabled: !!id && activeDatasetId !== 'NONE',
+  });
+
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Package className="h-12 w-12 text-muted-foreground" />
+          <h2 className="text-xl font-semibold">No Dataset Selected</h2>
+          <p className="text-muted-foreground">Please select a dataset to view material details</p>
+          <Button asChild variant="outline">
+            <Link to="/materials"><ArrowLeft className="h-4 w-4 mr-2" />Back to Explorer</Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
+          <p className="text-muted-foreground">Loading material details...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (error || !material) {
     return (
       <AppLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -42,7 +77,7 @@ export default function MaterialDetail() {
         </div>
 
         <PageHeader
-          title={material.materialCode}
+          title={material.material_code || material.materialCode}
           description={material.description}
         />
 
@@ -55,11 +90,11 @@ export default function MaterialDetail() {
             <CardContent>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
                 {[
-                  { label: 'Material Code', value: material.materialCode },
-                  { label: 'CPSE', value: material.cpseId },
+                  { label: 'Material Code', value: material.material_code || material.materialCode },
+                  { label: 'CPSE', value: material.cpse || material.cpseId },
                   { label: 'Category', value: material.category ?? '—' },
-                  { label: 'Material Type', value: material.materialType ?? '—' },
-                  { label: 'Unit of Measure', value: material.unit ?? '—' },
+                  { label: 'Material Type', value: (material.material_type || material.materialType) ?? '—' },
+                  { label: 'Unit of Measure', value: (material.unit_of_measure || material.unit) ?? '—' },
                   { label: 'Manufacturer', value: material.manufacturer ?? '—' },
                 ].map(({ label, value }) => (
                   <div key={label}>
@@ -94,26 +129,28 @@ export default function MaterialDetail() {
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Standardization</p>
-                  <StatusBadge status={material.standardizationStatus} />
+                  <StatusBadge status={material.standardization_status || material.standardizationStatus} />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Match Status</p>
                   <Badge variant="outline" className="text-xs capitalize">
-                    {material.matchStatus.replace(/_/g, ' ')}
+                    {(material.match_status || material.matchStatus)?.replace(/_/g, ' ') || '—'}
                   </Badge>
                 </div>
-                {material.confidenceScore !== undefined && material.confidenceScore !== null && (
+                {(material.confidence_score !== undefined && material.confidence_score !== null) || 
+                 (material.confidenceScore !== undefined && material.confidenceScore !== null) ? (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Confidence Score</p>
                     <p className="text-2xl font-bold text-foreground">
-                      {(material.confidenceScore * 100).toFixed(0)}%
+                      {((material.confidence_score || material.confidenceScore) * 100).toFixed(0)}%
                     </p>
                   </div>
-                )}
+                ) : null}
               </CardContent>
             </Card>
 
-            {(material.standardizedDescription || material.normalizedDescription) && (
+            {(material.standardized_description || material.normalized_description || 
+              material.standardizedDescription || material.normalizedDescription) && (
               <Card className="border-border bg-card">
                 <CardHeader>
                   <CardTitle className="text-base font-semibold">Descriptions</CardTitle>
@@ -123,16 +160,20 @@ export default function MaterialDetail() {
                     <p className="text-xs text-muted-foreground">Original</p>
                     <p className="text-sm text-foreground mt-0.5">{material.description}</p>
                   </div>
-                  {material.normalizedDescription && (
+                  {(material.normalized_description || material.normalizedDescription) && (
                     <div>
                       <p className="text-xs text-muted-foreground">Normalized</p>
-                      <p className="text-sm text-foreground font-mono mt-0.5">{material.normalizedDescription}</p>
+                      <p className="text-sm text-foreground font-mono mt-0.5">
+                        {material.normalized_description || material.normalizedDescription}
+                      </p>
                     </div>
                   )}
-                  {material.standardizedDescription && (
+                  {(material.standardized_description || material.standardizedDescription) && (
                     <div>
                       <p className="text-xs text-muted-foreground">Standardized</p>
-                      <p className="text-sm text-primary font-medium mt-0.5">{material.standardizedDescription}</p>
+                      <p className="text-sm text-primary font-medium mt-0.5">
+                        {material.standardized_description || material.standardizedDescription}
+                      </p>
                     </div>
                   )}
                 </CardContent>

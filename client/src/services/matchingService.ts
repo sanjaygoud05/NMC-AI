@@ -29,6 +29,15 @@ export interface MatchCandidateRecord {
   candidate_rank: number;
   evidence_summary: string;
 
+  // Enriched humanized fields
+  source_title?: string;
+  candidate_title?: string;
+  category?: string;
+  status_tier?: 'Exact' | 'Equivalent' | 'Review' | 'Not match';
+  score_percent?: number;
+  explainable_summary?: string;
+  attributes?: Record<string, { source: string; candidate: string }>;
+
   // Key canonical attributes (source/canonical)
   material_family_similarity?: number | null;
   material_type_similarity?: number | null;
@@ -99,11 +108,13 @@ export interface MatchesResponse {
   total: number;
   skip: number;
   limit: number;
+  categories?: string[];
 }
 
 export const matchingService = {
-  async getMatchingReport(): Promise<MatchingReport> {
-    const res = await fetch(`${API_BASE}/api/matches/report`);
+  async getMatchingReport(datasetId?: string): Promise<MatchingReport> {
+    const q = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/matches/report${q}`);
     if (!res.ok) {
       throw new Error(`Failed to load matching report: ${res.statusText}`);
     }
@@ -116,6 +127,8 @@ export const matchingService = {
     source_cpse?: string;
     candidate_cpse?: string;
     confidence_level?: string;
+    category?: string;
+    status_filter?: string;
     cross_cpse_only?: boolean;
     exact_key_only?: boolean;
     incompatible_only?: boolean;
@@ -128,6 +141,8 @@ export const matchingService = {
     if (params?.source_cpse && params.source_cpse !== 'all') query.set('source_cpse', params.source_cpse);
     if (params?.candidate_cpse && params.candidate_cpse !== 'all') query.set('candidate_cpse', params.candidate_cpse);
     if (params?.confidence_level && params.confidence_level !== 'all') query.set('confidence_level', params.confidence_level);
+    if (params?.category && params.category !== 'all') query.set('category', params.category);
+    if (params?.status_filter && params.status_filter !== 'all') query.set('status_filter', params.status_filter);
     if (params?.cross_cpse_only) query.set('cross_cpse_only', 'true');
     if (params?.exact_key_only) query.set('exact_key_only', 'true');
     if (params?.incompatible_only) query.set('incompatible_only', 'true');
@@ -141,15 +156,31 @@ export const matchingService = {
     return await res.json();
   },
 
-  async getMatchDetail(candidateId: string): Promise<{
+  async getMatchDetail(candidateId: string, datasetId?: string): Promise<{
     candidate: MatchCandidateRecord;
     attribute_breakdown: Record<string, { similarity: number | null }>;
   }> {
-    const res = await fetch(`${API_BASE}/api/matches/${candidateId}`);
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/matches/${candidateId}${query}`);
     if (!res.ok) {
       throw new Error(`Failed to load candidate details: ${res.statusText}`);
     }
     return await res.json();
+  },
+
+  async getMatchById(id: string, datasetId?: string): Promise<MatchCandidateRecord | null> {
+    if (!datasetId || datasetId === 'NONE') return null;
+    try {
+      const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      const res = await fetch(`${API_BASE}/api/matches/${encodeURIComponent(id)}${query}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.candidate || data;
+      }
+    } catch {
+      // Backend unavailable - return null
+    }
+    return null;
   },
 
   async triggerMatching(): Promise<Record<string, unknown>> {

@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useDataset } from '@/contexts/DatasetContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
@@ -52,7 +53,11 @@ import {
   FileCode,
   RefreshCw,
   Eye,
+  Database,
+  Upload,
 } from 'lucide-react';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { toast } from 'sonner';
 import {
   standardizationService,
   type ExtractionStatus,
@@ -78,6 +83,7 @@ const COVERAGE_ATTRS = [
 ];
 
 export default function Standardization() {
+  const { activeDatasetId, selectDataset } = useDataset();
   const [activeTab, setActiveTab] = useState<'canonicalization' | 'extraction'>('canonicalization');
   const [extStatus, setExtStatus] = useState<ExtractionStatus | null>(null);
   const [stdReport, setStdReport] = useState<StandardizationReport | null>(null);
@@ -88,48 +94,96 @@ export default function Standardization() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [activeDatasetId]);
 
   const loadData = async () => {
-    const [attrRes, stdRes] = await Promise.all([
-      standardizationService.getAttributesSummary(),
-      standardizationService.getStandardizationReport(),
-    ]);
-    setExtStatus(attrRes);
-    setStdReport(stdRes);
+    if (!activeDatasetId || activeDatasetId === 'NONE') {
+      setStdReport(null);
+      setExtStatus(null);
+      return;
+    }
+    try {
+      const [report, status] = await Promise.all([
+        standardizationService.getStandardizationReport(activeDatasetId),
+        standardizationService.getAttributesSummary(activeDatasetId),
+      ]);
+      setStdReport(report);
+      setExtStatus(status);
+    } catch {
+      // Keep empty if failed
+    }
   };
 
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <PageHeader
+            title="Material Standardization & Canonicalization"
+            description="Phase 4: Deterministic rule-based canonical representations and stable material identity keys without similarity matching."
+          />
+          <Card className="border-border bg-card p-12">
+            <EmptyState
+              icon={Database}
+              title="No Dataset Selected"
+              description="Upload a material master dataset or explicitly select an existing dataset to begin."
+              action={{
+                label: "Upload Dataset",
+                icon: Upload,
+                href: "/ingest",
+              }}
+            />
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectDataset('BASELINE')}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Or select Frozen Baseline (1,250 records)
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
   const handleRunStandardization = async () => {
-    setIsRunning(true);
     try {
+      setIsRunning(true);
       await standardizationService.runStandardization();
+      toast.success('Standardization pipeline completed successfully');
       await loadData();
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Standardization failed';
+      toast.error(msg);
     } finally {
       setIsRunning(false);
     }
   };
 
-  const handleInspectMaterial = async (code: string) => {
-    setIsDetailLoading(true);
+  const handleInspect = async (matCode: string) => {
     try {
-      const detail = await standardizationService.getStandardizedMaterial(code);
+      setIsDetailLoading(true);
+      const detail = await standardizationService.getStandardizedMaterial(matCode);
       setSelectedMaterial(detail);
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not load details';
+      toast.error(msg);
     } finally {
       setIsDetailLoading(false);
     }
   };
 
+  const handleInspectMaterial = handleInspect;
+
   const examples = stdReport?.examples || [];
   const filteredExamples = examples.filter(
     (ex) =>
-      ex.material_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ex.original_description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ex.canonical_material_key.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ex.standardized_description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ex.canonical_material_key.toLowerCase().includes(searchQuery.toLowerCase())
+      ex.material_code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -138,36 +192,35 @@ export default function Standardization() {
         <PageHeader
           title="Material Standardization & Canonicalization"
           description="Phase 4: Deterministic rule-based canonical representations and stable material identity keys without similarity matching."
-          actions={
-            <div className="flex items-center gap-2">
-              <Button
-                variant={activeTab === 'canonicalization' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('canonicalization')}
-              >
-                <KeyRound className="h-4 w-4 mr-1.5" />
-                Phase 4: Canonicalization
-              </Button>
-              <Button
-                variant={activeTab === 'extraction' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('extraction')}
-              >
-                <Cpu className="h-4 w-4 mr-1.5" />
-                Phase 3: Attributes
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRunStandardization}
-                disabled={isRunning}
-              >
-                <RefreshCw className={`h-4 w-4 mr-1.5 ${isRunning ? 'animate-spin' : ''}`} />
-                {isRunning ? 'Running...' : 'Re-run Phase 4'}
-              </Button>
-            </div>
-          }
-        />
+        >
+          <div className="flex items-center gap-2">
+            <Button
+              variant={activeTab === 'canonicalization' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('canonicalization')}
+            >
+              <KeyRound className="h-4 w-4 mr-1.5" />
+              Phase 4: Canonicalization
+            </Button>
+            <Button
+              variant={activeTab === 'extraction' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('extraction')}
+            >
+              <Cpu className="h-4 w-4 mr-1.5" />
+              Phase 3: Attributes
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRunStandardization}
+              disabled={isRunning}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1.5 ${isRunning ? 'animate-spin' : ''}`} />
+              {isRunning ? 'Running...' : 'Re-run Phase 4'}
+            </Button>
+          </div>
+        </PageHeader>
 
         {activeTab === 'canonicalization' && (
           <>
@@ -438,10 +491,10 @@ export default function Standardization() {
                   <div className="font-mono text-xs text-primary bg-background p-2 rounded border border-border break-all">
                     {selectedMaterial.standardization.canonical_material_key}
                   </div>
-                  {selectedMaterial.standardization.rules_applied && (
+                  {selectedMaterial.standardization.standardization_rules_applied && (
                     <div className="text-[11px] text-muted-foreground pt-1">
                       <span className="font-semibold text-foreground">Rules Applied: </span>
-                      {selectedMaterial.standardization.rules_applied}
+                      {selectedMaterial.standardization.standardization_rules_applied}
                     </div>
                   )}
                   {selectedMaterial.standardization.conflict_detail && (

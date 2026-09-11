@@ -7,7 +7,8 @@
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,8 @@ import {
   Package,
   Boxes,
   HelpCircle,
+  Database,
+  Upload,
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, Legend } from 'recharts';
 import {
@@ -62,7 +65,7 @@ import {
 import { useDataset } from '@/contexts/DatasetContext';
 
 export default function Procurement() {
-  const { activeDatasetId } = useDataset();
+  const { activeDatasetId, selectDataset } = useDataset();
   const [activeTab, setActiveTab] = useState('opportunities');
   const [kpis, setKpis] = useState<ProcurementKPIs | null>(null);
   const [loading, setLoading] = useState(true);
@@ -212,6 +215,41 @@ export default function Procurement() {
     return matchesSearch && matchesUom;
   });
 
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <PageHeader
+            title="Procurement Intelligence & Joint Sourcing Analytics"
+            description="Deterministic, evidence-based procurement analytics layer with volume conservation"
+          />
+          <Card className="border-border bg-card p-12">
+            <EmptyState
+              icon={Database}
+              title="No Dataset Selected"
+              description="Upload a material master dataset or explicitly select an existing dataset to begin."
+              action={{
+                label: "Upload Dataset",
+                icon: Upload,
+                href: "/ingest",
+              }}
+            />
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectDataset('BASELINE')}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Or select Frozen Baseline (1,250 records)
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -238,7 +276,7 @@ export default function Procurement() {
                 <Boxes className="h-4 w-4 text-primary" />
               </div>
               <div className="text-3xl font-extrabold text-foreground mt-2">
-                {kpis ? kpis.total_materials_analyzed.toLocaleString() : '1,250'}
+                {kpis ? kpis.total_materials_analyzed.toLocaleString() : '—'}
               </div>
               <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
                 <span>Active: {kpis ? kpis.active_materials_count : '—'}</span>
@@ -255,11 +293,11 @@ export default function Procurement() {
                 <Layers className="h-4 w-4 text-emerald-500" />
               </div>
               <div className="text-3xl font-extrabold text-foreground mt-2">
-                {kpis ? kpis.total_cmm_entities.toLocaleString() : '1,249'}
+                {kpis ? kpis.total_cmm_entities.toLocaleString() : '—'}
               </div>
               <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
-                <span className="text-emerald-500 font-medium">Multi-CPSE: 1</span>
-                <span>Standalone: 1,248</span>
+                <span className="text-emerald-500 font-medium">Multi-CPSE: {kpis?.multi_cpse_cmms_count ?? '—'}</span>
+                <span>Standalone: {kpis?.standalone_cmms_count ?? '—'}</span>
               </div>
             </CardContent>
           </Card>
@@ -273,15 +311,15 @@ export default function Procurement() {
               <div className="mt-2 space-y-0.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-foreground">NOS:</span>
-                  <span className="font-mono">{kpis?.volume_by_uom?.NOS ? kpis.volume_by_uom.NOS.toLocaleString() : '9,144,354'}</span>
+                  <span className="font-mono">{kpis?.volume_by_uom?.NOS ? kpis.volume_by_uom.NOS.toLocaleString() : '—'}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-foreground">MTR:</span>
-                  <span className="font-mono">{kpis?.volume_by_uom?.MTR ? kpis.volume_by_uom.MTR.toLocaleString() : '5,858,592'}</span>
+                  <span className="font-mono">{kpis?.volume_by_uom?.MTR ? kpis.volume_by_uom.MTR.toLocaleString() : '—'}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-foreground">LTR:</span>
-                  <span className="font-mono">{kpis?.volume_by_uom?.LTR ? kpis.volume_by_uom.LTR.toLocaleString() : '764,341'}</span>
+                  <span className="font-mono">{kpis?.volume_by_uom?.LTR ? kpis.volume_by_uom.LTR.toLocaleString() : '—'}</span>
                 </div>
               </div>
               <div className="text-[10px] text-muted-foreground/80 mt-1 italic">
@@ -297,12 +335,12 @@ export default function Procurement() {
                 <Sparkles className="h-4 w-4 text-amber-500" />
               </div>
               <div className="text-3xl font-extrabold text-amber-500 mt-2">
-                {kpis ? kpis.total_opportunities_count : '71'}
+                {kpis ? kpis.total_opportunities_count : '—'}
               </div>
               <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
-                <span>P95 Conc: 69</span>
-                <span>Multi-CPSE: 1</span>
-                <span>OEM Div: 1</span>
+                <span>P95 Conc: {kpis?.opportunities_by_type?.HIGH_VOLUME_CONCENTRATION ?? '—'}</span>
+                <span>Multi-CPSE: {kpis?.opportunities_by_type?.MULTI_CPSE_DEMAND_AGGREGATION ?? '—'}</span>
+                <span>OEM Div: {kpis?.opportunities_by_type?.MANUFACTURER_DIVERSITY_SIGNAL ?? '—'}</span>
               </div>
             </CardContent>
           </Card>
@@ -378,13 +416,14 @@ export default function Procurement() {
                 <div className="h-52 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={[
-                      { name: 'Volume Concentration (P95)', count: kpis?.opportunities_by_type?.HIGH_VOLUME_CONCENTRATION ?? 69, fill: '#3b82f6' },
-                      { name: 'Joint Sourcing (Multi-CPSE)', count: kpis?.opportunities_by_type?.MULTI_CPSE_DEMAND_AGGREGATION ?? 1, fill: '#10b981' },
-                      { name: 'OEM Diversity Signal', count: kpis?.opportunities_by_type?.MANUFACTURER_DIVERSITY_SIGNAL ?? 1, fill: '#f59e0b' },
+                      { name: 'Volume Concentration (P95)', count: kpis?.opportunities_by_type?.HIGH_VOLUME_CONCENTRATION ?? 0, fill: '#3b82f6' },
+                      { name: 'Joint Sourcing (Multi-CPSE)', count: kpis?.opportunities_by_type?.MULTI_CPSE_DEMAND_AGGREGATION ?? 0, fill: '#10b981' },
+                      { name: 'OEM Diversity Signal', count: kpis?.opportunities_by_type?.MANUFACTURER_DIVERSITY_SIGNAL ?? 0, fill: '#f59e0b' },
                     ]}>
                       <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
                       <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip
+                        cursor={false}
                         contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
                         formatter={(val: number) => [`${val} opportunities`, 'Count']}
                       />
@@ -725,6 +764,7 @@ export default function Procurement() {
                       <XAxis dataKey="cpse" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`} />
                       <Tooltip
+                        cursor={false}
                         contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
                         formatter={(val: number, name: string) => [`${val.toLocaleString()} ${name.toUpperCase()}`, name.toUpperCase()]}
                       />
@@ -868,6 +908,7 @@ export default function Procurement() {
                       <XAxis dataKey="name" stroke="#888888" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-15} textAnchor="end" height={45} />
                       <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`} />
                       <Tooltip
+                        cursor={false}
                         contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
                         formatter={(val: number, _name: string, item: { payload: { uom: string } }) => [`${val.toLocaleString()} ${item.payload.uom}`, 'Annual Volume']}
                       />

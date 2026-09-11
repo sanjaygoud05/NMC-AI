@@ -71,22 +71,19 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
                   <SelectValue placeholder="Select dataset" />
                 </SelectTrigger>
                 <SelectContent align="end" className="bg-card border-border">
-                  <SelectItem value="ALL" className="text-xs font-semibold">
-                    All datasets (Combined Scope)
+                  <SelectItem value="NONE" className="text-xs font-medium text-muted-foreground">
+                    No dataset selected
                   </SelectItem>
                   <SelectItem value="BASELINE" className="text-xs">
-                    Baseline (1,250 records)
+                    Frozen Baseline
                   </SelectItem>
                   {datasets
-                    .filter((d) => d.dataset_id !== "BASELINE")
+                    .filter((d) => !d.is_baseline && d.dataset_id !== "BASELINE")
                     .map((d) => (
                       <SelectItem key={d.dataset_id} value={d.dataset_id} className="text-xs">
-                        {d.dataset_id} ({d.row_count} rows)
+                        {d.file_name}
                       </SelectItem>
                     ))}
-                  <SelectItem value="NONE" className="text-xs text-muted-foreground">
-                    No active dataset
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

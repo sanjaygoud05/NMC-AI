@@ -89,7 +89,7 @@ export const commonMasterService = {
     page?: number;
     page_size?: number;
     dataset_id?: string;
-  }): Promise<CommonMasterCatalogResponse> {
+  } = {}): Promise<CommonMasterCatalogResponse> {
     const q = new URLSearchParams();
     if (params.search) q.append('search', params.search);
     if (params.family && params.family !== 'all') q.append('family', params.family);
@@ -138,9 +138,10 @@ export const commonMasterService = {
   /**
    * Fetch single common material detail with members
    */
-  async getDetail(commonId: string): Promise<CommonMaterialRecord> {
+  async getDetail(commonId: string, datasetId?: string): Promise<CommonMaterialRecord> {
     const token = localStorage.getItem('supabase.auth.token') || '';
-    const res = await fetch(`${API_BASE}/api/common-master/${encodeURIComponent(commonId)}`, {
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/common-master/${encodeURIComponent(commonId)}${query}`, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

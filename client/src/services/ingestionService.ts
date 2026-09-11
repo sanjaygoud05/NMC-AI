@@ -16,11 +16,7 @@ export const ingestionService = {
     } catch {
       // Fallback
     }
-    return {
-      status: 'completed',
-      message: 'CPSE_Material_Master_cleaned.csv verified (1,250 records, 18 columns)',
-      dataset_summary: { rows: 1250, columns: 18 },
-    };
+    return null;
   },
 
   async getProfile() {
@@ -40,10 +36,7 @@ export const ingestionService = {
     } catch {
       // Fallback
     }
-    return {
-      data_quality_score: 93.1,
-      field_qualities: [],
-    };
+    return null;
   },
 
   // -------------------------------------------------------
@@ -63,59 +56,9 @@ export const ingestionService = {
       // Fallback
     }
     return {
-      status: 'completed',
-      normalized_file_exists: true,
-      report: {
-        phase: 'Phase 03: Data Cleaning & Normalization',
-        dataset_rows: 1250,
-        records_changed: 1250,
-        records_unchanged: 0,
-        percentage_changed: 100.0,
-        columns_processed: [
-          'Material_Description',
-          'Specification',
-          'Material_Grade',
-          'Size',
-          'Coating',
-          'Manufacturer',
-          'Manufacturer_Part_No',
-          'Unit',
-        ],
-        rule_application_counts: {
-          LOWERCASE_TEXT: 5120,
-          ABBREVIATION_EXPANSION: 247,
-        },
-        field_change_counts: {
-          Material_Description: 1250,
-          Specification: 1250,
-          Material_Grade: 1250,
-          Coating: 1029,
-          Size: 341,
-        },
-        uom_mapping_counts: {
-          'NOS -> NOS': 730,
-          'MTR -> MTR': 463,
-          'LTR -> LTR': 57,
-        },
-        unique_descriptions: {
-          before_normalization: 357,
-          after_normalization: 349,
-        },
-        uom_variants: {
-          before_normalization: 3,
-          after_normalization: 3,
-        },
-        missing_values_preserved: 221,
-        values_artificially_filled: 0,
-        material_codes_changed: 0,
-        raw_dataset_hash_before:
-          '1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1',
-        raw_dataset_hash_after:
-          '1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1',
-        raw_dataset_unchanged: true,
-        output_row_count: 1250,
-        input_row_count: 1250,
-      },
+      status: 'not_run',
+      normalized_file_exists: false,
+      report: null,
     };
   },
 
@@ -170,24 +113,44 @@ export const ingestionService = {
   },
 
   async getIngestionJobs() {
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/jobs`);
+      if (res.ok) return await res.json();
+    } catch {
+      // Fallback
+    }
     return [] as IngestionJob[];
   },
 
   async getIngestionJob(jobId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/jobs/${jobId}`);
+      if (res.ok) return await res.json();
+    } catch {
+      // Fallback
+    }
     return null as IngestionJob | null;
   },
 
   async getIngestionStatus(jobId: string) {
-    return {
-      jobId,
-      status: 'completed',
-      progress: 100,
-      currentPhase: 'phase01_ingestion',
-      message: 'Raw dataset ingested',
-    } as IngestionStatus;
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/jobs/${jobId}/status`);
+      if (res.ok) return await res.json();
+    } catch {
+      // Fallback
+    }
+    return null as IngestionStatus | null;
   },
 
   async cancelIngestion(jobId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/jobs/${jobId}/cancel`, {
+        method: 'POST',
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // Fallback
+    }
     return false;
   },
 

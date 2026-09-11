@@ -29,7 +29,17 @@ def setup_procurement_data():
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    c = TestClient(app)
+    orig_get = c.get
+
+    def get_with_baseline(url, *args, **kwargs):
+        if "dataset_id=" not in url and not (kwargs.get("params") and "dataset_id" in kwargs["params"]):
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}dataset_id=BASELINE"
+        return orig_get(url, *args, **kwargs)
+
+    c.get = get_with_baseline
+    return c
 
 
 class TestProcurementAPI:

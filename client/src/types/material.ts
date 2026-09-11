@@ -5,21 +5,33 @@
 
 export interface Material {
   id: string;
-  materialCode: string;
-  cpseId: string;
+  material_code: string;
+  cpse: string;
   description: string;
-  normalizedDescription?: string;
-  standardizedDescription?: string;
+  normalized_description?: string;
+  standardized_description?: string;
   category?: string;
-  materialType?: string;
-  unit?: string;
+  material_type?: string;
+  unit_of_measure?: string;
   manufacturer?: string;
   attributes?: Record<string, string | number | null>;
-  standardizationStatus: StandardizationStatus;
-  matchStatus: MatchStatus;
+  standardization_status: StandardizationStatus;
+  match_status?: MatchStatus;
+  confidence_score?: number;
+  created_at?: string;
+  updated_at?: string;
+  // Legacy field names for backward compatibility
+  materialCode?: string;
+  cpseId?: string;
+  normalizedDescription?: string;
+  standardizedDescription?: string;
+  materialType?: string;
+  unit?: string;
+  standardizationStatus?: StandardizationStatus;
+  matchStatus?: MatchStatus;
   confidenceScore?: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MaterialAttribute {

@@ -1,0 +1,231 @@
+{
+  "phase": "Phase 05: Material Standardization & Canonicalization",
+  "dataset": {
+    "input_rows": 8,
+    "output_rows": 8,
+    "input_columns": 45,
+    "output_columns": 76
+  },
+  "standardization": {
+    "records_processed": 8,
+    "records_changed": 8,
+    "records_unchanged": 0,
+    "change_rate": 1.0
+  },
+  "canonical_keys": {
+    "total_records": 8,
+    "unique_canonical_keys": 8,
+    "records_with_unique_keys": 8,
+    "records_sharing_canonical_key": 0
+  },
+  "conflicts": {
+    "records_with_preserved_conflicts": 8,
+    "conflicts_resolved": 0,
+    "conflict_types": {
+      "size": 6,
+      "material_grade": 8
+    }
+  },
+  "rule_usage": [
+    {
+      "rule_id": "FAMILY_UPPERCASE",
+      "count": 8
+    },
+    {
+      "rule_id": "MANUFACTURER_PART_NO_TRIM",
+      "count": 8
+    },
+    {
+      "rule_id": "MANUFACTURER_TRIM",
+      "count": 8
+    },
+    {
+      "rule_id": "SPECIFICATION_TRIM",
+      "count": 8
+    },
+    {
+      "rule_id": "TYPE_UPPERCASE",
+      "count": 8
+    },
+    {
+      "rule_id": "UNIT_UPPERCASE",
+      "count": 8
+    },
+    {
+      "rule_id": "COATING_UPPERCASE",
+      "count": 6
+    },
+    {
+      "rule_id": "SIZE_FORMAT_INCH",
+      "count": 6
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_API",
+      "count": 6
+    },
+    {
+      "rule_id": "CONNECTION_UPPERCASE",
+      "count": 5
+    },
+    {
+      "rule_id": "GRADE_FORMAT_ASTM_A216_WCB",
+      "count": 4
+    },
+    {
+      "rule_id": "MATERIAL_UPPERCASE",
+      "count": 3
+    },
+    {
+      "rule_id": "GRADE_FORMAT_SS304",
+      "count": 2
+    },
+    {
+      "rule_id": "LENGTH_UPPERCASE",
+      "count": 2
+    },
+    {
+      "rule_id": "SIZE_FORMAT_METRIC_BOLT",
+      "count": 2
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_ISO",
+      "count": 2
+    },
+    {
+      "rule_id": "GRADE_FORMAT_ASTM_A105",
+      "count": 1
+    },
+    {
+      "rule_id": "GRADE_FORMAT_SS316",
+      "count": 1
+    }
+  ],
+  "attribute_impact": {
+    "material_family": {
+      "input_unique_values": 2,
+      "output_unique_values": 2,
+      "changed_count": 8
+    },
+    "material_type": {
+      "input_unique_values": 3,
+      "output_unique_values": 3,
+      "changed_count": 8
+    },
+    "material_subtype": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "material": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 3
+    },
+    "material_grade": {
+      "input_unique_values": 4,
+      "output_unique_values": 4,
+      "changed_count": 3
+    },
+    "nominal_size": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "size": {
+      "input_unique_values": 5,
+      "output_unique_values": 5,
+      "changed_count": 0
+    },
+    "length": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 0
+    },
+    "width": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "height": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "diameter": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "thickness": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "pressure_class": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "schedule": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "rating": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "standard": {
+      "input_unique_values": 3,
+      "output_unique_values": 3,
+      "changed_count": 0
+    },
+    "specification": {
+      "input_unique_values": 3,
+      "output_unique_values": 3,
+      "changed_count": 0
+    },
+    "coating": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 6
+    },
+    "connection_type": {
+      "input_unique_values": 3,
+      "output_unique_values": 3,
+      "changed_count": 5
+    },
+    "end_type": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "construction": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "orientation": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "manufacturer": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 8
+    },
+    "manufacturer_part_no": {
+      "input_unique_values": 8,
+      "output_unique_values": 8,
+      "changed_count": 0
+    },
+    "unit": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 0
+    }
+  },
+  "examples": []
+}

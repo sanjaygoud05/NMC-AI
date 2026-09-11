@@ -91,6 +91,9 @@ scratch/
 data/evaluation/*
 !data/evaluation/README.md
 !data/evaluation/reports/.gitkeep
+data/uploads/*
+!data/uploads/datasets_manifest.json
+!data/uploads/.gitkeep
 
 # ML artifacts
 ml/embeddings/*.bin

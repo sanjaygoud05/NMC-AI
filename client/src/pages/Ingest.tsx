@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
@@ -59,6 +60,7 @@ interface UploadResult {
 }
 
 export default function Ingest() {
+  const navigate = useNavigate();
   const { activeDatasetId, datasets, selectDataset, refreshDatasets } = useDataset();
   const [normStatus, setNormStatus] = useState<NormalizationStatus | null>(null);
   const [normLoading, setNormLoading] = useState(false);
@@ -95,16 +97,37 @@ export default function Ingest() {
     try {
       setUploadLoading(true);
       const res = await ingestionService.uploadFile(file);
-      setUploadResult(res as unknown as UploadResult);
+      // Map new API response shape into UploadResult for display
+      const summary = (res as Record<string, unknown>).dataset_summary as Record<string, unknown> | undefined;
+      const mapped: UploadResult = {
+        status: res.status || 'UPLOADED',
+        dataset_id: res.dataset_id,
+        filename: res.filename || (res as Record<string, unknown>).file_name as string || file.name,
+        size_bytes: (summary?.size_bytes as number) || file.size,
+        size_mb: (summary?.size_bytes as number) ? Number(((summary.size_bytes as number) / 1048576).toFixed(2)) : Number((file.size / 1048576).toFixed(2)),
+        sha256: (summary?.file_hash as string) || res.sha256 || '',
+        is_official_raw_baseline: res.is_official_raw_baseline || false,
+        record_count: (summary?.row_count as number) || res.record_count || 0,
+        column_count: (summary?.column_count as number) || res.column_count || 18,
+        schema_info: res.schema_info || {
+          is_valid: true,
+          expected_count: 18,
+          actual_count: (summary?.column_count as number) || 18,
+          missing_columns: [],
+          extra_columns: [],
+        },
+        cpse_distribution: (summary?.cpse_summary as Record<string, number>) || res.cpse_distribution || {},
+        staged_path: res.staged_path || null,
+        message: res.message || `Dataset registered with ID ${res.dataset_id}`,
+      };
+      setUploadResult(mapped);
       await refreshDatasets();
-      if (res.dataset_id) {
-        selectDataset(res.dataset_id);
-        toast.success(`Dataset registered: ${res.dataset_id}. Phase 2–10 processing in background.`);
-      } else if (res.is_official_raw_baseline) {
-        toast.success(`Verified official Phase 1 raw baseline dataset: ${file.name}`);
-      } else {
-        toast.success(`Dataset ${file.name} uploaded (${res.record_count} records)`);
-      }
+      const targetId = res.dataset_id || 'BASELINE';
+      selectDataset(targetId);
+      toast.success(`Dataset ${file.name} uploaded successfully! Loading Dashboard...`);
+      setTimeout(() => {
+        navigate('/');
+      }, 700);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to upload file';
       toast.error(msg);

@@ -4,7 +4,6 @@
  */
 
 import type { Material, MaterialAttribute } from '@/types';
-import { mockMaterials } from '@/lib/mock/materials';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -45,27 +44,32 @@ export const materialService = {
         return data;
       }
     } catch {
-      // Offline fallback
+      // Backend unavailable - return empty results
     }
 
     return {
-      materials: mockMaterials.slice(skip, skip + limit),
-      total: mockMaterials.length,
+      materials: [],
+      total: 0,
       skip,
       limit,
-      dataset_id: params?.datasetId || 'BASELINE',
+      dataset_id: params?.datasetId || 'NONE',
     };
   },
 
   async getMaterial(id: string, datasetId?: string): Promise<Material | null> {
+    if (!datasetId || datasetId === 'NONE') return null;
     try {
       const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
       const res = await fetch(`${API_BASE}/api/materials/${encodeURIComponent(id)}${query}`);
       if (res.ok) return await res.json();
     } catch {
-      // Use mock fallback when backend is offline
+      // Backend unavailable - return null
     }
-    return mockMaterials.find((m) => m.id === id || m.materialCode === id) ?? null;
+    return null;
+  },
+
+  async getMaterialById(id: string, datasetId?: string): Promise<Material | null> {
+    return this.getMaterial(id, datasetId);
   },
 
   async searchMaterials(query: string, datasetId?: string): Promise<Material[]> {
@@ -83,5 +87,13 @@ export const materialService = {
 
   async bulkUpdateMaterials(ids: string[], data: Partial<Material>): Promise<Material[]> {
     return [];
+  },
+
+  async ingestDataset(_file: File): Promise<Record<string, unknown>> {
+    return {};
+  },
+
+  async validateDataset(_file: File): Promise<Record<string, unknown>> {
+    return {};
   },
 };

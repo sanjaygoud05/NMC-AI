@@ -1,19 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { materialService } from '@/services/materialService';
+import { useDataset } from '@/contexts/DatasetContext';
 import type { Material, MaterialFilters } from '@/types';
 
 export function useMaterials(filters?: MaterialFilters) {
+  const { activeDatasetId } = useDataset();
   return useQuery({
-    queryKey: ['materials', filters],
-    queryFn: () => materialService.getMaterials(filters),
+    queryKey: ['materials', filters, activeDatasetId],
+    queryFn: () => materialService.getMaterials({ ...filters, datasetId: activeDatasetId }),
+    enabled: activeDatasetId !== 'NONE',
   });
 }
 
 export function useMaterial(id: string) {
+  const { activeDatasetId } = useDataset();
   return useQuery({
-    queryKey: ['material', id],
-    queryFn: () => materialService.getMaterial(id),
-    enabled: !!id,
+    queryKey: ['material', id, activeDatasetId],
+    queryFn: () => materialService.getMaterial(id, activeDatasetId),
+    enabled: !!id && activeDatasetId !== 'NONE',
   });
 }
 
@@ -26,17 +30,6 @@ export function useUpdateMaterial() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['materials'] });
       queryClient.invalidateQueries({ queryKey: ['material'] });
-    },
-  });
-}
-
-export function useDeleteMaterial() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => materialService.deleteMaterial(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] });
     },
   });
 }

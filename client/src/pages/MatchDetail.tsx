@@ -25,25 +25,72 @@ import {
   Calendar,
   Layers,
   ArrowRight,
+  Loader2,
+  Package,
 } from 'lucide-react';
-import { mockMatches } from '@/lib/mock/matches';
-import { mockMaterials } from '@/lib/mock/materials';
+import { useDataset } from '@/contexts/DatasetContext';
+import { matchingService } from '@/services/matchingService';
+import { materialService } from '@/services/materialService';
+import { useQuery } from '@tanstack/react-query';
+import type { MaterialMatch } from '@/types';
+import type { Material } from '@/types';
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
-  const match = mockMatches.find((m) => m.id === id) ?? mockMatches[0];
+  const { activeDatasetId } = useDataset();
 
-  const sourceMaterial = mockMaterials.find((m) => m.id === match?.sourceMaterialId);
-  const candidateMaterial = mockMaterials.find((m) => m.id === match?.candidateMaterialId);
+  const { data: match, isLoading: matchLoading, error: matchError } = useQuery({
+    queryKey: ['match', id, activeDatasetId],
+    queryFn: () => matchingService.getMatchById(id!, activeDatasetId),
+    enabled: !!id && activeDatasetId !== 'NONE',
+  });
 
-  const [decision, setDecision] = useState<string>(match?.decision ?? 'candidate');
+  const { data: sourceMaterial, isLoading: sourceLoading } = useQuery({
+    queryKey: ['material', match?.source_material_code, activeDatasetId],
+    queryFn: () => materialService.getMaterialById(match!.source_material_code, activeDatasetId),
+    enabled: !!match?.source_material_code && activeDatasetId !== 'NONE',
+  });
+
+  const { data: candidateMaterial, isLoading: candidateLoading } = useQuery({
+    queryKey: ['material', match?.candidate_material_code, activeDatasetId],
+    queryFn: () => materialService.getMaterialById(match!.candidate_material_code, activeDatasetId),
+    enabled: !!match?.candidate_material_code && activeDatasetId !== 'NONE',
+  });
+
+  const [decision, setDecision] = useState<string>('candidate');
 
   const handleAction = (newDecision: string, label: string) => {
     setDecision(newDecision);
     toast.success(`Match status updated to: ${label}`);
   };
 
-  if (!match) {
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Package className="h-12 w-12 text-muted-foreground" />
+          <h2 className="text-xl font-semibold">No Dataset Selected</h2>
+          <p className="text-muted-foreground">Please select a dataset to view match details</p>
+          <Button asChild variant="outline">
+            <Link to="/matches"><ArrowLeft className="h-4 w-4 mr-2" />Back to Matches</Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (matchLoading || sourceLoading || candidateLoading) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
+          <p className="text-muted-foreground">Loading match details...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (matchError || !match) {
     return (
       <AppLayout>
         <div className="text-center py-12">
@@ -72,8 +119,8 @@ export default function MatchDetail() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <PageHeader
-            title={`Harmonization Pair #${match.id}`}
-            description={`Comparing ${sourceMaterial?.cpseId || 'CPSE 1'} and ${candidateMaterial?.cpseId || 'CPSE 2'} records`}
+            title={`Harmonization Pair #${match.candidate_id}`}
+            description={`Comparing ${sourceMaterial?.cpse || 'CPSE 1'} and ${candidateMaterial?.cpse || 'CPSE 2'} records`}
           />
           <div className="flex items-center gap-2 shrink-0">
             <Button
@@ -111,27 +158,27 @@ export default function MatchDetail() {
             <CardContent className="pt-6">
               <div className="text-xs text-muted-foreground">Confidence Score</div>
               <div className="text-3xl font-bold text-primary mt-1">
-                {(match.confidenceScore * 100).toFixed(1)}%
+                {((match.final_match_score ?? 0) * 100).toFixed(1)}%
               </div>
-              <Progress value={match.confidenceScore * 100} className="mt-2 h-1.5" />
+              <Progress value={(match.final_match_score ?? 0) * 100} className="mt-2 h-1.5" />
             </CardContent>
           </Card>
           <Card className="border-border bg-card">
             <CardContent className="pt-6">
               <div className="text-xs text-muted-foreground">Semantic Cosine Score</div>
               <div className="text-3xl font-bold text-foreground mt-1">
-                {(match.semanticScore * 100).toFixed(1)}%
+                {((match.embedding_similarity ?? 0) * 100).toFixed(1)}%
               </div>
-              <Progress value={match.semanticScore * 100} className="mt-2 h-1.5" />
+              <Progress value={(match.embedding_similarity ?? 0) * 100} className="mt-2 h-1.5" />
             </CardContent>
           </Card>
           <Card className="border-border bg-card">
             <CardContent className="pt-6">
               <div className="text-xs text-muted-foreground">Fuzzy Token Overlap</div>
               <div className="text-3xl font-bold text-foreground mt-1">
-                {(match.fuzzyScore * 100).toFixed(1)}%
+                {((match.description_similarity ?? 0) * 100).toFixed(1)}%
               </div>
-              <Progress value={match.fuzzyScore * 100} className="mt-2 h-1.5" />
+              <Progress value={(match.description_similarity ?? 0) * 100} className="mt-2 h-1.5" />
             </CardContent>
           </Card>
           <Card className="border-border bg-card">
@@ -141,7 +188,7 @@ export default function MatchDetail() {
                 <Badge className="capitalize text-sm font-semibold">{decision}</Badge>
               </div>
               <div className="text-[11px] text-muted-foreground mt-2">
-                Reviewed by: {match.reviewedBy ?? 'Automated Pipeline'}
+                Level: {match.confidence_level ?? 'Automated Pipeline'}
               </div>
             </CardContent>
           </Card>
@@ -154,14 +201,14 @@ export default function MatchDetail() {
             <CardHeader className="border-b border-border/50 pb-4">
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-xs gap-1">
-                  <Building2 className="h-3 w-3" /> Source: {sourceMaterial?.cpseId ?? 'CPSE-A'}
+                  <Building2 className="h-3 w-3" /> Source: {sourceMaterial?.cpse ?? 'CPSE-A'}
                 </Badge>
-                <span className="font-mono text-xs text-muted-foreground">{sourceMaterial?.materialCode}</span>
+                <span className="font-mono text-xs text-muted-foreground">{sourceMaterial?.material_code}</span>
               </div>
               <CardTitle className="text-base font-semibold mt-2">{sourceMaterial?.description}</CardTitle>
-              {sourceMaterial?.standardizedDescription && (
+              {sourceMaterial?.standardized_description && (
                 <CardDescription className="text-emerald-500 text-xs">
-                  Std: {sourceMaterial.standardizedDescription}
+                  Std: {sourceMaterial.standardized_description}
                 </CardDescription>
               )}
             </CardHeader>
@@ -173,7 +220,7 @@ export default function MatchDetail() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Unit of Measurement:</span>
-                  <div className="font-medium mt-0.5">{sourceMaterial?.unit ?? '—'}</div>
+                  <div className="font-medium mt-0.5">{sourceMaterial?.unit_of_measure ?? '—'}</div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Manufacturer / Brand:</span>
@@ -181,7 +228,7 @@ export default function MatchDetail() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Status:</span>
-                  <div className="font-medium mt-0.5 capitalize">{sourceMaterial?.standardizationStatus ?? '—'}</div>
+                  <div className="font-medium mt-0.5 capitalize">{sourceMaterial?.standardization_status ?? '—'}</div>
                 </div>
               </div>
 
@@ -191,7 +238,7 @@ export default function MatchDetail() {
                   Extracted Attributes
                 </span>
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  {Object.entries(sourceMaterial?.attributes ?? { grade: 'IS 2062', thickness: '10mm' }).map(
+                  {Object.entries(sourceMaterial?.attributes ?? {}).map(
                     ([k, v]) => (
                       <div key={k} className="p-2 rounded bg-muted/40 border border-border/50">
                         <div className="text-[10px] text-muted-foreground capitalize">{k}</div>
@@ -209,14 +256,14 @@ export default function MatchDetail() {
             <CardHeader className="border-b border-border/50 pb-4">
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-xs gap-1">
-                  <Building2 className="h-3 w-3" /> Candidate: {candidateMaterial?.cpseId ?? 'CPSE-B'}
+                  <Building2 className="h-3 w-3" /> Candidate: {candidateMaterial?.cpse ?? 'CPSE-B'}
                 </Badge>
-                <span className="font-mono text-xs text-muted-foreground">{candidateMaterial?.materialCode}</span>
+                <span className="font-mono text-xs text-muted-foreground">{candidateMaterial?.material_code}</span>
               </div>
               <CardTitle className="text-base font-semibold mt-2">{candidateMaterial?.description}</CardTitle>
-              {candidateMaterial?.standardizedDescription && (
+              {candidateMaterial?.standardized_description && (
                 <CardDescription className="text-emerald-500 text-xs">
-                  Std: {candidateMaterial.standardizedDescription}
+                  Std: {candidateMaterial.standardized_description}
                 </CardDescription>
               )}
             </CardHeader>
@@ -228,7 +275,7 @@ export default function MatchDetail() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Unit of Measurement:</span>
-                  <div className="font-medium mt-0.5">{candidateMaterial?.unit ?? '—'}</div>
+                  <div className="font-medium mt-0.5">{candidateMaterial?.unit_of_measure ?? '—'}</div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Manufacturer / Brand:</span>
@@ -236,7 +283,7 @@ export default function MatchDetail() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Status:</span>
-                  <div className="font-medium mt-0.5 capitalize">{candidateMaterial?.standardizationStatus ?? '—'}</div>
+                  <div className="font-medium mt-0.5 capitalize">{candidateMaterial?.standardization_status ?? '—'}</div>
                 </div>
               </div>
 
@@ -246,7 +293,7 @@ export default function MatchDetail() {
                   Extracted Attributes
                 </span>
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  {Object.entries(candidateMaterial?.attributes ?? { grade: 'IS 2062', thickness: '10mm' }).map(
+                  {Object.entries(candidateMaterial?.attributes ?? {}).map(
                     ([k, v]) => (
                       <div key={k} className="p-2 rounded bg-muted/40 border border-border/50">
                         <div className="text-[10px] text-muted-foreground capitalize">{k}</div>
@@ -270,7 +317,8 @@ export default function MatchDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-3.5 rounded-lg bg-muted/30 border border-border text-sm text-foreground leading-relaxed">
-              {match.matchReason ??
+              {match.conflict_details ||
+                match.evidence_summary ||
                 'Candidate matches across semantic embeddings and key technical attributes with a confidence margin of over 85%.'}
             </div>
 
@@ -278,7 +326,7 @@ export default function MatchDetail() {
               <div className="p-3 rounded border border-border">
                 <div className="font-medium text-muted-foreground">Attribute Matching Score</div>
                 <div className="text-lg font-bold text-foreground mt-1">
-                  {(match.attributeScore * 100).toFixed(0)}%
+                  {((match.attribute_agreement ?? 0) * 100).toFixed(0)}%
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Direct overlap on Grade, Size, and Base Material specifications.
