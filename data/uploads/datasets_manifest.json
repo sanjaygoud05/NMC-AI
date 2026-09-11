@@ -1,8 +1,8 @@
 {
   "version": "1.0",
-  "last_updated": "2026-09-11T14:11:44.180683+00:00",
+  "last_updated": "2026-09-11T17:02:27.829371+00:00",
   "sequence_counters": {
-    "20260911": 1
+    "20260911": 2
   },
   "datasets": {
     "BASELINE": {
@@ -49,6 +49,32 @@
       "current_phase": null,
       "progress": 0,
       "created_at": "2026-09-11T14:11:43.781203+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "cpse_count": 2
+    },
+    "UPLOAD-20260911-002": {
+      "dataset_id": "UPLOAD-20260911-002",
+      "file_name": "_MConverter.eu_test_data.csv",
+      "file_hash": "77848b9b82f54253199a5681555c1c498e3168a26ee8f22adf68ed8743f159a9",
+      "row_count": 8,
+      "column_count": 18,
+      "cpse_summary": {
+        "CPCL": 7,
+        "HPCL": 1
+      },
+      "status": "COMPLETED",
+      "is_baseline": false,
+      "schema_version": "1.0",
+      "uploaded_at": "2026-09-11T17:02:26.897948+00:00",
+      "processing_started_at": "2026-09-11T17:02:27.044524+00:00",
+      "processing_completed_at": "2026-09-11T17:02:27.829344+00:00",
+      "error_message": null,
+      "data_dir": "data\\uploads\\UPLOAD-20260911-002\\processed",
+      "source_file": "data\\uploads\\UPLOAD-20260911-002\\source.csv",
+      "current_phase": null,
+      "progress": 0,
+      "created_at": "2026-09-11T17:02:26.898089+00:00",
       "started_at": null,
       "completed_at": null,
       "cpse_count": 2

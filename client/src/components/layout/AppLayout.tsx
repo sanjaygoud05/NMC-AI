@@ -32,7 +32,8 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
   const { theme, toggleTheme } = useTheme();
   const { activeDatasetId, datasets, selectDataset } = useDataset();
 
-  if (isLoading || (requireRole && !role)) {
+  // Show skeleton while auth state is being determined
+  if (isLoading) {
     return (
       <div className="dark min-h-screen flex items-center justify-center bg-background">
         <div className="space-y-4 w-full max-w-md p-8">
@@ -47,6 +48,7 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
+
 
   // Check role-based access
   if (requireRole && role && !requireRole.includes(role)) {
