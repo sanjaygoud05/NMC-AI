@@ -730,9 +730,13 @@ class StandardizationService:
                     "material_code": code,
                     "original_description": r["Material_Description"],
                     "phase3_extracted": {
-                        k.replace("EX_", ""): r[k]
+                        k.replace("EX_", ""): str(r[k]).strip()
                         for k in df.columns
-                        if k.startswith("EX_") and r.get(k) is not None and str(r.get(k)).strip()
+                        if k.startswith("EX_")
+                        and r.get(k) is not None
+                        and not pd.isna(r.get(k))
+                        and str(r.get(k)).strip()
+                        and str(r.get(k)).strip().lower() != "nan"
                     },
                     "standardized_description": r["Standardized_Description"],
                     "canonical_material_key": r["Canonical_Material_Key"],

@@ -149,16 +149,24 @@ export const ingestionService = {
   // Shared ingestion utilities
   // -------------------------------------------------------
 
-  async uploadFile(file: File, options?: { cpseId?: string; datasetName?: string }) {
-    console.log('[ingestionService] uploadFile called:', file.name, options);
-    return {
-      id: `job-${Date.now()}`,
-      jobType: 'ingestion',
-      phase: 'phase01_ingestion',
-      status: 'completed',
-      progress: 100,
-      startedAt: new Date().toISOString(),
-    } as unknown as IngestionJob;
+  async uploadFile(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('supabase.auth.token') || '';
+    const res = await fetch(`${API_BASE}/api/ingest/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to upload dataset file');
+    }
+    return res.json();
   },
 
   async getIngestionJobs() {

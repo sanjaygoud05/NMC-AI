@@ -1,0 +1,51 @@
+{
+  "phase": "Phase 10 \u2014 Procurement Intelligence + Analytics",
+  "execution_metadata": {
+    "analysis_reference_date": "2026-03-31",
+    "linear_p95_method": "numpy_percentile_linear_interpolation",
+    "uom_conservation_enforced": true,
+    "financial_inventions_prohibited": true
+  },
+  "metrics": {
+    "total_source_materials": 1250,
+    "total_cmm_entities": 1249,
+    "multi_cpse_cmms_count": 1,
+    "standalone_cmms_count": 1248,
+    "volume_by_uom": {
+      "MTR": 5858592,
+      "NOS": 9144354,
+      "LTR": 764341
+    },
+    "cpse_material_distribution": {
+      "CPCL": 298,
+      "HPCL": 301,
+      "IOCL": 319,
+      "ONGC": 332
+    },
+    "total_opportunities_identified": 71,
+    "opportunities_by_type": {
+      "MULTI_CPSE_DEMAND_AGGREGATION": 1,
+      "HIGH_VOLUME_CONCENTRATION": 69,
+      "PURCHASE_DORMANCY_SIGNAL": 0,
+      "MANUFACTURER_DIVERSITY_SIGNAL": 1
+    }
+  },
+  "database_persistence": {
+    "facts_count": 1250,
+    "cmm_summaries_count": 1249,
+    "opportunities_count": 71
+  },
+  "files_generated": {
+    "procurement_facts_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\procurement_facts.csv",
+    "procurement_facts_sha256": "c5fa34b727d3da81197bce0d947cb634d466f971163f5c3a7f91584d866e8a36",
+    "cmm_consumption_summary_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\cmm_consumption_summary.csv",
+    "cmm_consumption_summary_sha256": "adb1f5e2653e644d4e36617c3d842e3f20c55d34660095f32ee204eb26a51ed5",
+    "cmm_purchase_summary_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\cmm_purchase_summary.csv",
+    "cmm_purchase_summary_sha256": "b768d579570c43cb48d63f6127f0e15dda3b8a0cddf1d8e6428e5bfe1a14cd19",
+    "cpse_procurement_summary_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\cpse_procurement_summary.csv",
+    "cpse_procurement_summary_sha256": "def508da033756b1ced3215da332c754026ba27fe809e8b214ac9a8746ebbde8",
+    "procurement_opportunities_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\procurement_opportunities.csv",
+    "procurement_opportunities_sha256": "7e83afdb74f95b73b77effd6f5d2ce02b4fe9f2599759c2f7851754e55b9445b",
+    "phase10_analytics_report_json": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\phase10_analytics_report.json"
+  }
+}

@@ -3,7 +3,7 @@
  * Shows Phase 1 (ingestion status) and Phase 2 (normalization results).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
@@ -25,15 +25,45 @@ import {
   ShieldCheck,
   Hash,
   ArrowRight,
+  Loader2,
+  Database,
+  Layers,
+  CheckCircle2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { mockProcessingJobs } from '@/lib/mock/jobs';
 import { ingestionService } from '@/services/ingestionService';
 import type { NormalizationStatus } from '@/types';
+
+interface UploadResult {
+  status: string;
+  filename: string;
+  size_bytes: number;
+  size_mb: number;
+  sha256: string;
+  is_official_raw_baseline: boolean;
+  record_count: number;
+  column_count: number;
+  schema_info: {
+    is_valid: boolean;
+    expected_count: number;
+    actual_count: number;
+    missing_columns: string[];
+    extra_columns: string[];
+  };
+  cpse_distribution: Record<string, number>;
+  staged_path?: string | null;
+  message: string;
+}
 
 export default function Ingest() {
   const jobs = mockProcessingJobs.slice(0, 3);
   const [normStatus, setNormStatus] = useState<NormalizationStatus | null>(null);
   const [normLoading, setNormLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     ingestionService.getNormalization().then(setNormStatus).catch(() => setNormStatus(null));
@@ -45,10 +75,58 @@ export default function Ingest() {
       await ingestionService.runNormalization();
       const status = await ingestionService.getNormalization();
       setNormStatus(status);
-    } catch {
-      // Keep existing status on error
+      toast.success('Phase 2 normalization completed successfully');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Normalization pipeline failed';
+      toast.error(msg);
     } finally {
       setNormLoading(false);
+    }
+  };
+
+  const handleUploadFile = async (file: File) => {
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Only CSV files are supported for material dataset ingestion');
+      return;
+    }
+
+    try {
+      setUploadLoading(true);
+      const res = await ingestionService.uploadFile(file);
+      setUploadResult(res as unknown as UploadResult);
+      if (res.is_official_raw_baseline) {
+        toast.success(`Verified official Phase 1 raw baseline dataset: ${file.name}`);
+      } else {
+        toast.success(`Dataset ${file.name} uploaded and profiled (${res.record_count} records)`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to upload file';
+      toast.error(msg);
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const onDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleUploadFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleUploadFile(e.target.files[0]);
     }
   };
 
@@ -63,24 +141,130 @@ export default function Ingest() {
         />
 
         {/* Upload Zone */}
-        <Card className="border-border bg-card border-dashed">
-          <CardContent className="py-14">
+        <Card
+          className={`border-border bg-card border-dashed cursor-pointer transition-all duration-200 ${
+            isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
+          }`}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={onFileChange}
+            accept=".csv"
+            className="hidden"
+          />
+          <CardContent className="py-12">
             <div className="flex flex-col items-center justify-center gap-4 text-center">
               <div className="p-4 rounded-full bg-primary/10 border border-primary/20">
-                <Upload className="h-8 w-8 text-primary" />
+                {uploadLoading ? (
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                ) : (
+                  <Upload className="h-8 w-8 text-primary" />
+                )}
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-foreground">Upload Material Dataset</h3>
+                <h3 className="text-lg font-semibold text-foreground">
+                  {uploadLoading ? 'Processing Dataset...' : 'Upload Material Dataset'}
+                </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Drag and drop your CSV file, or click to browse
+                  Drag and drop your CSV file, or click to browse from your device
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Accepts: <code className="bg-muted px-1 rounded text-xs">.csv</code> up to 500 MB
+                  Accepts: <code className="bg-muted px-1 rounded text-xs">.csv</code> (CPSE Master schema · 18 standard columns)
                 </p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploadLoading}
+                className="mt-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+              >
+                {uploadLoading ? 'Uploading...' : 'Browse File'}
+              </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Upload Result Profiling Card */}
+        {uploadResult && (
+          <Card className="border-border bg-card animate-in fade-in-50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                  Uploaded Dataset Profile: {uploadResult.filename}
+                </CardTitle>
+                {uploadResult.is_official_raw_baseline ? (
+                  <Badge className="bg-emerald-600 text-white font-mono text-xs">
+                    OFFICIAL FROZEN BASELINE
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    STAGED INGESTION DATASET
+                  </Badge>
+                )}
+              </div>
+              <CardDescription>
+                {uploadResult.message} · Size: {uploadResult.size_mb} MB ({uploadResult.size_bytes.toLocaleString()} bytes)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted/40 font-mono text-xs text-muted-foreground break-all">
+                SHA-256 Checksum: <span className="text-foreground font-semibold">{uploadResult.sha256}</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+                  <div className="text-2xl font-bold text-foreground">
+                    {uploadResult.record_count.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Records Profiled</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+                  <div className="text-2xl font-bold text-foreground">
+                    {uploadResult.column_count}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Columns Detected</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+                  <div className="text-2xl font-bold text-foreground">
+                    {Object.keys(uploadResult.cpse_distribution).length}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">CPSEs Identified</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+                  <div className={`text-2xl font-bold ${uploadResult.schema_info.is_valid ? 'text-emerald-500' : 'text-amber-500'}`}>
+                    {uploadResult.schema_info.is_valid ? '100%' : `${uploadResult.schema_info.actual_count}/${uploadResult.schema_info.expected_count}`}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Schema Match</div>
+                </div>
+              </div>
+
+              {Object.keys(uploadResult.cpse_distribution).length > 0 && (
+                <div className="p-3 rounded-lg bg-muted/20 border border-border space-y-2">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    CPSE Record Distribution
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(uploadResult.cpse_distribution).map(([cpse, cnt]) => (
+                      <Badge key={cpse} variant="outline" className="font-mono text-xs px-2 py-1">
+                        {cpse}: <span className="font-bold text-foreground ml-1">{cnt}</span>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Current Dataset */}
         <Card className="border-border bg-card">
