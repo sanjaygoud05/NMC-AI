@@ -1,0 +1,16 @@
+source_uom,canonical_uom,description,confidence,notes
+NOS,NOS,Number/Each (count),high,Dominant form in dataset (730 records) - canonical
+MTR,MTR,Metre (length),high,Standard form in dataset (463 records) - canonical
+LTR,LTR,Litre (volume),high,Standard form in dataset (57 records) - canonical
+EA,NOS,Each (count) - maps to NOS,high,If EA appears map to NOS (canonical count unit)
+PCS,NOS,Pieces - maps to NOS,high,If PCS appears map to NOS (canonical count unit)
+NO,NOS,Number - maps to NOS,medium,If standalone NO appears as unit maps to NOS
+KG,KG,Kilogram (mass),high,If appears keep as KG
+MT,MT,Metric Tonne (mass),high,If appears keep as MT
+M,MTR,Metre (length) - maps to MTR,medium,If standalone M appears as unit maps to MTR
+CM,CM,Centimetre (length),high,If appears keep as CM
+MM,MM,Millimetre (length),high,If appears keep as MM
+L,LTR,Litre - maps to LTR,high,If standalone L appears as unit maps to LTR
+SET,SET,Set (grouped items),high,If appears keep as SET
+BAG,BAG,Bag,high,If appears keep as BAG
+SQM,SQM,Square Metre,high,If appears keep as SQM

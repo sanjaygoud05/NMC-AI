@@ -1,0 +1,10 @@
+{
+  "embedding_method": "sentence_transformer_all-MiniLM-L6-v2",
+  "embedding_model": "all-MiniLM-L6-v2",
+  "embedding_dimension": 384,
+  "fallback_used": false,
+  "input_sha256": "5e93c66468d2813afd147234c53089f17b4400b07ca6ea168f3445a255fc72d6",
+  "record_count": 1250,
+  "generation_timestamp": "2026-09-10T20:54:08.800761+00:00",
+  "normalization": "l2_unit_norm"
+}

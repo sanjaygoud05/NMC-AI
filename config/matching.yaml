@@ -1,0 +1,41 @@
+# Phase 5: Candidate Generation & Semantic Matching Configuration
+
+embedding:
+  model_name: "sentence-transformers/all-MiniLM-L6-v2"
+  dimension: 384
+  batch_size: 64
+  device: "cpu"
+  normalize_embeddings: true
+  fallback_strategy: "tfidf_cosine" # Used only if local model loading fails
+
+blocking:
+  active_blocks:
+    - "family"
+    - "type"
+    - "standard"
+    - "size"
+    - "material_grade"
+    - "engineering_tokens"
+  prioritize_cross_cpse: true
+  retain_same_cpse: true
+  max_candidates_per_source: 30
+
+scoring:
+  weights:
+    canonical_key_exact: 0.30
+    embedding_similarity: 0.20
+    description_similarity: 0.10
+    attribute_agreement: 0.40
+  
+  penalties:
+    NO_CONFLICT: 0.00
+    REPRESENTATION_DIFFERENCE: 0.00
+    SOFT_ENGINEERING_DIFFERENCE: 0.15
+    HARD_INCOMPATIBLE: 0.50
+  
+  hard_incompatible_max_score: 0.60 # Hard incompatible pairs can never exceed 0.60 (cannot be HIGH)
+
+confidence_thresholds:
+  high: 0.85
+  medium: 0.65
+  low: 0.00

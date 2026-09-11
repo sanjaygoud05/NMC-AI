@@ -1,0 +1,910 @@
+{
+  "phase": "Phase 05: Material Standardization & Canonicalization",
+  "dataset": {
+    "input_rows": 1250,
+    "output_rows": 1250,
+    "input_columns": 44,
+    "output_columns": 81
+  },
+  "standardization": {
+    "records_processed": 1250,
+    "records_changed": 1250,
+    "records_unchanged": 0,
+    "change_rate": 1.0
+  },
+  "canonical_keys": {
+    "total_records": 1250,
+    "unique_canonical_keys": 254,
+    "records_with_unique_keys": 58,
+    "records_sharing_canonical_key": 1192
+  },
+  "conflicts": {
+    "records_with_preserved_conflicts": 268,
+    "conflicts_resolved": 0,
+    "conflict_types": {
+      "material_grade": 239,
+      "size": 38,
+      "material_family": 45,
+      "material_type": 27
+    }
+  },
+  "rule_usage": [
+    {
+      "rule_id": "MANUFACTURER_PART_NO_TRIM",
+      "count": 1250
+    },
+    {
+      "rule_id": "MANUFACTURER_TRIM",
+      "count": 1250
+    },
+    {
+      "rule_id": "SPECIFICATION_TRIM",
+      "count": 1250
+    },
+    {
+      "rule_id": "UNIT_CANONICAL",
+      "count": 1250
+    },
+    {
+      "rule_id": "TYPE_CANONICAL",
+      "count": 1226
+    },
+    {
+      "rule_id": "FAMILY_CANONICAL",
+      "count": 1200
+    },
+    {
+      "rule_id": "MATERIAL_CANONICAL",
+      "count": 748
+    },
+    {
+      "rule_id": "COATING_CANONICAL",
+      "count": 737
+    },
+    {
+      "rule_id": "SIZE_FORMAT_INCH",
+      "count": 476
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_IS",
+      "count": 425
+    },
+    {
+      "rule_id": "LENGTH_FORMAT_MM",
+      "count": 374
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_MULTI",
+      "count": 342
+    },
+    {
+      "rule_id": "COATING_UPPERCASE",
+      "count": 292
+    },
+    {
+      "rule_id": "GRADE_CANONICAL_CARBON_STEEL",
+      "count": 191
+    },
+    {
+      "rule_id": "SIZE_FORMAT_METRIC_BOLT",
+      "count": 191
+    },
+    {
+      "rule_id": "GRADE_FORMAT_SS316",
+      "count": 176
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_API",
+      "count": 176
+    },
+    {
+      "rule_id": "SUBTYPE_CANONICAL",
+      "count": 136
+    },
+    {
+      "rule_id": "CONNECTION_CANONICAL",
+      "count": 128
+    },
+    {
+      "rule_id": "DIAMETER_FORMAT_MM",
+      "count": 127
+    },
+    {
+      "rule_id": "GRADE_FORMAT_ASTM_A216_WCB",
+      "count": 124
+    },
+    {
+      "rule_id": "SIZE_FORMAT_SQMM",
+      "count": 117
+    },
+    {
+      "rule_id": "GRADE_CANONICAL_CERAMIC",
+      "count": 93
+    },
+    {
+      "rule_id": "SIZE_FORMAT_AMPERE",
+      "count": 93
+    },
+    {
+      "rule_id": "CONSTRUCTION_CANONICAL",
+      "count": 87
+    },
+    {
+      "rule_id": "GRADE_FORMAT_ASTM_A105",
+      "count": 74
+    },
+    {
+      "rule_id": "GRADE_CANONICAL_CHROME_STEEL",
+      "count": 71
+    },
+    {
+      "rule_id": "SIZE_BEARING_NUMBER",
+      "count": 71
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_ISO",
+      "count": 71
+    },
+    {
+      "rule_id": "GRADE_FORMAT_PT100",
+      "count": 69
+    },
+    {
+      "rule_id": "SIZE_FORMAT_WIRE",
+      "count": 69
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_IEC",
+      "count": 69
+    },
+    {
+      "rule_id": "GRADE_CANONICAL_SYNTHETIC_RUBBER",
+      "count": 68
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_SAE",
+      "count": 68
+    },
+    {
+      "rule_id": "GRADE_FORMAT_ASTM_A106_GRB",
+      "count": 62
+    },
+    {
+      "rule_id": "GRADE_CANONICAL_XLPE_CU",
+      "count": 59
+    },
+    {
+      "rule_id": "GRADE_CANONICAL_XLPE_AL",
+      "count": 58
+    },
+    {
+      "rule_id": "GRADE_CANONICAL_MINERAL_OIL",
+      "count": 57
+    },
+    {
+      "rule_id": "SIZE_FORMAT_LUBRICANT",
+      "count": 57
+    },
+    {
+      "rule_id": "GRADE_FORMAT_SS304",
+      "count": 54
+    },
+    {
+      "rule_id": "SIZE_FORMAT_BAR",
+      "count": 54
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_EN",
+      "count": 54
+    },
+    {
+      "rule_id": "SIZE_FORMAT_MM",
+      "count": 52
+    },
+    {
+      "rule_id": "SIZE_FORMAT_FRACTION_INCH",
+      "count": 52
+    },
+    {
+      "rule_id": "FAMILY_UPPERCASE",
+      "count": 50
+    },
+    {
+      "rule_id": "GRADE_FORMAT_ASTM_A234_WPB",
+      "count": 49
+    },
+    {
+      "rule_id": "GRADE_CANONICAL_GRAPHITE_SS316",
+      "count": 45
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_ASME",
+      "count": 45
+    },
+    {
+      "rule_id": "RATING_FORMAT_DEG",
+      "count": 35
+    },
+    {
+      "rule_id": "TYPE_UPPERCASE",
+      "count": 24
+    },
+    {
+      "rule_id": "SIZE_FORMAT_MIXED_INCH",
+      "count": 18
+    },
+    {
+      "rule_id": "ORIENTATION_CANONICAL",
+      "count": 17
+    }
+  ],
+  "attribute_impact": {
+    "material_family": {
+      "input_unique_values": 12,
+      "output_unique_values": 12,
+      "changed_count": 1250
+    },
+    "material_type": {
+      "input_unique_values": 20,
+      "output_unique_values": 20,
+      "changed_count": 1250
+    },
+    "material_subtype": {
+      "input_unique_values": 3,
+      "output_unique_values": 2,
+      "changed_count": 1250
+    },
+    "material": {
+      "input_unique_values": 7,
+      "output_unique_values": 6,
+      "changed_count": 1250
+    },
+    "material_grade": {
+      "input_unique_values": 15,
+      "output_unique_values": 15,
+      "changed_count": 773
+    },
+    "nominal_size": {
+      "input_unique_values": 1,
+      "output_unique_values": 0,
+      "changed_count": 1250
+    },
+    "size": {
+      "input_unique_values": 52,
+      "output_unique_values": 52,
+      "changed_count": 838
+    },
+    "length": {
+      "input_unique_values": 14,
+      "output_unique_values": 13,
+      "changed_count": 1250
+    },
+    "width": {
+      "input_unique_values": 1,
+      "output_unique_values": 0,
+      "changed_count": 1250
+    },
+    "height": {
+      "input_unique_values": 1,
+      "output_unique_values": 0,
+      "changed_count": 1250
+    },
+    "diameter": {
+      "input_unique_values": 7,
+      "output_unique_values": 6,
+      "changed_count": 1250
+    },
+    "thickness": {
+      "input_unique_values": 1,
+      "output_unique_values": 0,
+      "changed_count": 1250
+    },
+    "pressure_class": {
+      "input_unique_values": 1,
+      "output_unique_values": 0,
+      "changed_count": 1250
+    },
+    "schedule": {
+      "input_unique_values": 1,
+      "output_unique_values": 0,
+      "changed_count": 1250
+    },
+    "rating": {
+      "input_unique_values": 2,
+      "output_unique_values": 1,
+      "changed_count": 1250
+    },
+    "standard": {
+      "input_unique_values": 21,
+      "output_unique_values": 21,
+      "changed_count": 342
+    },
+    "specification": {
+      "input_unique_values": 157,
+      "output_unique_values": 157,
+      "changed_count": 1100
+    },
+    "coating": {
+      "input_unique_values": 9,
+      "output_unique_values": 8,
+      "changed_count": 1250
+    },
+    "connection_type": {
+      "input_unique_values": 3,
+      "output_unique_values": 2,
+      "changed_count": 1250
+    },
+    "end_type": {
+      "input_unique_values": 1,
+      "output_unique_values": 0,
+      "changed_count": 1250
+    },
+    "construction": {
+      "input_unique_values": 3,
+      "output_unique_values": 2,
+      "changed_count": 1250
+    },
+    "orientation": {
+      "input_unique_values": 2,
+      "output_unique_values": 1,
+      "changed_count": 1250
+    },
+    "manufacturer": {
+      "input_unique_values": 12,
+      "output_unique_values": 12,
+      "changed_count": 1250
+    },
+    "manufacturer_part_no": {
+      "input_unique_values": 1250,
+      "output_unique_values": 1250,
+      "changed_count": 0
+    },
+    "unit": {
+      "input_unique_values": 3,
+      "output_unique_values": 3,
+      "changed_count": 0
+    }
+  },
+  "examples": [
+    {
+      "material_code": "IOCL-243053",
+      "original_description": "FLOATING BALL VALVE 1 in SS 316",
+      "phase3_extracted": {
+        "material_family": "valve",
+        "material_type": "ball valve",
+        "material_subtype": NaN,
+        "material": "stainless steel",
+        "material_grade": "SS 316",
+        "size": "1 in",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "API 608",
+        "specification": "API 608; 1 in; SS 316",
+        "coating": "stainless steel",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": "floating",
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Supreme Engineering",
+        "manufacturer_part_no": "SUP-284-71",
+        "unit": "NOS"
+      },
+      "standardized_description": "VALVE | BALL VALVE | FLOATING | STAINLESS STEEL | SS 316 | 1 IN | API 608 | STAINLESS STEEL",
+      "canonical_material_key": "VALVE|BALL_VALVE|STAINLESS_STEEL|SS_316|1_IN|API_608|STAINLESS_STEEL|FLOATING",
+      "rules_applied": "COATING_UPPERCASE; CONSTRUCTION_CANONICAL; FAMILY_CANONICAL; GRADE_FORMAT_SS316; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; SIZE_FORMAT_INCH; SPECIFICATION_TRIM; STANDARD_FORMAT_API; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "IOCL-501828",
+      "original_description": "BEARING NO 6207",
+      "phase3_extracted": {
+        "material_family": "bearing",
+        "material_type": "ball bearing",
+        "material_subtype": NaN,
+        "material": "chrome steel",
+        "material_grade": "Chrome Steel",
+        "size": "6207",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "ISO 15",
+        "specification": "ISO 15; Bearing 6207",
+        "coating": NaN,
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": "6207",
+        "manufacturer": "ABC Industrial Products",
+        "manufacturer_part_no": "ABC-475-69",
+        "unit": "NOS"
+      },
+      "standardized_description": "BEARING | BALL BEARING | CHROME STEEL | CHROME STEEL | 6207 | ISO 15",
+      "canonical_material_key": "BEARING|BALL_BEARING|CHROME_STEEL|CHROME_STEEL|6207|ISO_15",
+      "rules_applied": "FAMILY_CANONICAL; GRADE_CANONICAL_CHROME_STEEL; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; SIZE_BEARING_NUMBER; SPECIFICATION_TRIM; STANDARD_FORMAT_ISO; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "ONGC-521278",
+      "original_description": "HEX NUT M8 ZINC PLATED",
+      "phase3_extracted": {
+        "material_family": "fastener",
+        "material_type": "nut",
+        "material_subtype": "hex",
+        "material": "carbon steel",
+        "material_grade": "Carbon Steel",
+        "size": "M8",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "IS 1364",
+        "specification": "IS 1364; M8; Zinc Plated",
+        "coating": "zinc plated",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Apex Industrial Systems",
+        "manufacturer_part_no": "APE-188-49",
+        "unit": "NOS"
+      },
+      "standardized_description": "FASTENER | NUT | HEX | CARBON STEEL | CARBON STEEL | M8 | IS 1364 | ZINC PLATED",
+      "canonical_material_key": "FASTENER|NUT|HEX|CARBON_STEEL|CARBON_STEEL|M8|IS_1364|ZINC_PLATED",
+      "rules_applied": "COATING_CANONICAL; FAMILY_CANONICAL; GRADE_CANONICAL_CARBON_STEEL; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; SIZE_FORMAT_METRIC_BOLT; SPECIFICATION_TRIM; STANDARD_FORMAT_IS; SUBTYPE_CANONICAL; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "IOCL-156968",
+      "original_description": "HORIZONTAL CENTRIFUGAL PUMP 80 mm",
+      "phase3_extracted": {
+        "material_family": "pump",
+        "material_type": "centrifugal pump",
+        "material_subtype": NaN,
+        "material": "stainless steel",
+        "material_grade": "SS 316",
+        "size": "80 mm",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "API 610",
+        "specification": "API 610; 80 mm; SS 316",
+        "coating": "painted",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": "horizontal",
+        "bearing_number": NaN,
+        "manufacturer": "Apex Industrial Systems",
+        "manufacturer_part_no": "APE-337-92",
+        "unit": "NOS"
+      },
+      "standardized_description": "PUMP | CENTRIFUGAL PUMP | HORIZONTAL | STAINLESS STEEL | SS 316 | 80 MM | API 610 | PAINTED",
+      "canonical_material_key": "PUMP|CENTRIFUGAL_PUMP|STAINLESS_STEEL|SS_316|80_MM|API_610|PAINTED|HORIZONTAL",
+      "rules_applied": "COATING_CANONICAL; FAMILY_CANONICAL; GRADE_FORMAT_SS316; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; ORIENTATION_CANONICAL; SIZE_FORMAT_MM; SPECIFICATION_TRIM; STANDARD_FORMAT_API; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "IOCL-770259",
+      "original_description": "WELD NECK FLANGE 1 in ASME B16.5",
+      "phase3_extracted": {
+        "material_family": "flange",
+        "material_type": "weld neck flange",
+        "material_subtype": NaN,
+        "material": NaN,
+        "material_grade": "ASTM A105",
+        "size": "1 in",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "ASTM A105; ASME B16.5",
+        "specification": "ASME B16.5; 1 in; ASTM A105",
+        "coating": "bare",
+        "connection_type": "weld neck",
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Hindustan Mechanical",
+        "manufacturer_part_no": "HIN-319-95",
+        "unit": "MTR"
+      },
+      "standardized_description": "FLANGE | WELD NECK FLANGE | ASTM A105 | 1 IN | ASME B16.5; ASTM A105 | BARE | WELD NECK",
+      "canonical_material_key": "FLANGE|WELD_NECK_FLANGE|ASTM_A105|1_IN|ASME_B165_ASTM_A105|BARE|WELD_NECK",
+      "rules_applied": "COATING_CANONICAL; CONNECTION_CANONICAL; FAMILY_UPPERCASE; GRADE_FORMAT_ASTM_A105; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; SIZE_FORMAT_INCH; SPECIFICATION_TRIM; STANDARD_FORMAT_MULTI; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "ONGC-437562",
+      "original_description": "GATE VALVE FLANGED 2 in ASTM A216 WCB",
+      "phase3_extracted": {
+        "material_family": "valve",
+        "material_type": "gate valve",
+        "material_subtype": NaN,
+        "material": NaN,
+        "material_grade": "ASTM A216 WCB",
+        "size": "2 in",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "ASTM A216 WCB; API 600",
+        "specification": "API 600; 2 in; ASTM A216 WCB",
+        "coating": "painted",
+        "connection_type": "flanged",
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Shree Valves & Fittings",
+        "manufacturer_part_no": "SHR-361-10",
+        "unit": "NOS"
+      },
+      "standardized_description": "VALVE | GATE VALVE | ASTM A216 WCB | 2 IN | API 600; ASTM A216 WCB | PAINTED | FLANGED",
+      "canonical_material_key": "VALVE|GATE_VALVE|ASTM_A216_WCB|2_IN|API_600_ASTM_A216_WCB|PAINTED|FLANGED",
+      "rules_applied": "COATING_CANONICAL; CONNECTION_CANONICAL; FAMILY_CANONICAL; GRADE_FORMAT_ASTM_A216_WCB; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; SIZE_FORMAT_INCH; SPECIFICATION_TRIM; STANDARD_FORMAT_MULTI; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": true
+    },
+    {
+      "material_code": "CPCL-442155",
+      "original_description": "HEXAGONAL BOLT M16X75 ZINC PLATED",
+      "phase3_extracted": {
+        "material_family": "fastener",
+        "material_type": "bolt",
+        "material_subtype": "hex",
+        "material": "carbon steel",
+        "material_grade": "Carbon Steel",
+        "size": "M16",
+        "nominal_size": NaN,
+        "length": "75 mm",
+        "width": NaN,
+        "height": NaN,
+        "diameter": "20 mm",
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "IS 1363",
+        "specification": "IS 1363; M16 x 75 mm; Zinc Plated",
+        "coating": "zinc plated",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Metro Pumps & Valves",
+        "manufacturer_part_no": "MET-954-40",
+        "unit": "NOS"
+      },
+      "standardized_description": "FASTENER | BOLT | HEX | CARBON STEEL | CARBON STEEL | M16 | 75 MM | 20 MM | IS 1363 | ZINC PLATED",
+      "canonical_material_key": "FASTENER|BOLT|HEX|CARBON_STEEL|CARBON_STEEL|M16|75_MM|20_MM|IS_1363|ZINC_PLATED",
+      "rules_applied": "COATING_CANONICAL; DIAMETER_FORMAT_MM; FAMILY_CANONICAL; GRADE_CANONICAL_CARBON_STEEL; LENGTH_FORMAT_MM; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; SIZE_FORMAT_METRIC_BOLT; SPECIFICATION_TRIM; STANDARD_FORMAT_IS; SUBTYPE_CANONICAL; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": true
+    },
+    {
+      "material_code": "HPCL-462251",
+      "original_description": "HRC CARTRIDGE 10 A",
+      "phase3_extracted": {
+        "material_family": "electrical",
+        "material_type": "fuse",
+        "material_subtype": NaN,
+        "material": NaN,
+        "material_grade": "Ceramic",
+        "size": "10 A",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "IS 13703",
+        "specification": "IS 13703; 10 A",
+        "coating": NaN,
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Prime Electricals",
+        "manufacturer_part_no": "PRI-134-25",
+        "unit": "MTR"
+      },
+      "standardized_description": "ELECTRICAL | FUSE | CERAMIC | 10 A | IS 13703",
+      "canonical_material_key": "ELECTRICAL|FUSE|CERAMIC|10_A|IS_13703",
+      "rules_applied": "FAMILY_CANONICAL; GRADE_CANONICAL_CERAMIC; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; SIZE_FORMAT_AMPERE; SPECIFICATION_TRIM; STANDARD_FORMAT_IS; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "ONGC-870999",
+      "original_description": "SEAMLESS STEEL PIPE 6 in API 5L",
+      "phase3_extracted": {
+        "material_family": "pipe/fitting",
+        "material_type": "pipe",
+        "material_subtype": NaN,
+        "material": NaN,
+        "material_grade": "ASTM A106 Gr.B",
+        "size": "6 in",
+        "nominal_size": NaN,
+        "length": "6000 mm",
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "ASTM A106 Gr.B; API 5L",
+        "specification": "API 5L; 6 in; ASTM A106 Gr.B",
+        "coating": "black",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": "seamless",
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Eastern Cables",
+        "manufacturer_part_no": "EAS-908-18",
+        "unit": "MTR"
+      },
+      "standardized_description": "PIPE/FITTING | PIPE | SEAMLESS | ASTM A106 GR.B | 6 IN | 6000 MM | API 5L; ASTM A106 GR.B | BLACK",
+      "canonical_material_key": "PIPE_FITTING|PIPE|ASTM_A106_GRB|6_IN|6000_MM|API_5L_ASTM_A106_GRB|BLACK|SEAMLESS",
+      "rules_applied": "COATING_CANONICAL; CONSTRUCTION_CANONICAL; FAMILY_CANONICAL; GRADE_FORMAT_ASTM_A106_GRB; LENGTH_FORMAT_MM; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; SIZE_FORMAT_INCH; SPECIFICATION_TRIM; STANDARD_FORMAT_MULTI; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "HPCL-916217",
+      "original_description": "SPIRAL GASKET 3 in",
+      "phase3_extracted": {
+        "material_family": "seal/gasket",
+        "material_type": "gasket",
+        "material_subtype": NaN,
+        "material": NaN,
+        "material_grade": "Graphite/SS 316",
+        "size": "3 in",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "ASME B16.20",
+        "specification": "ASME B16.20; 3 in; Graphite/SS 316",
+        "coating": "stainless steel",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Larsen Engineering",
+        "manufacturer_part_no": "LAR-150-60",
+        "unit": "NOS"
+      },
+      "standardized_description": "SEAL/GASKET | GASKET | GRAPHITE/SS 316 | 3 IN | ASME B16.20 | STAINLESS STEEL",
+      "canonical_material_key": "SEAL_GASKET|GASKET|GRAPHITE_SS_316|3_IN|ASME_B1620|STAINLESS_STEEL",
+      "rules_applied": "COATING_UPPERCASE; FAMILY_CANONICAL; GRADE_CANONICAL_GRAPHITE_SS316; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; SIZE_FORMAT_INCH; SPECIFICATION_TRIM; STANDARD_FORMAT_ASME; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": true
+    },
+    {
+      "material_code": "CPCL-972914",
+      "original_description": "PRESSURE INDICATOR 0-25 bar",
+      "phase3_extracted": {
+        "material_family": "instrumentation",
+        "material_type": "pressure gauge",
+        "material_subtype": NaN,
+        "material": "stainless steel",
+        "material_grade": "SS 304",
+        "size": "0-25 bar",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "EN 837-1",
+        "specification": "EN 837-1; Range 0-25 bar",
+        "coating": "stainless steel",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "ABC Industrial Products",
+        "manufacturer_part_no": "ABC-846-22",
+        "unit": "NOS"
+      },
+      "standardized_description": "INSTRUMENTATION | PRESSURE GAUGE | STAINLESS STEEL | SS 304 | 0-25 BAR | EN 837-1 | STAINLESS STEEL",
+      "canonical_material_key": "INSTRUMENTATION|PRESSURE_GAUGE|STAINLESS_STEEL|SS_304|0_25_BAR|EN_837_1|STAINLESS_STEEL",
+      "rules_applied": "COATING_UPPERCASE; FAMILY_CANONICAL; GRADE_FORMAT_SS304; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; SIZE_FORMAT_BAR; SPECIFICATION_TRIM; STANDARD_FORMAT_EN; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "IOCL-780918",
+      "original_description": "XLPE CABLE 25 sq mm",
+      "phase3_extracted": {
+        "material_family": "electrical",
+        "material_type": "cable",
+        "material_subtype": NaN,
+        "material": "xlpe",
+        "material_grade": "XLPE Aluminium",
+        "size": "25 sq mm",
+        "nominal_size": NaN,
+        "length": "1000 mm",
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "IS 7098",
+        "specification": "IS 7098; 25 sq mm; 1000 m",
+        "coating": "pvc",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Larsen Engineering",
+        "manufacturer_part_no": "LAR-383-70",
+        "unit": "MTR"
+      },
+      "standardized_description": "ELECTRICAL | CABLE | XLPE | XLPE ALUMINIUM | 25 SQ MM | 1000 MM | IS 7098 | PVC",
+      "canonical_material_key": "ELECTRICAL|CABLE|XLPE|XLPE_ALUMINIUM|25_SQ_MM|1000_MM|IS_7098|PVC",
+      "rules_applied": "COATING_CANONICAL; FAMILY_CANONICAL; GRADE_CANONICAL_XLPE_AL; LENGTH_FORMAT_MM; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; SIZE_FORMAT_SQMM; SPECIFICATION_TRIM; STANDARD_FORMAT_IS; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "CPCL-339867",
+      "original_description": "HYDRAULIC HOSE 3/4 in",
+      "phase3_extracted": {
+        "material_family": "hose",
+        "material_type": "hydraulic hose",
+        "material_subtype": NaN,
+        "material": "synthetic rubber",
+        "material_grade": "Synthetic Rubber",
+        "size": "3/4 in",
+        "nominal_size": NaN,
+        "length": "1000 mm",
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "SAE 100 R2",
+        "specification": "SAE 100 R2; 3/4 in; 1000 mm",
+        "coating": "rubber",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Bharat Industrial Works",
+        "manufacturer_part_no": "BHA-369-16",
+        "unit": "MTR"
+      },
+      "standardized_description": "HOSE | HYDRAULIC HOSE | SYNTHETIC RUBBER | SYNTHETIC RUBBER | 3/4 IN | 1000 MM | SAE 100 R2 | RUBBER",
+      "canonical_material_key": "HOSE|HYDRAULIC_HOSE|SYNTHETIC_RUBBER|SYNTHETIC_RUBBER|3_4_IN|1000_MM|SAE_100_R2|RUBBER",
+      "rules_applied": "COATING_CANONICAL; FAMILY_CANONICAL; GRADE_CANONICAL_SYNTHETIC_RUBBER; LENGTH_FORMAT_MM; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; SIZE_FORMAT_FRACTION_INCH; SPECIFICATION_TRIM; STANDARD_FORMAT_SAE; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "HPCL-619092",
+      "original_description": "GEAR OIL ISO VG 320",
+      "phase3_extracted": {
+        "material_family": "lubricant",
+        "material_type": "lubricant",
+        "material_subtype": NaN,
+        "material": "mineral oil",
+        "material_grade": "Mineral Oil",
+        "size": "ISO VG 320",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": NaN,
+        "standard": "ISO VG 320; IS 10522",
+        "specification": "IS 10522; ISO VG 320",
+        "coating": NaN,
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Hindustan Mechanical",
+        "manufacturer_part_no": "HIN-368-30",
+        "unit": "LTR"
+      },
+      "standardized_description": "LUBRICANT | LUBRICANT | MINERAL OIL | MINERAL OIL | ISO VG 320 | IS 10522; ISO VG 320",
+      "canonical_material_key": "LUBRICANT|LUBRICANT|MINERAL_OIL|MINERAL_OIL|ISO_VG_320|IS_10522_ISO_VG_320",
+      "rules_applied": "FAMILY_CANONICAL; GRADE_CANONICAL_MINERAL_OIL; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; MATERIAL_CANONICAL; SIZE_FORMAT_LUBRICANT; SPECIFICATION_TRIM; STANDARD_FORMAT_MULTI; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": false
+    },
+    {
+      "material_code": "HPCL-494516",
+      "original_description": "90 DEGREE ELBOW 2 in ASTM A234 WPB",
+      "phase3_extracted": {
+        "material_family": "pipe/fitting",
+        "material_type": "elbow",
+        "material_subtype": NaN,
+        "material": NaN,
+        "material_grade": "ASTM A234 WPB",
+        "size": "2 in",
+        "nominal_size": NaN,
+        "length": NaN,
+        "width": NaN,
+        "height": NaN,
+        "diameter": NaN,
+        "thickness": NaN,
+        "pressure_class": NaN,
+        "schedule": NaN,
+        "rating": "90°",
+        "standard": "ASTM A234; ASME B16.9",
+        "specification": "ASME B16.9; 2 in; ASTM A234 WPB",
+        "coating": "bare",
+        "connection_type": NaN,
+        "end_type": NaN,
+        "construction": NaN,
+        "orientation": NaN,
+        "bearing_number": NaN,
+        "manufacturer": "Prime Electricals",
+        "manufacturer_part_no": "PRI-550-28",
+        "unit": "MTR"
+      },
+      "standardized_description": "PIPE/FITTING | ELBOW | ASTM A234 WPB | 2 IN | 90 DEG | ASME B16.9; ASTM A234 | BARE",
+      "canonical_material_key": "PIPE_FITTING|ELBOW|ASTM_A234_WPB|2_IN|90_DEG|ASME_B169_ASTM_A234|BARE",
+      "rules_applied": "COATING_CANONICAL; FAMILY_CANONICAL; GRADE_FORMAT_ASTM_A234_WPB; MANUFACTURER_PART_NO_TRIM; MANUFACTURER_TRIM; RATING_FORMAT_DEG; SIZE_FORMAT_INCH; SPECIFICATION_TRIM; STANDARD_FORMAT_MULTI; TYPE_CANONICAL; UNIT_CANONICAL",
+      "conflict_preserved": true
+    }
+  ]
+}

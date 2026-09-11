@@ -1,24 +1,138 @@
-# Logs
-logs
-*.log
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+client/.env
+server/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+.venv/
+env/
+venv/
+ENV/
+server/.venv
+server/env
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+server/app.log
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary and scratch files
+scratch/
+
+# Data files
+data/evaluation/*
+!data/evaluation/README.md
+!data/evaluation/reports/.gitkeep
+
+# ML artifacts
+ml/embeddings/*.bin
+ml/embeddings/*.pkl
+ml/evaluation/*.csv
+!ml/embeddings/.gitkeep
+!ml/evaluation/.gitkeep
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build artifacts
+client/dist/
+client/build/
+server/__pycache__/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+# Lovable
+.lovable/
+
+!client/src/lib/
+!client/src/lib/**
+
+# Docker
+.dockerignore

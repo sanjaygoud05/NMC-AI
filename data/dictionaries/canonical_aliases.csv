@@ -1,0 +1,88 @@
+category,raw_value,canonical_value,rule_id,description
+family,valve,VALVE,FAMILY_CANONICAL,Standardize valve family casing
+family,valves,VALVE,FAMILY_CANONICAL,Standardize plural valves to VALVE
+family,bearing,BEARING,FAMILY_CANONICAL,Standardize bearing family casing
+family,bearings,BEARING,FAMILY_CANONICAL,Standardize plural bearings to BEARING
+family,pump,PUMP,FAMILY_CANONICAL,Standardize pump family casing
+family,pumps,PUMP,FAMILY_CANONICAL,Standardize plural pumps to PUMP
+family,fastener,FASTENER,FAMILY_CANONICAL,Standardize fastener family casing
+family,fasteners,FASTENER,FAMILY_CANONICAL,Standardize plural fasteners to FASTENER
+family,electrical,ELECTRICAL,FAMILY_CANONICAL,Standardize electrical family casing
+family,instrumentation,INSTRUMENTATION,FAMILY_CANONICAL,Standardize instrumentation family casing
+family,lubricant,LUBRICANT,FAMILY_CANONICAL,Standardize lubricant family casing
+family,lubricants,LUBRICANT,FAMILY_CANONICAL,Standardize plural lubricants to LUBRICANT
+family,hose,HOSE,FAMILY_CANONICAL,Standardize hose family casing
+family,hoses,HOSE,FAMILY_CANONICAL,Standardize plural hoses to HOSE
+family,safety,SAFETY,FAMILY_CANONICAL,Standardize safety family casing
+family,pipe/fitting,PIPE/FITTING,FAMILY_CANONICAL,Standardize pipe/fitting family casing
+family,pipes & fittings,PIPE/FITTING,FAMILY_CANONICAL,Standardize pipes & fittings to PIPE/FITTING
+family,seal/gasket,SEAL/GASKET,FAMILY_CANONICAL,Standardize seal/gasket family casing
+family,seals,SEAL/GASKET,FAMILY_CANONICAL,Standardize seals category to SEAL/GASKET
+type,ball valve,BALL VALVE,TYPE_CANONICAL,Standardize ball valve casing
+type,ball-valve,BALL VALVE,TYPE_CANONICAL,Remove hyphen from ball valve
+type,gate valve,GATE VALVE,TYPE_CANONICAL,Standardize gate valve casing
+type,gate-valve,GATE VALVE,TYPE_CANONICAL,Remove hyphen from gate valve
+type,globe valve,GLOBE VALVE,TYPE_CANONICAL,Standardize globe valve casing
+type,check valve,CHECK VALVE,TYPE_CANONICAL,Standardize check valve casing
+type,butterfly valve,BUTTERFLY VALVE,TYPE_CANONICAL,Standardize butterfly valve casing
+type,safety valve,SAFETY VALVE,TYPE_CANONICAL,Standardize safety valve casing
+type,pressure safety valve,SAFETY VALVE,TYPE_CANONICAL,Standardize PSV to SAFETY VALVE
+type,centrifugal pump,CENTRIFUGAL PUMP,TYPE_CANONICAL,Standardize centrifugal pump casing
+type,ball bearing,BALL BEARING,TYPE_CANONICAL,Standardize ball bearing casing
+type,deep groove ball bearing,BALL BEARING,TYPE_CANONICAL,Normalize deep groove ball bearing type
+type,weld neck flange,WELD NECK FLANGE,TYPE_CANONICAL,Standardize weld neck flange casing
+type,slip on flange,SLIP ON FLANGE,TYPE_CANONICAL,Standardize slip on flange casing
+type,blind flange,BLIND FLANGE,TYPE_CANONICAL,Standardize blind flange casing
+type,spiral wound gasket,SPIRAL WOUND GASKET,TYPE_CANONICAL,Standardize spiral wound gasket casing
+type,gasket,GASKET,TYPE_CANONICAL,Standardize gasket casing
+type,hex nut,NUT,TYPE_CANONICAL,Standardize hex nut to NUT
+type,nut,NUT,TYPE_CANONICAL,Standardize nut casing
+type,hex bolt,BOLT,TYPE_CANONICAL,Standardize hex bolt to BOLT
+type,bolt,BOLT,TYPE_CANONICAL,Standardize bolt casing
+type,washer,WASHER,TYPE_CANONICAL,Standardize washer casing
+type,pipe,PIPE,TYPE_CANONICAL,Standardize pipe casing
+type,elbow,ELBOW,TYPE_CANONICAL,Standardize elbow casing
+type,cable,CABLE,TYPE_CANONICAL,Standardize cable casing
+type,fuse,FUSE,TYPE_CANONICAL,Standardize fuse casing
+type,cartridge fuse,FUSE,TYPE_CANONICAL,Standardize cartridge fuse to FUSE
+type,hydraulic hose,HYDRAULIC HOSE,TYPE_CANONICAL,Standardize hydraulic hose casing
+type,lubricant,LUBRICANT,TYPE_CANONICAL,Standardize lubricant casing
+type,pressure gauge,PRESSURE GAUGE,TYPE_CANONICAL,Standardize pressure gauge casing
+type,temperature sensor,TEMPERATURE SENSOR,TYPE_CANONICAL,Standardize temperature sensor casing
+subtype,hex,HEX,SUBTYPE_CANONICAL,Standardize hex subtype casing
+subtype,hexagonal,HEX,SUBTYPE_CANONICAL,Standardize hexagonal to HEX
+subtype,deep groove,DEEP GROOVE,SUBTYPE_CANONICAL,Standardize deep groove subtype casing
+material,stainless steel,STAINLESS STEEL,MATERIAL_CANONICAL,Standardize stainless steel casing
+material,ss,STAINLESS STEEL,MATERIAL_ALIAS_SS,Expand SS alias to STAINLESS STEEL
+material,carbon steel,CARBON STEEL,MATERIAL_CANONICAL,Standardize carbon steel casing
+material,cs,CARBON STEEL,MATERIAL_ALIAS_CS,Expand CS alias to CARBON STEEL
+material,chrome steel,CHROME STEEL,MATERIAL_CANONICAL,Standardize chrome steel casing
+material,xlpe,XLPE,MATERIAL_CANONICAL,Standardize XLPE casing
+material,synthetic rubber,SYNTHETIC RUBBER,MATERIAL_CANONICAL,Standardize synthetic rubber casing
+material,mineral oil,MINERAL OIL,MATERIAL_CANONICAL,Standardize mineral oil casing
+coating,zinc plated,ZINC PLATED,COATING_CANONICAL,Standardize zinc plated casing
+coating,zinc-plated,ZINC PLATED,COATING_FORMAT,Normalize hyphenated zinc-plated
+coating,zinc plating,ZINC PLATED,COATING_FORMAT,Normalize zinc plating to ZINC PLATED
+coating,galvanized,GALVANIZED,COATING_CANONICAL,Standardize galvanized casing
+coating,ptfe,PTFE,COATING_CANONICAL,Standardize PTFE casing
+coating,rubber,RUBBER,COATING_CANONICAL,Standardize rubber casing
+coating,painted,PAINTED,COATING_CANONICAL,Standardize painted casing
+coating,pvc,PVC,COATING_CANONICAL,Standardize PVC casing
+coating,bare,BARE,COATING_CANONICAL,Standardize bare casing
+coating,black,BLACK,COATING_CANONICAL,Standardize black casing
+connection,flanged,FLANGED,CONNECTION_CANONICAL,Standardize flanged connection casing
+connection,threaded,THREADED,CONNECTION_CANONICAL,Standardize threaded connection casing
+connection,weld neck,WELD NECK,CONNECTION_CANONICAL,Standardize weld neck connection casing
+connection,weld-neck,WELD NECK,CONNECTION_FORMAT,Normalize hyphen in weld neck
+connection,socket weld,SOCKET WELD,CONNECTION_CANONICAL,Standardize socket weld casing
+connection,butt weld,BUTT WELD,CONNECTION_CANONICAL,Standardize butt weld casing
+construction,floating,FLOATING,CONSTRUCTION_CANONICAL,Standardize floating construction casing
+construction,seamless,SEAMLESS,CONSTRUCTION_CANONICAL,Standardize seamless construction casing
+construction,forged,FORGED,CONSTRUCTION_CANONICAL,Standardize forged construction casing
+construction,cast,CAST,CONSTRUCTION_CANONICAL,Standardize cast construction casing
+construction,welded,WELDED,CONSTRUCTION_CANONICAL,Standardize welded construction casing
+orientation,horizontal,HORIZONTAL,ORIENTATION_CANONICAL,Standardize horizontal orientation casing
+orientation,vertical,VERTICAL,ORIENTATION_CANONICAL,Standardize vertical orientation casing
+unit,nos,NOS,UNIT_CANONICAL,Standardize NOS casing
+unit,mtr,MTR,UNIT_CANONICAL,Standardize MTR casing
+unit,ltr,LTR,UNIT_CANONICAL,Standardize LTR casing

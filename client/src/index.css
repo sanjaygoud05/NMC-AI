@@ -1,0 +1,426 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Requests & Approvals Template - Design System
+   Profound-inspired dark theme: calm, professional, internal-tool aesthetic
+   All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Light theme (fallback) */
+    --background: 210 20% 98%;
+    --foreground: 220 20% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 15%;
+
+    --primary: 160 60% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 15% 95%;
+    --secondary-foreground: 220 20% 25%;
+
+    --muted: 210 15% 93%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 160 50% 95%;
+    --accent-foreground: 160 60% 50%;
+
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 15% 88%;
+    --input: 210 15% 88%;
+    --ring: 160 60% 50%;
+    --border-hover: 210 15% 70%;
+
+    --radius: 0;
+    
+    /* Dot pattern - subtle on light */
+    --dot-pattern: 0 0% 0% / 4%;
+    
+    /* CTA accent color - Blue 500 */
+    --cta: 217 91% 60%;
+    --cta-foreground: 0 0% 100%;
+
+    /* Status colors - brand colors */
+    --status-approved: 160 60% 50%;
+    --status-rejected: 0 62% 55%;
+    --status-pending: 41 82% 51%;
+    --status-draft: 0 0% 45%;
+    --status-submitted: 228 63% 49%;
+    --status-in-review: 228 63% 49%;
+    --status-change-requested: 25 95% 53%;
+    --status-warning: 30 100% 50%;
+
+    /* Sidebar - Light */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 15% 35%;
+    --sidebar-primary: 160 60% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 50% 95%;
+    --sidebar-accent-foreground: 160 60% 50%;
+    --sidebar-border: 210 15% 90%;
+    --sidebar-ring: 160 60% 50%;
+  }
+
+  /* Dark theme - Profound-inspired */
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 160 60% 50%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 85%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
+
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 85%;
+
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --ring: 160 60% 50%;
+    --border-hover: 0 1% 28%;
+    
+    /* CTA accent color - Blue 500 (same in dark mode) */
+    --cta: 217 91% 60%;
+    --cta-foreground: 0 0% 100%;
+    
+    /* Dot pattern - subtle on dark */
+    --dot-pattern: 0 0% 100% / 5%;
+
+    /* Status colors - dark mode */
+    --status-approved: 160 60% 50%;
+    --status-rejected: 0 62% 55%;
+    --status-pending: 41 82% 51%;
+    --status-draft: 0 0% 45%;
+    --status-submitted: 228 63% 49%;
+    --status-in-review: 228 63% 49%;
+    --status-change-requested: 25 95% 53%;
+    --status-warning: 30 100% 50%;
+
+    /* Sidebar - Dark */
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 0 0% 75%;
+    --sidebar-primary: 160 60% 50%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 160 60% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer utilities {
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* Micro-interaction utilities */
+  .hover-lift {
+    @apply transition-transform duration-200 hover:-translate-y-0.5;
+  }
+
+  .press-scale {
+    @apply active:scale-[0.98] transition-transform;
+  }
+
+  .focus-ring {
+    @apply focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:outline-none;
+  }
+
+  /* Animation utilities - renamed to avoid conflict with tailwindcss-animate */
+  .fade-in-up {
+    @apply animate-fade-up;
+  }
+
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+
+  /* Skeleton loading */
+  .skeleton {
+    @apply bg-muted animate-pulse;
+  }
+
+  /* Interactive card hover */
+  .card-interactive {
+    @apply transition-all duration-200;
+    @apply active:scale-[0.99];
+  }
+
+  .card-interactive:hover {
+    border-color: hsl(var(--border-hover));
+  }
+}
+
+/* ============================================
+   Dot Grid Pattern Background
+   ============================================ */
+.bg-dot-pattern {
+  background-image: radial-gradient(circle at center, hsl(var(--dot-pattern)) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+
+/* ============================================
+   Metric Display Typography
+   ============================================ */
+.metric-value {
+  @apply text-4xl font-bold tracking-tight text-foreground;
+}
+
+.metric-label {
+  @apply text-sm font-medium text-muted-foreground;
+}
+
+.metric-change {
+  @apply text-sm font-medium flex items-center gap-1;
+}
+
+.metric-change-positive {
+  color: hsl(var(--status-approved));
+}
+
+.metric-change-negative {
+  color: hsl(var(--status-rejected));
+}
+
+/* ============================================
+   Pill Selector Styling
+   ============================================ */
+.pill-selector {
+  @apply inline-flex border border-border bg-card;
+}
+
+.pill-option {
+  @apply h-10 px-4 text-sm font-medium transition-all duration-200 text-muted-foreground;
+  @apply border border-transparent;
+  @apply active:scale-[0.97];
+  @apply flex items-center;
+}
+
+.pill-option:hover {
+  border-color: hsl(var(--border-hover));
+  @apply text-foreground;
+}
+
+.pill-option-active {
+  @apply border-foreground text-foreground;
+}
+
+/* ============================================
+   Filter Chip Styling
+   ============================================ */
+.filter-chip {
+  @apply h-10 inline-flex items-center gap-1.5 px-4 text-sm font-medium transition-all duration-200;
+  @apply bg-card border border-border text-muted-foreground;
+  @apply active:scale-[0.97];
+}
+
+.filter-chip:hover {
+  border-color: hsl(var(--border-hover));
+  @apply text-foreground;
+}
+
+.filter-chip-active {
+  @apply border-foreground text-foreground;
+}
+
+/* ============================================
+   Animation Keyframes
+   ============================================ */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ============================================
+   Responsive Utilities
+   ============================================ */
+
+/* Extra small breakpoint for very small screens */
+@media (min-width: 480px) {
+  .xs\:inline {
+    display: inline;
+  }
+  .xs\:hidden {
+    display: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s ease-out forwards;
+}
+
+/* ============================================
+   Sonner Toast Customization
+   ============================================ */
+
+/* Base toast styling - connected panel aesthetic */
+[data-sonner-toast] {
+  position: relative;
+  border-radius: 0 !important;
+}
+
+/* Close button positioning - top right for all toasts */
+[data-sonner-toast] [data-close-button] {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  left: auto;
+  border: none;
+  background: transparent;
+  transition: opacity 0.2s ease;
+  opacity: 0.7;
+}
+
+[data-sonner-toast] [data-close-button]:hover {
+  background: transparent;
+  opacity: 1;
+}
+
+/* ============================================
+   Success Toast - Teal/Approved styling
+   ============================================ */
+[data-sonner-toast][data-type="success"] {
+  border: 1px solid hsl(var(--status-approved) / 0.3) !important;
+  background: hsl(var(--status-approved) / 0.15) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-sonner-toast][data-type="success"] [data-icon] svg {
+  color: hsl(var(--status-approved));
+}
+
+[data-sonner-toast][data-type="success"] [data-title] {
+  color: hsl(var(--status-approved));
+}
+
+[data-sonner-toast][data-type="success"] [data-close-button] {
+  color: hsl(var(--status-approved));
+}
+
+/* ============================================
+   Error Toast - Red/Rejected styling
+   ============================================ */
+[data-sonner-toast][data-type="error"] {
+  border: 1px solid hsl(var(--status-rejected) / 0.3) !important;
+  background: hsl(var(--status-rejected) / 0.15) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-sonner-toast][data-type="error"] [data-icon] svg {
+  color: hsl(var(--status-rejected));
+}
+
+[data-sonner-toast][data-type="error"] [data-title] {
+  color: hsl(var(--status-rejected));
+}
+
+[data-sonner-toast][data-type="error"] [data-close-button] {
+  color: hsl(var(--status-rejected));
+}
+
+/* ============================================
+   Warning Toast - Orange styling
+   ============================================ */
+[data-sonner-toast][data-type="warning"] {
+  border: 1px solid hsl(var(--status-warning) / 0.3) !important;
+  background: hsl(var(--status-warning) / 0.15) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-sonner-toast][data-type="warning"] [data-icon] svg {
+  color: hsl(var(--status-warning));
+}
+
+[data-sonner-toast][data-type="warning"] [data-title] {
+  color: hsl(var(--status-warning));
+}
+
+[data-sonner-toast][data-type="warning"] [data-close-button] {
+  color: hsl(var(--status-warning));
+}
+
+/* ============================================
+   Info/Default Toast - Neutral/Foreground styling
+   With backdrop blur matching Purchase CTA
+   ============================================ */
+[data-sonner-toast][data-type="info"],
+[data-sonner-toast]:not([data-type]) {
+  border: 1px solid hsl(var(--foreground) / 0.3) !important;
+  background: hsl(var(--background) / 0.85) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-sonner-toast][data-type="info"] [data-icon] svg,
+[data-sonner-toast]:not([data-type]) [data-icon] svg {
+  color: hsl(var(--foreground));
+}
+
+[data-sonner-toast][data-type="info"] [data-title],
+[data-sonner-toast]:not([data-type]) [data-title] {
+  color: hsl(var(--foreground));
+}
+
+[data-sonner-toast][data-type="info"] [data-close-button],
+[data-sonner-toast]:not([data-type]) [data-close-button] {
+  color: hsl(var(--foreground));
+}

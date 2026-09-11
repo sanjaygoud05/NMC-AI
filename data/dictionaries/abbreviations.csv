@@ -1,0 +1,35 @@
+abbreviation,expansion,context,confidence,notes
+SS,stainless steel,material,high,Token-boundary safe; standalone SS only
+CS,carbon steel,material,high,Token-boundary safe; standalone CS only
+MS,mild steel,material,medium,Ambiguous in some contexts; applied only to materials context
+CI,cast iron,material,high,Token-boundary safe
+GI,galvanized iron,material,high,Token-boundary safe
+PVC,polyvinyl chloride,material,high,Token-boundary safe
+HDPE,high density polyethylene,material,high,Token-boundary safe
+LDPE,low density polyethylene,material,high,Token-boundary safe
+PP,polypropylene,material,medium,Ambiguous in non-material contexts; applied carefully
+ABS,acrylonitrile butadiene styrene,material,high,Token-boundary safe
+ALUM,aluminium,material,high,Token-boundary safe
+AL,aluminium,material,medium,Ambiguous; e.g. AL can appear in other abbreviations
+BRZ,bronze,material,high,Token-boundary safe
+CU,copper,material,high,Token-boundary safe
+BRG,bearing,mechanical,high,Token-boundary safe
+BEAR,bearing,mechanical,high,Token-boundary safe
+VAL,valve,mechanical,high,Token-boundary safe
+PMP,pump,mechanical,high,Token-boundary safe
+FLG,flange,mechanical,high,Token-boundary safe
+GSKT,gasket,mechanical,high,Token-boundary safe
+GKT,gasket,mechanical,high,Token-boundary safe
+HEX,hexagonal,mechanical,high,Token-boundary safe
+THK,thick,dimension,high,Token-boundary safe
+LG,long,dimension,medium,Ambiguous; LG can be brand name - apply in dimension context only
+DIA,diameter,dimension,high,Token-boundary safe
+OD,outside diameter,dimension,high,Token-boundary safe
+ID,inside diameter,dimension,high,Token-boundary safe
+HRC,high rupturing capacity,electrical,high,Token-boundary safe
+REQD,required,general,high,Token-boundary safe
+APPRX,approximately,general,high,Token-boundary safe
+APPROX,approximately,general,high,Token-boundary safe
+NO,number,unit_context,medium,Ambiguous; only when used as a count unit token
+GALV,galvanized,surface_treatment,high,Token-boundary safe
+ELBOW,elbow,piping,high,Already full word; no expansion needed
