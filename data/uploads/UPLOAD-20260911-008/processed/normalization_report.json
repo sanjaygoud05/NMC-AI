@@ -1,0 +1,39 @@
+{
+  "phase": "Phase 03: Data Cleaning & Normalization",
+  "dataset_rows": 2,
+  "records_changed": 2,
+  "records_unchanged": 0,
+  "percentage_changed": 100.0,
+  "columns_processed": [
+    "Material_Description",
+    "Specification",
+    "Material_Grade",
+    "Size",
+    "Coating",
+    "Manufacturer",
+    "Manufacturer_Part_No",
+    "Unit"
+  ],
+  "rule_application_counts": {
+    "LOWERCASE_TEXT": 6
+  },
+  "field_change_counts": {
+    "Material_Description": 2,
+    "Specification": 2,
+    "Material_Grade": 2
+  },
+  "uom_mapping_counts": {
+    "NOS -> NOS": 2
+  },
+  "unique_descriptions": {
+    "before_normalization": 2,
+    "after_normalization": 2
+  },
+  "uom_variants": {
+    "before_normalization": 1,
+    "after_normalization": 1
+  },
+  "missing_values_preserved": 2,
+  "values_artificially_filled": 0,
+  "material_codes_changed": 0
+}

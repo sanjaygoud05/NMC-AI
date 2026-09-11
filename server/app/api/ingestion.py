@@ -6,7 +6,7 @@ Normalization API endpoints (Phase 2)
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, File, UploadFile
+from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks
 from services.ingestion_service import ingestion_service
 from services.profiling_service import profiling_service
 from services.normalization_service import normalization_service
@@ -79,12 +79,14 @@ async def get_data_quality_metrics():
 
 
 @router.post("/upload")
-async def upload_dataset_file(file: UploadFile = File(...)):
+async def upload_dataset_file(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+):
     """
-    Upload and profile a CSV material dataset file.
-    Validates against expected 18-column schema, computes SHA-256,
-    identifies whether it matches the official Phase 1 raw baseline,
-    and returns dataset characteristics.
+    Upload and register a CSV material dataset file.
+    Validates against expected 18-column schema, generates unique dataset_id,
+    persists dataset metadata, and queues background processing job.
     """
     if not file.filename.endswith(".csv"):
         raise HTTPException(
@@ -94,14 +96,64 @@ async def upload_dataset_file(file: UploadFile = File(...)):
 
     try:
         content = await file.read()
-        res = ingestion_service.process_uploaded_file(content=content, filename=file.filename)
-        if res.get("status") == "error":
-            raise HTTPException(status_code=400, detail=res.get("message", "Failed to process CSV file"))
-        return res
+        from server.services.dataset_registry_service import dataset_registry_service
+        from server.services.upload_processing_service import upload_processing_service
+
+        reg = dataset_registry_service.register_upload(
+            file_name=file.filename,
+            content=content,
+        )
+
+        dataset_id = reg["dataset_id"]
+
+        if reg["status"] == "FAILED":
+            return {
+                "dataset_id": dataset_id,
+                "status": "FAILED",
+                "message": reg.get("error_message", "CSV validation failed"),
+                "dataset_summary": reg,
+            }
+
+        # Dispatch background processing job
+        if background_tasks:
+            background_tasks.add_task(upload_processing_service.process_dataset, dataset_id)
+        else:
+            # Fallback direct processing if background_tasks not provided
+            import asyncio
+            asyncio.get_event_loop().run_in_executor(None, upload_processing_service.process_dataset, dataset_id)
+
+        return {
+            "status": "UPLOADED",
+            "message": f"Dataset {file.filename} registered successfully with ID {dataset_id}",
+            "dataset_id": dataset_id,
+            "filename": file.filename,
+            "dataset_summary": reg,
+        }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process file upload: {str(e)}")
+
+
+@router.get("/datasets")
+async def list_datasets():
+    """
+    List all registered datasets (BASELINE + all UPLOAD-YYYYMMDD-XXX entries).
+    """
+    from server.services.dataset_registry_service import dataset_registry_service
+    return dataset_registry_service.list_datasets()
+
+
+@router.get("/datasets/{dataset_id}")
+async def get_dataset_status(dataset_id: str):
+    """
+    Get metadata and processing status for specific dataset.
+    """
+    from server.services.dataset_registry_service import dataset_registry_service
+    ds = dataset_registry_service.get_dataset(dataset_id)
+    if not ds:
+        raise HTTPException(status_code=404, detail=f"Dataset '{dataset_id}' not found.")
+    return ds
 
 
 @router.post("/run")

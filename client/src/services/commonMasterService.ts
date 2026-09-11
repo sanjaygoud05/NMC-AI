@@ -88,6 +88,7 @@ export const commonMasterService = {
     cpse?: string;
     page?: number;
     page_size?: number;
+    dataset_id?: string;
   }): Promise<CommonMasterCatalogResponse> {
     const q = new URLSearchParams();
     if (params.search) q.append('search', params.search);
@@ -96,6 +97,7 @@ export const commonMasterService = {
       q.append('governance_status', params.governance_status);
     }
     if (params.cpse && params.cpse !== 'all') q.append('cpse', params.cpse);
+    if (params.dataset_id) q.append('dataset_id', params.dataset_id);
     q.append('page', String(params.page || 1));
     q.append('page_size', String(params.page_size || 20));
 
@@ -117,9 +119,10 @@ export const commonMasterService = {
   /**
    * Fetch catalog summary stats and KPIs
    */
-  async getStats(): Promise<CommonMasterStats> {
+  async getStats(datasetId?: string): Promise<CommonMasterStats> {
     const token = localStorage.getItem('supabase.auth.token') || '';
-    const res = await fetch(`${API_BASE}/api/common-master/stats`, {
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/common-master/stats${query}`, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

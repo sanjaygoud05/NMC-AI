@@ -71,6 +71,7 @@ export const legacyMappingService = {
     cmm_code?: string;
     page?: number;
     page_size?: number;
+    dataset_id?: string;
   }): Promise<LegacyMappingCatalogResponse> {
     const q = new URLSearchParams();
     if (params.search) q.append('search', params.search);
@@ -82,6 +83,7 @@ export const legacyMappingService = {
       q.append('confidence_semantics', params.confidence_semantics);
     }
     if (params.cmm_code) q.append('cmm_code', params.cmm_code);
+    if (params.dataset_id) q.append('dataset_id', params.dataset_id);
     q.append('page', String(params.page || 1));
     q.append('page_size', String(params.page_size || 20));
 
@@ -103,9 +105,10 @@ export const legacyMappingService = {
   /**
    * Fetch legacy mapping summary stats and KPIs
    */
-  async getStats(): Promise<LegacyMappingStats> {
+  async getStats(datasetId?: string): Promise<LegacyMappingStats> {
     const token = localStorage.getItem('supabase.auth.token') || '';
-    const res = await fetch(`${API_BASE}/api/legacy-mapping/stats`, {
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/legacy-mapping/stats${query}`, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -156,5 +159,29 @@ export const legacyMappingService = {
       throw new Error('Failed to fetch materials for CMM code');
     }
     return res.json();
+  },
+
+  async getMappings(params: {
+    search?: string;
+    cpse?: string;
+    status?: string;
+    source_cpse?: string;
+    mapping_status?: string;
+    confidence_semantics?: string;
+    cmm_code?: string;
+    page?: number;
+    page_size?: number;
+    dataset_id?: string;
+  }): Promise<LegacyMappingCatalogResponse> {
+    return this.getCatalog({
+      search: params.search,
+      source_cpse: params.source_cpse || params.cpse,
+      mapping_status: params.mapping_status || params.status,
+      confidence_semantics: params.confidence_semantics,
+      cmm_code: params.cmm_code,
+      page: params.page,
+      page_size: params.page_size,
+      dataset_id: params.dataset_id,
+    });
   },
 };

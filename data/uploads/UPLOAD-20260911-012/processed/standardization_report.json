@@ -1,0 +1,198 @@
+{
+  "phase": "Phase 05: Material Standardization & Canonicalization",
+  "dataset": {
+    "input_rows": 2,
+    "output_rows": 2,
+    "input_columns": 45,
+    "output_columns": 76
+  },
+  "standardization": {
+    "records_processed": 2,
+    "records_changed": 2,
+    "records_unchanged": 0,
+    "change_rate": 1.0
+  },
+  "canonical_keys": {
+    "total_records": 2,
+    "unique_canonical_keys": 2,
+    "records_with_unique_keys": 2,
+    "records_sharing_canonical_key": 0
+  },
+  "conflicts": {
+    "records_with_preserved_conflicts": 1,
+    "conflicts_resolved": 0,
+    "conflict_types": {
+      "material_grade": 1
+    }
+  },
+  "rule_usage": [
+    {
+      "rule_id": "CONNECTION_CANONICAL",
+      "count": 2
+    },
+    {
+      "rule_id": "FAMILY_CANONICAL",
+      "count": 2
+    },
+    {
+      "rule_id": "GRADE_FORMAT_ASTM_A216_WCB",
+      "count": 2
+    },
+    {
+      "rule_id": "MANUFACTURER_PART_NO_TRIM",
+      "count": 2
+    },
+    {
+      "rule_id": "MANUFACTURER_TRIM",
+      "count": 2
+    },
+    {
+      "rule_id": "SIZE_FORMAT_INCH",
+      "count": 2
+    },
+    {
+      "rule_id": "SPECIFICATION_TRIM",
+      "count": 2
+    },
+    {
+      "rule_id": "STANDARD_FORMAT_API",
+      "count": 2
+    },
+    {
+      "rule_id": "TYPE_CANONICAL",
+      "count": 2
+    },
+    {
+      "rule_id": "UNIT_CANONICAL",
+      "count": 2
+    }
+  ],
+  "attribute_impact": {
+    "material_family": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 2
+    },
+    "material_type": {
+      "input_unique_values": 2,
+      "output_unique_values": 2,
+      "changed_count": 2
+    },
+    "material_subtype": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "material": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "material_grade": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 2
+    },
+    "nominal_size": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "size": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 2
+    },
+    "length": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "width": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "height": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "diameter": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "thickness": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "pressure_class": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "schedule": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "rating": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "standard": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 0
+    },
+    "specification": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 0
+    },
+    "coating": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "connection_type": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 2
+    },
+    "end_type": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "construction": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "orientation": {
+      "input_unique_values": 0,
+      "output_unique_values": 0,
+      "changed_count": 0
+    },
+    "manufacturer": {
+      "input_unique_values": 2,
+      "output_unique_values": 2,
+      "changed_count": 0
+    },
+    "manufacturer_part_no": {
+      "input_unique_values": 2,
+      "output_unique_values": 2,
+      "changed_count": 0
+    },
+    "unit": {
+      "input_unique_values": 1,
+      "output_unique_values": 1,
+      "changed_count": 0
+    }
+  },
+  "examples": []
+}

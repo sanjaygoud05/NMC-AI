@@ -7,10 +7,19 @@ import type { DashboardMetrics, DataQualityMetrics, MaterialStats } from '@/type
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+interface ColumnProfile {
+  null_percentage?: number;
+}
+
+interface CPSEInfo {
+  record_count: number;
+}
+
 export const dashboardService = {
-  async getDashboardMetrics(): Promise<DashboardMetrics | null> {
+  async getDashboardMetrics(datasetId?: string): Promise<DashboardMetrics | null> {
     try {
-      const res = await fetch(`${API_BASE}/api/analytics/dashboard`);
+      const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      const res = await fetch(`${API_BASE}/api/analytics/dashboard${query}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const d = await res.json();
       return {
@@ -30,12 +39,14 @@ export const dashboardService = {
     }
   },
 
-  async getDataQualityMetrics(): Promise<DataQualityMetrics | null> {
+  async getDataQualityMetrics(datasetId?: string): Promise<DataQualityMetrics | null> {
     try {
-      const res = await fetch(`${API_BASE}/api/analytics/data-quality`);
+      const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      const res = await fetch(`${API_BASE}/api/analytics/data-quality${query}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const d = await res.json();
       const dims = d.quality_scoring?.dimensions || {};
+      const profiles = (d.column_profiles || {}) as Record<string, ColumnProfile>;
       return {
         overallScore: d.data_quality_score ?? 93.1,
         completeness: dims.completeness?.score ?? 90.1,
@@ -44,7 +55,7 @@ export const dashboardService = {
         uniqueness: dims.uniqueness?.score ?? 100.0,
         missingnessRate: 9.9,
         duplicateRate: 0.0,
-        fieldQuality: Object.entries(d.column_profiles || {}).map(([col, prof]: [string, any]) => ({
+        fieldQuality: Object.entries(profiles).map(([col, prof]) => ({
           field: col,
           completeness: 100 - (prof.null_percentage || 0),
           validity: 100 - (prof.null_percentage || 0),
@@ -58,14 +69,15 @@ export const dashboardService = {
     }
   },
 
-  async getMaterialStats(): Promise<MaterialStats | null> {
+  async getMaterialStats(datasetId?: string): Promise<MaterialStats | null> {
     try {
-      const res = await fetch(`${API_BASE}/api/analytics/cpse`);
+      const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      const res = await fetch(`${API_BASE}/api/analytics/cpse${query}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const d = await res.json();
-      const cpseData = d.cpse_data || {};
+      const cpseData = (d.cpse_data || {}) as Record<string, CPSEInfo>;
       const byCpse: Record<string, number> = {};
-      Object.entries(cpseData).forEach(([cpse, val]: [string, any]) => {
+      Object.entries(cpseData).forEach(([cpse, val]) => {
         byCpse[cpse] = val.record_count;
       });
       return {
@@ -79,7 +91,7 @@ export const dashboardService = {
           'Mechanical': 300,
         },
         byStatus: {
-          standardized: 1250,
+          standardized: Object.values(byCpse).reduce((a, b) => a + b, 0),
           pending: 0,
           rejected: 0,
         },
@@ -90,9 +102,10 @@ export const dashboardService = {
     }
   },
 
-  async getCPSEAnalytics() {
+  async getCPSEAnalytics(datasetId?: string) {
     try {
-      const res = await fetch(`${API_BASE}/api/analytics/cpse`);
+      const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      const res = await fetch(`${API_BASE}/api/analytics/cpse${query}`);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       return await res.json();
     } catch (err) {

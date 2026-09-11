@@ -1,0 +1,3 @@
+CPSE,Material_Code,Material_Description,Material_Category,Material_Type,Specification,Material_Grade,Size,Length,Diameter,Coating,Unit,Manufacturer,Manufacturer_Part_No,Plant,Material_Status,Annual_Consumption,Last_Purchase_Date
+ONGC,TEST-001,BALL VALVE FLANGED 2 IN ASTM A216 WCB,Valves,Mechanical,API 600,WCB,2 in,,,,NOS,L&T,LT-BV-200,Plant-A,Active,150,2025-05-15
+IOCL,TEST-002,GATE VALVE FLANGED 2 in,Valves,Mechanical,API 600,WCB,2 in,,,,NOS,BHEL,BH-GV-100,Plant-B,Active,320,2025-06-20

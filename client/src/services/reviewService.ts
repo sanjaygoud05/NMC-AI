@@ -175,6 +175,7 @@ export const reviewService = {
     candidate_cpse?: string;
     cross_cpse_only?: boolean;
     search?: string;
+    dataset_id?: string;
   }): Promise<ReviewQueueResponse> {
     const query = new URLSearchParams();
     if (params?.page !== undefined) query.set('page', params.page.toString());
@@ -187,6 +188,7 @@ export const reviewService = {
     if (params?.candidate_cpse && params.candidate_cpse !== 'all') query.set('candidate_cpse', params.candidate_cpse);
     if (params?.cross_cpse_only) query.set('cross_cpse_only', 'true');
     if (params?.search) query.set('search', params.search);
+    if (params?.dataset_id) query.set('dataset_id', params.dataset_id);
 
     const res = await fetch(`${API_BASE}/api/review/queue?${query.toString()}`);
     if (!res.ok) {

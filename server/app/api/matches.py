@@ -56,6 +56,7 @@ async def get_matching_report():
 async def get_matches(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=500),
+    dataset_id: Optional[str] = None,
     source_cpse: Optional[str] = None,
     candidate_cpse: Optional[str] = None,
     confidence_level: Optional[str] = None,
@@ -67,13 +68,23 @@ async def get_matches(
     """
     Query candidate match pairs with multi-attribute filtering, search, and pagination.
     """
-    df = _load_candidates_df()
-    if df is None:
-        await run_matching()
-        df = _load_candidates_df()
+    from server.services.dataset_resolver import load_dataset_dataframe
 
-    if df is None:
-        raise HTTPException(status_code=404, detail="Match candidates dataset not found.")
+    df = load_dataset_dataframe("match_candidates.csv", dataset_id=dataset_id)
+    if df.empty and dataset_id in [None, "BASELINE"]:
+        df = _load_candidates_df()
+        if df is None:
+            await run_matching()
+            df = _load_candidates_df()
+
+    if df is None or df.empty:
+        return {
+            "matches": [],
+            "total": 0,
+            "skip": skip,
+            "limit": limit,
+            "dataset_id": dataset_id or "BASELINE",
+        }
 
     filtered = df
 

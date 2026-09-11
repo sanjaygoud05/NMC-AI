@@ -59,8 +59,10 @@ import {
   ProcurementOpportunityRecord,
   PlantDistributionRecord,
 } from '@/services/procurementService';
+import { useDataset } from '@/contexts/DatasetContext';
 
 export default function Procurement() {
+  const { activeDatasetId } = useDataset();
   const [activeTab, setActiveTab] = useState('opportunities');
   const [kpis, setKpis] = useState<ProcurementKPIs | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,7 +104,7 @@ export default function Procurement() {
       try {
         setLoading(true);
         const [kpiData, cpseData] = await Promise.all([
-          procurementService.getKPIs(),
+          procurementService.getKPIs(activeDatasetId),
           procurementService.getCPSESummaries(),
         ]);
         setKpis(kpiData);
@@ -115,7 +117,7 @@ export default function Procurement() {
       }
     };
     loadCoreData();
-  }, []);
+  }, [activeDatasetId]);
 
   // Fetch opportunities when filters/page change
   useEffect(() => {
@@ -146,6 +148,7 @@ export default function Procurement() {
           material_family: cmmFamilyFilter !== 'all' ? cmmFamilyFilter : undefined,
           primary_uom: cmmUomFilter !== 'all' ? cmmUomFilter : undefined,
           cpse: cmmCpseFilter !== 'all' ? cmmCpseFilter : undefined,
+          dataset_id: activeDatasetId,
           page: cmmPage,
           page_size: 15,
         });
@@ -157,7 +160,7 @@ export default function Procurement() {
       }
     };
     fetchCmm();
-  }, [cmmSearch, cmmFamilyFilter, cmmUomFilter, cmmCpseFilter, cmmPage]);
+  }, [cmmSearch, cmmFamilyFilter, cmmUomFilter, cmmCpseFilter, cmmPage, activeDatasetId]);
 
   // Fetch plant distribution
   useEffect(() => {
@@ -866,7 +869,7 @@ export default function Procurement() {
                       <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`} />
                       <Tooltip
                         contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                        formatter={(val: number, name: string, item: any) => [`${val.toLocaleString()} ${item.payload.uom}`, 'Annual Volume']}
+                        formatter={(val: number, _name: string, item: { payload: { uom: string } }) => [`${val.toLocaleString()} ${item.payload.uom}`, 'Annual Volume']}
                       />
                       <Bar dataKey="volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     </BarChart>

@@ -39,9 +39,11 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { commonMasterService, CommonMaterialRecord, CommonMasterStats } from '@/services/commonMasterService';
+import { useDataset } from '@/contexts/DatasetContext';
 import { toast } from 'sonner';
 
 export default function CommonMaster() {
+  const { activeDatasetId } = useDataset();
   const [materials, setMaterials] = useState<CommonMaterialRecord[]>([]);
   const [stats, setStats] = useState<CommonMasterStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,10 +62,11 @@ export default function CommonMaster() {
           search,
           family: familyFilter,
           governance_status: statusFilter,
+          dataset_id: activeDatasetId,
           page,
           page_size: 20,
         }),
-        commonMasterService.getStats().catch(() => null),
+        commonMasterService.getStats(activeDatasetId).catch(() => null),
       ]);
 
       setMaterials(catData.items || []);
@@ -80,7 +83,7 @@ export default function CommonMaster() {
 
   useEffect(() => {
     fetchCatalog();
-  }, [search, familyFilter, statusFilter, page]);
+  }, [search, familyFilter, statusFilter, page, activeDatasetId]);
 
   const getGovernanceBadge = (status: string) => {
     switch (status) {
