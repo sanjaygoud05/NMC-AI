@@ -26,23 +26,26 @@ class EmbeddingService:
         self.dimension = DEFAULT_DIMENSION
         self.config = config or {}
         self.model = None
+        self._model_initialized = False
         self.fallback_used = False
-        self.embedding_method = "sentence_transformer_all_MiniLM_L6_v2"
-        self._init_model()
+        self.embedding_method = f"sentence_transformer_{self.model_name.replace('/', '_')}"
 
-    def _init_model(self):
-        """Initialize sentence transformer model or mark fallback."""
-        try:
-            from sentence_transformers import SentenceTransformer
-            self.model = SentenceTransformer(self.model_name)
-            self.embedding_method = f"sentence_transformer_{self.model_name.replace('/', '_')}"
-            self.fallback_used = False
-            logger.info(f"Loaded sentence transformer model: {self.model_name}")
-        except Exception as e:
-            logger.warning(f"Could not load sentence transformer model ({e}). Using deterministic TF-IDF fallback.")
-            self.model = None
-            self.fallback_used = True
-            self.embedding_method = "deterministic_tfidf_fallback"
+    def _get_model(self):
+        """Lazy-initialize sentence transformer model on demand to keep startup memory < 80MB."""
+        if not self._model_initialized:
+            try:
+                from sentence_transformers import SentenceTransformer
+                self.model = SentenceTransformer(self.model_name)
+                self.embedding_method = f"sentence_transformer_{self.model_name.replace('/', '_')}"
+                self.fallback_used = False
+                logger.info(f"Loaded sentence transformer model: {self.model_name}")
+            except Exception as e:
+                logger.warning(f"Could not load sentence transformer model ({e}). Using deterministic TF-IDF fallback.")
+                self.model = None
+                self.fallback_used = True
+                self.embedding_method = "deterministic_tfidf_fallback"
+            self._model_initialized = True
+        return self.model
 
     def build_engineering_text(self, row: Dict[str, Any]) -> str:
         """
@@ -81,8 +84,9 @@ class EmbeddingService:
         Encode list of texts into 2D numpy array of embeddings.
         Returns float32 normalized embeddings.
         """
-        if not self.fallback_used and self.model is not None:
-            embeddings = self.model.encode(
+        model = self._get_model()
+        if not self.fallback_used and model is not None:
+            embeddings = model.encode(
                 texts,
                 batch_size=self.config.get("batch_size", 64),
                 show_progress_bar=False,
