@@ -1,0 +1,96 @@
+{
+  "phase": "Phase 6 \u2014 Technical Validation, Confidence Refinement & Review Preparation",
+  "timestamp": "2026-09-11T02:39:11Z",
+  "dataset_integrity": {
+    "input_candidates": 37500,
+    "output_candidates": 37500,
+    "rows_preserved": true,
+    "standardized_materials_count": 1250
+  },
+  "immutability": {
+    "raw_dataset_hash": "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",
+    "raw_unchanged": true,
+    "phase2_hash": "34891ddaffba57cb3956d4a1172b554077e87dfe36e513e641022bc5634abffc",
+    "phase2_unchanged": true,
+    "phase3_hash": "8fc02888a909679f24346982ebde84a21ee756e80d4d0e9a3d94023580633f4e",
+    "phase3_unchanged": true,
+    "phase4_hash": "5e93c66468d2813afd147234c53089f17b4400b07ca6ea168f3445a255fc72d6",
+    "phase4_unchanged": true,
+    "phase5_hash": "0337a33c1170b64c7f40edb6c82419269f847e06c0b35a174a1434ce77407ca3",
+    "phase5_unchanged": true,
+    "output_validated_candidates_sha256": "bc434f434a25aff84a30f3acb4750a0982e19ad125b23cbd5d2c8a84aab89cbc"
+  },
+  "validation_status_distribution": {
+    "VALIDATED_COMPATIBLE": 8608,
+    "REVIEW_REQUIRED": 7088,
+    "ENGINEERING_INCOMPATIBLE": 21276,
+    "PROBABLE_COMPATIBLE": 528
+  },
+  "review_priority_distribution": {
+    "HIGH": 4854,
+    "MEDIUM": 3917,
+    "CRITICAL": 7337,
+    "LOW": 21392
+  },
+  "refined_confidence_distribution": {
+    "HIGH": 9136,
+    "MEDIUM": 7088,
+    "LOW": 21276
+  },
+  "engineering_conflict_distribution": {
+    "NO_CONFLICT": 10666,
+    "HARD_INCOMPATIBLE": 21276,
+    "REPRESENTATION_DIFFERENCE": 528,
+    "SOFT_ENGINEERING_DIFFERENCE": 5030
+  },
+  "reason_code_distribution": {
+    "EXACT_CANONICAL_KEY": 9136,
+    "CORE_ATTR_MATCH": 10666,
+    "SIZE_MISMATCH": 20755,
+    "UPSTREAM_CONFLICT_PRESERVED": 28604,
+    "REPRESENTATION_COMPATIBLE": 528,
+    "SECONDARY_ATTR_DIFFERENCE": 7645,
+    "STANDARD_MISMATCH": 866,
+    "GRADE_MISMATCH": 552,
+    "FAMILY_MISMATCH": 232
+  },
+  "benchmark_validation_results": [
+    {
+      "case": "Strong cross-CPSE material",
+      "expected_status": "VALIDATED_COMPATIBLE",
+      "expected_class": "NO_CONFLICT",
+      "status": "PASS"
+    },
+    {
+      "case": "ASTM A105 vs A105",
+      "expected_status": "PROBABLE_COMPATIBLE",
+      "expected_class": "REPRESENTATION_DIFFERENCE",
+      "status": "PASS"
+    },
+    {
+      "case": "M16 vs M16X75",
+      "expected_status": "REVIEW_REQUIRED",
+      "expected_class": "SOFT_ENGINEERING_DIFFERENCE",
+      "status": "PASS"
+    },
+    {
+      "case": "SS 304 vs SS 316",
+      "expected_status": "ENGINEERING_INCOMPATIBLE",
+      "expected_class": "HARD_INCOMPATIBLE",
+      "status": "PASS"
+    },
+    {
+      "case": "2 IN vs 3 IN",
+      "expected_status": "ENGINEERING_INCOMPATIBLE",
+      "expected_class": "HARD_INCOMPATIBLE",
+      "status": "PASS"
+    },
+    {
+      "case": "ASTM A105 vs ASTM A216 WCB",
+      "expected_status": "ENGINEERING_INCOMPATIBLE",
+      "expected_class": "HARD_INCOMPATIBLE",
+      "status": "PASS"
+    }
+  ],
+  "runtime_seconds": 4.33
+}

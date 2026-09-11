@@ -1,0 +1,207 @@
+<USER_REQUEST>
+ # PHASE 3 AUDIT / VALIDATION GATE
+
+## SIH26099 — AI-Driven Standardization and Harmonization of Material Codes Across CPSEs
+
+You are working on the existing SIH26099 Material Harmonization Platform.
+
+The project has completed:
+
+* Phase 0 — Architecture + Lovable Frontend Integration
+* Phase 0.5 — Stabilization / Baseline Lock
+* Phase 1 — Dataset Ingestion + Profiling
+* Phase 2 — Cleaning + Normalization
+* Phase 3 — Attribute Extraction
+
+Before starting Phase 4, perform a strict **Phase 3 Audit / Validation Gate**.
+
+IMPORTANT:
+
+This is an AUDIT and VALIDATION task.
+
+Do NOT start Phase 4.
+Do NOT implement standardization/canonicalization.
+Do NOT implement embeddings.
+Do NOT implement fuzzy matching.
+Do NOT implement semantic matching.
+Do NOT implement candidate generation.
+Do NOT implement Common Material Master.
+Do NOT implement human review workflows.
+Do NOT implement procurement intelligence.
+
+Your objective is to determine whether Phase 3 is trustworthy enough to proceed to Phase 4.
+
+---
+
+# 1. CURRENT PHASE 3 INPUT
+
+The primary Phase 3 input is:
+
+data/processed/normalized_materials.csv
+
+Expected:
+
+* 1,250 data rows
+* 29 columns
+
+The Phase 3 output is:
+
+data/processed/extracted_attributes.csv
+
+Expected:
+
+* 1,250 data rows
+* approximately 66 columns
+* material attributes
+* provenance/source information
+* extraction confidence
+* conflict information
+* rule/audit information
+
+Phase 3 report:
+
+data/processed/attribute_extraction_report.json
+
+Phase 3 implementation is expected to be located around:
+
+server/services/attribute_extraction_service.py
+server/pipeline/phase04_attribute_extraction.py
+server/pipeline/pipeline_runner.py
+server/app/api/standardization.py
+
+Tests:
+
+tests/unit/test_attribute_extraction.py
+
+Do NOT assume these locations are correct.
+
+First inspect the actual repository structure and identify the current Phase 3 implementation.
+
+---
+
+# 2. FIRST: CREATE A PHASE 3 BASELINE
+
+Before changing an
+<truncated 15358 bytes>
+peline
+server/app/pipeline
+```
+
+unless the existing repository genuinely requires it.
+
+Inspect first.
+
+Reuse existing files and services.
+
+Do not migrate to Next.js.
+
+Keep:
+
+```text
+React + TypeScript + Vite
+        ↓
+FastAPI
+        ↓
+Python domain/pipeline services
+        ↓
+Supabase/PostgreSQL
+```
+
+The Lovable frontend architecture must remain intact.
+
+---
+
+# 26. FINAL OUTPUT TO ME
+
+When finished, give me a concise implementation report containing:
+
+### STATUS
+
+```text
+PHASE 3 AUDIT: PASS / PASS WITH WARNINGS / FAIL
+```
+
+### DATA
+
+```text
+Raw rows:
+Phase 2 rows:
+Phase 3 rows:
+```
+
+### INTEGRITY
+
+```text
+Raw hash:
+Raw unchanged:
+Phase 2 unchanged:
+```
+
+### EXTRACTION
+
+```text
+Structured-field coverage:
+Text-extraction coverage:
+Unsupported inference count:
+Provenance issues:
+```
+
+### CONFLICTS
+
+```text
+Total conflicts:
+Top conflict categories:
+Conflicts resolved:
+```
+
+Remember:
+
+```text
+Conflicts resolved = 0
+```
+
+unless an obvious Phase 3 bug required correction.
+
+### TESTS
+
+```text
+Tests passed:
+Tests failed:
+Frontend build:
+TypeScript:
+ESLint:
+Backend compile:
+Idempotence:
+```
+
+### FIXES
+
+List only actual Phase 3 fixes made.
+
+### REMAINING RISKS
+
+List remaining issues that are intentionally deferred.
+
+### FINAL GATE
+
+```text
+PHASE 3 AUDIT: PASS
+READY FOR PHASE 4
+```
+
+or the appropriate status.
+
+DO NOT START PHASE 4 IN THIS TASK.
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-11T01:06:41+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\uyyal\wisdom-garden-bed\client\src\lib\mock\commonMaster.ts (LANGUAGE_TYPESCRIPT)
+Cursor is on line: 1
+Other open documents:
+- c:\Users\uyyal\wisdom-garden-bed\client\src\lib\mock\commonMaster.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\uyyal\wisdom-garden-bed\client\src\lib\mock\materials.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\uyyal\wisdom-garden-bed\client\src\pages\Standardization.tsx (LANGUAGE_TSX)
+</ADDITIONAL_METADATA>

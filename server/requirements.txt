@@ -1,0 +1,36 @@
+# SIH26099 Material Harmonization Platform - Backend Dependencies
+
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Configuration
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+
+# Database (placeholder for future)
+# psycopg2-binary==2.9.9
+# sqlalchemy==2.0.23
+# alembic==1.13.0
+
+# Supabase (placeholder for future)
+# supabase==2.3.4
+
+# Data Processing (placeholder for future)
+# pandas==2.1.3
+# numpy==1.26.2
+
+# AI/ML (placeholder for future)
+# openai==1.3.7
+# google-generativeai==0.3.1
+# sentence-transformers==2.2.2
+
+# Testing (placeholder for future)
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
+# httpx==0.25.2
+
+# Utilities
+httpx==0.25.2

@@ -1,0 +1,30 @@
+{
+  "phase": "Phase 9 \u2014 Legacy Mapping",
+  "status": "completed",
+  "database_persistence": {
+    "status": "success",
+    "records_saved": 1250
+  },
+  "deterministic_metrics": {
+    "total_source_materials": 1250,
+    "total_mappings": 1250,
+    "mapped_verified": 2,
+    "mapped_standalone": 1248,
+    "review_required": 0,
+    "conflict": 0,
+    "unmapped": 0,
+    "transitive_verified": 0,
+    "cpse_distribution": {
+      "CPCL": 298,
+      "HPCL": 301,
+      "IOCL": 319,
+      "ONGC": 332
+    },
+    "unique_cmm_codes_mapped": 1249
+  },
+  "files_generated": {
+    "legacy_mapping_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\legacy_material_mapping.csv",
+    "legacy_mapping_csv_sha256": "2cf7bf298d260a2b4b2d611f6ce680f7a695abadf756232b5b3258082de75a34",
+    "report_json": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\legacy_mapping_report.json"
+  }
+}

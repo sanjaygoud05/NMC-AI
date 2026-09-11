@@ -1,0 +1,112 @@
+{
+  "phase": "Phase 05: Candidate Generation & Semantic Matching",
+  "dataset": {
+    "input_rows": 1250,
+    "unique_material_codes": 1250,
+    "input_sha256": "5e93c66468d2813afd147234c53089f17b4400b07ca6ea168f3445a255fc72d6",
+    "output_sha256": "0337a33c1170b64c7f40edb6c82419269f847e06c0b35a174a1434ce77407ca3"
+  },
+  "performance": {
+    "naive_all_pairs": 780625,
+    "blocked_candidate_pairs": 90855,
+    "blocking_reduction_ratio_percent": 88.36,
+    "retained_candidate_pairs": 37500,
+    "average_candidates_per_material": 30.0,
+    "embedding_time_seconds": 4.57,
+    "blocking_time_seconds": 0.21,
+    "scoring_time_seconds": 8.46,
+    "total_runtime_seconds": 14.06
+  },
+  "embedding": {
+    "embedding_method": "sentence_transformer_all-MiniLM-L6-v2",
+    "embedding_model": "all-MiniLM-L6-v2",
+    "embedding_dimension": 384,
+    "fallback_used": false,
+    "input_sha256": "5e93c66468d2813afd147234c53089f17b4400b07ca6ea168f3445a255fc72d6"
+  },
+  "candidate_summary": {
+    "total_candidates": 37500,
+    "cross_cpse_candidates": 29398,
+    "same_cpse_candidates": 8102,
+    "high_confidence_candidates": 9136,
+    "medium_confidence_candidates": 28,
+    "low_confidence_candidates": 28336,
+    "exact_canonical_key_candidates": 9136,
+    "engineering_incompatibilities": 20892
+  },
+  "cpse_distribution": {
+    "ONGC -> IOCL": 2699,
+    "IOCL -> ONGC": 2679,
+    "IOCL -> CPCL": 2548,
+    "HPCL -> ONGC": 2519,
+    "CPCL -> IOCL": 2507,
+    "ONGC -> HPCL": 2465,
+    "ONGC -> CPCL": 2428,
+    "HPCL -> IOCL": 2377,
+    "CPCL -> ONGC": 2370,
+    "ONGC -> ONGC": 2368,
+    "IOCL -> HPCL": 2320,
+    "HPCL -> CPCL": 2276,
+    "CPCL -> HPCL": 2210,
+    "IOCL -> IOCL": 2023,
+    "HPCL -> HPCL": 1858,
+    "CPCL -> CPCL": 1853
+  },
+  "benchmark_examples": [
+    {
+      "category": "exact_canonical_representation_across_cpse",
+      "source_material_code": "IOCL-177934",
+      "source_cpse": "IOCL",
+      "candidate_material_code": "CPCL-304313",
+      "candidate_cpse": "CPCL",
+      "final_match_score": 1.0,
+      "confidence_level": "HIGH",
+      "evidence_summary": "Exact canonical material key match | Embedding sim: 1.00 | Description sim: 1.00 | Attribute agreement: 1.00 (6 attrs) | Status: NO_CONFLICT"
+    },
+    {
+      "category": "strong_high_confidence_candidate",
+      "source_material_code": "IOCL-177934",
+      "source_cpse": "IOCL",
+      "candidate_material_code": "CPCL-304313",
+      "candidate_cpse": "CPCL",
+      "final_match_score": 1.0,
+      "confidence_level": "HIGH",
+      "evidence_summary": "Exact canonical material key match | Embedding sim: 1.00 | Description sim: 1.00 | Attribute agreement: 1.00 (6 attrs) | Status: NO_CONFLICT"
+    },
+    {
+      "category": "medium_confidence_candidate",
+      "source_material_code": "HPCL-487793",
+      "source_cpse": "HPCL",
+      "candidate_material_code": "CPCL-947653",
+      "candidate_cpse": "CPCL",
+      "final_match_score": 0.6523,
+      "confidence_level": "MEDIUM",
+      "evidence_summary": "Embedding sim: 0.98 | Description sim: 0.97 | Attribute agreement: 0.90 (10 attrs) | Status: NO_CONFLICT"
+    },
+    {
+      "category": "weak_candidate",
+      "source_material_code": "IOCL-177934",
+      "source_cpse": "IOCL",
+      "candidate_material_code": "CPCL-736993",
+      "candidate_cpse": "CPCL",
+      "final_match_score": 0.6281,
+      "confidence_level": "LOW",
+      "evidence_summary": "Embedding sim: 0.97 | Description sim: 0.91 | Attribute agreement: 0.86 (7 attrs) | Status: NO_CONFLICT"
+    },
+    {
+      "category": "engineering_incompatible_candidate",
+      "source_material_code": "IOCL-177934",
+      "source_cpse": "IOCL",
+      "candidate_material_code": "CPCL-971523",
+      "candidate_cpse": "CPCL",
+      "final_match_score": 0.1816,
+      "confidence_level": "LOW",
+      "evidence_summary": "Embedding sim: 1.00 | Description sim: 0.99 | Attribute agreement: 0.96 (6 attrs) | Status: HARD_INCOMPATIBLE | Penalty: -0.50 | Notes: Incompatible bearing number: '6208' vs '6206'"
+    }
+  ],
+  "immutability": {
+    "raw_dataset_hash_before": "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",
+    "raw_dataset_hash_after": "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",
+    "raw_dataset_unchanged": true
+  }
+}

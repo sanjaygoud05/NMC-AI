@@ -1,0 +1,24 @@
+{
+  "phase": "Phase 8 \u2014 Common Material Master",
+  "status": "completed",
+  "database_persistence": {
+    "status": "success",
+    "masters_saved": 1249,
+    "members_saved": 1250
+  },
+  "metrics": {
+    "total_source_materials": 1250,
+    "total_common_material_groups": 1249,
+    "multi_cpse_groups": 1,
+    "standalone_groups": 1248,
+    "verified_harmonized": 1,
+    "ambiguous_review_required": 0,
+    "split_conflict": 0,
+    "approved_master": 0
+  },
+  "files_generated": {
+    "master_catalog_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\common_material_master.csv",
+    "member_mappings_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\common_material_members.csv",
+    "report_json": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\common_master_report.json"
+  }
+}
