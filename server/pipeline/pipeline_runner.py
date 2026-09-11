@@ -24,6 +24,7 @@ try:
     from pipeline.phase08_technical_validation import run_technical_validation
     from pipeline.phase08_common_material_master import run_common_material_master
     from pipeline.phase09_legacy_mapping import run_legacy_mapping
+    from pipeline.phase10_procurement_analytics import run_procurement_analytics
 except ImportError:
     from server.pipeline.phase01_ingestion import run_ingestion
     from server.pipeline.phase02_profiling import run_profiling
@@ -34,6 +35,7 @@ except ImportError:
     from server.pipeline.phase08_technical_validation import run_technical_validation
     from server.pipeline.phase08_common_material_master import run_common_material_master
     from server.pipeline.phase09_legacy_mapping import run_legacy_mapping
+    from server.pipeline.phase10_procurement_analytics import run_procurement_analytics
 
 
 class PipelineRunner:
@@ -55,6 +57,14 @@ class PipelineRunner:
         """Run Phase 9 Legacy Material Mapping synthesis"""
         self.current_status = "running"
         result = run_legacy_mapping(config)
+        self.current_status = "completed" if result.get("status") == "completed" else "failed"
+        self.last_results = result
+        return result
+
+    async def run_procurement_analytics(self, config: dict = None) -> dict:
+        """Run Phase 10 Procurement Intelligence + Analytics"""
+        self.current_status = "running"
+        result = run_procurement_analytics(config)
         self.current_status = "completed" if result.get("status") == "completed" else "failed"
         self.last_results = result
         return result
@@ -156,10 +166,12 @@ class PipelineRunner:
             return await self.run_common_material_master(config)
         elif phase_name in ["phase09_legacy_mapping", "legacy_mapping", "phase9"]:
             return await self.run_legacy_mapping(config)
+        elif phase_name in ["phase10_procurement_analytics", "procurement_analytics", "procurement", "phase10"]:
+            return await self.run_procurement_analytics(config)
         else:
             raise ValueError(
                 f"Phase '{phase_name}' is not recognized. "
-                "Available: phase01_ingestion, phase02_profiling, phase03_cleaning, phase04_attribute_extraction, phase05_standardization, phase07_candidate_matching, phase08_technical_validation, phase08_common_material_master, phase09_legacy_mapping"
+                "Available: phase01_ingestion, phase02_profiling, phase03_cleaning, phase04_attribute_extraction, phase05_standardization, phase07_candidate_matching, phase08_technical_validation, phase08_common_material_master, phase09_legacy_mapping, phase10_procurement_analytics"
             )
 
     def get_pipeline_status(self) -> dict:

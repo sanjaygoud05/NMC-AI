@@ -1,0 +1,5 @@
+source_cpse,total_material_records,active_material_count,inactive_material_count,total_volume_nos,total_volume_mtr,total_volume_set,total_volume_other,distinct_plants_count,distinct_manufacturers_count,multi_cpse_harmonized_members
+CPCL,298,262,36,2283064,1560219,0,143734,2,12,0
+HPCL,301,277,24,2222649,1388628,0,224494,3,12,0
+IOCL,319,278,41,2414354,1417825,0,212015,3,12,1
+ONGC,332,289,43,2224287,1491920,0,184098,3,12,1

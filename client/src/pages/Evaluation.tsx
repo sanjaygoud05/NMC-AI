@@ -30,6 +30,7 @@ import {
   Play,
   RotateCw,
 } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import type { EvaluationReport } from '@/types';
 
 export default function Evaluation() {
@@ -240,7 +241,42 @@ export default function Evaluation() {
           </Card>
         </div>
 
-        {/* Benchmark Run History */}
+        {/* Benchmark Run History & Recharts Comparison */}
+        <Card className="border-border bg-card">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <BarChart2 className="h-4 w-4 text-primary" />
+              Benchmark Accuracy & F1 Metric Progression
+            </CardTitle>
+            <CardDescription>
+              Performance trajectory across iteration checkpoints (Precision, Recall, F1-Score)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 w-full mb-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={[
+                  { run: 'Run 002 (Levenshtein)', precision: 86.2, recall: 81.0, f1: 83.5 },
+                  { run: 'Run 003 (Transformer)', precision: 91.5, recall: 88.4, f1: 89.9 },
+                  { run: 'Run 004 (Hybrid + Rule)', precision: 94.8, recall: 91.2, f1: 93.0 },
+                ]}>
+                  <XAxis dataKey="run" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} domain={[70, 100]} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                    formatter={(val: number) => [`${val}%`, '']}
+                  />
+                  <Legend />
+                  <Bar dataKey="precision" name="Precision %" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="recall" name="Recall %" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="f1" name="F1 Score %" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Benchmark Run History Table */}
         <Card className="border-border bg-card">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">

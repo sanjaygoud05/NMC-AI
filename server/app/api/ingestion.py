@@ -6,7 +6,7 @@ Normalization API endpoints (Phase 2)
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, File, UploadFile
 from services.ingestion_service import ingestion_service
 from services.profiling_service import profiling_service
 from services.normalization_service import normalization_service
@@ -76,6 +76,32 @@ async def get_data_quality_metrics():
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/upload")
+async def upload_dataset_file(file: UploadFile = File(...)):
+    """
+    Upload and profile a CSV material dataset file.
+    Validates against expected 18-column schema, computes SHA-256,
+    identifies whether it matches the official Phase 1 raw baseline,
+    and returns dataset characteristics.
+    """
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only CSV (.csv) files are supported for dataset ingestion.",
+        )
+
+    try:
+        content = await file.read()
+        res = ingestion_service.process_uploaded_file(content=content, filename=file.filename)
+        if res.get("status") == "error":
+            raise HTTPException(status_code=400, detail=res.get("message", "Failed to process CSV file"))
+        return res
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process file upload: {str(e)}")
 
 
 @router.post("/run")

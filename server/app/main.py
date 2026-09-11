@@ -3,10 +3,19 @@ SIH26099 Material Harmonization Platform - FastAPI Backend
 Main application entry point
 """
 
+import os
+import sys
+
+_server_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_root_dir = os.path.abspath(os.path.join(_server_dir, ".."))
+for _p in [_root_dir, _server_dir]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api import health, materials, matches, review, analytics, ingestion, standardization, common_master, legacy_mapping
+from app.api import health, materials, matches, review, analytics, ingestion, standardization, common_master, legacy_mapping, procurement
 
 # Create FastAPI application
 app = FastAPI(
@@ -36,6 +45,7 @@ app.include_router(ingestion.router, prefix="/api/ingest", tags=["Ingestion"])
 app.include_router(standardization.router, prefix="/api/standardization", tags=["Standardization"])
 app.include_router(common_master.router, prefix="/api/common-master", tags=["Common Master"])
 app.include_router(legacy_mapping.router, prefix="/api/legacy-mapping", tags=["Legacy Mapping"])
+app.include_router(procurement.router, prefix="/api/procurement", tags=["Procurement"])
 
 
 @app.get("/")

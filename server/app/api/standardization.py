@@ -187,7 +187,10 @@ async def get_standardization_report():
         )
     try:
         with open(STANDARDIZATION_REPORT_PATH, encoding="utf-8") as f:
-            return json.load(f)
+            raw_text = f.read()
+        import re
+        sanitized = re.sub(r"\bNaN\b", "null", raw_text)
+        return json.loads(sanitized)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read standardization report: {str(e)}")
 

@@ -139,5 +139,67 @@ class IngestionService:
             },
         }
 
+    def process_uploaded_file(self, content: bytes, filename: str) -> dict:
+        """
+        Process and validate an uploaded CSV material dataset.
+        Computes SHA256 checksum, checks baseline matching, validates schema, and profiles records.
+        """
+        import io
+        hasher = hashlib.sha256(content)
+        sha256_hash = hasher.hexdigest()
+        size_bytes = len(content)
+
+        is_official_raw = (
+            sha256_hash == "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1"
+        )
+
+        try:
+            df = pd.read_csv(io.BytesIO(content), encoding="utf-8", dtype=str)
+        except Exception:
+            try:
+                df = pd.read_csv(io.BytesIO(content), encoding="latin-1", dtype=str)
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": f"Failed to parse CSV file: {str(e)}",
+                    "sha256": sha256_hash,
+                    "filename": filename,
+                    "size_bytes": size_bytes,
+                }
+
+        schema_info = self.validate_schema(df)
+
+        cpse_distribution = {}
+        if "CPSE" in df.columns:
+            cpse_distribution = df["CPSE"].value_counts().to_dict()
+
+        # If not official baseline, safely stage the file in data/uploads/
+        staging_path = None
+        if not is_official_raw:
+            uploads_dir = Path("data/uploads")
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            staging_path = uploads_dir / filename
+            with open(staging_path, "wb") as f:
+                f.write(content)
+
+        return {
+            "status": "success",
+            "filename": filename,
+            "size_bytes": size_bytes,
+            "size_mb": round(size_bytes / (1024 * 1024), 3),
+            "sha256": sha256_hash,
+            "is_official_raw_baseline": is_official_raw,
+            "record_count": len(df),
+            "column_count": len(df.columns),
+            "schema_info": schema_info,
+            "cpse_distribution": cpse_distribution,
+            "staged_path": str(staging_path) if staging_path else None,
+            "message": (
+                "Verified official Phase 1 raw baseline dataset"
+                if is_official_raw
+                else "Dataset uploaded and profiled successfully"
+            ),
+        }
+
 
 ingestion_service = IngestionService()
