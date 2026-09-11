@@ -3,7 +3,9 @@ Application configuration
 """
 
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
+import json
 
 
 class Settings(BaseSettings):
@@ -17,7 +19,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # CORS Settings
-    ALLOWED_ORIGINS: List[str] = [
+    ALLOWED_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:8080",
@@ -25,6 +27,20 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",
     ]
+
+    @property
+    def cors_origins(self) -> List[str]:
+        if isinstance(self.ALLOWED_ORIGINS, str):
+            val = self.ALLOWED_ORIGINS.strip()
+            if val == "*":
+                return ["*"]
+            if val.startswith("[") and val.endswith("]"):
+                try:
+                    return json.loads(val)
+                except Exception:
+                    pass
+            return [origin.strip() for origin in val.split(",") if origin.strip()]
+        return self.ALLOWED_ORIGINS
 
     # Database Settings (placeholder for future)
     DATABASE_URL: str = "postgresql://user:password@localhost/sih26099"
