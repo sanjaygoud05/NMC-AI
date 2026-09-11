@@ -312,8 +312,56 @@ export default function Review() {
               </div>
             </div>
 
-            {/* Side-by-Side Attribute Comparison Table matching Image 2 */}
-            <div className="overflow-x-auto rounded-xl border border-border/60">
+            {/* Mobile Attribute Comparison List (< sm) */}
+            <div className="block sm:hidden space-y-2">
+              <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/40 border border-border text-xs">
+                <div className="font-semibold text-foreground truncate">
+                  {currentItem.source_title || currentItem.source_material_code}
+                  <span className="text-muted-foreground font-normal ml-1">({currentItem.source_cpse})</span>
+                </div>
+                <span className="font-mono text-muted-foreground font-bold">&rarr;</span>
+                <div className="font-semibold text-foreground truncate">
+                  {currentItem.candidate_title || currentItem.candidate_material_code}
+                  <span className="text-muted-foreground font-normal ml-1">({currentItem.candidate_cpse})</span>
+                </div>
+              </div>
+
+              {['Type', 'Grade', 'Size', 'Coating', 'Unit'].map((attr) => {
+                const attrObj = currentItem.attributes?.[attr];
+                const sVal = attrObj?.source || '-';
+                const cVal = attrObj?.candidate || '-';
+                const isDiff =
+                  sVal !== '-' &&
+                  cVal !== '-' &&
+                  sVal.toLowerCase().trim() !== cVal.toLowerCase().trim();
+
+                return (
+                  <div key={attr} className="p-2.5 rounded-lg border border-border/60 bg-muted/15 space-y-1">
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                      <span>{attr}</span>
+                      {isDiff && <span className="text-[10px] text-rose-500 font-medium">Difference</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">{currentItem.source_cpse}</div>
+                        <div className={`font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
+                          {sVal}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">{currentItem.candidate_cpse}</div>
+                        <div className={`font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
+                          {cVal}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Tablet & Desktop Side-by-Side Comparison Table (>= sm) */}
+            <div className="hidden sm:block overflow-x-auto rounded-xl border border-border/60 w-full">
               <table className="w-full min-w-[520px] text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-border/80 text-muted-foreground">

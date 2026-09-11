@@ -203,22 +203,22 @@ export default function DatasetHistory() {
         </div>
 
         {/* Filter Toolbar & View Toggle */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border">
-          <div className="flex items-center gap-2 flex-1">
-            <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 min-w-0">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search dataset ID, filename, status..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-background border-border h-9 text-xs"
+                className="pl-9 bg-background border-border h-9 text-xs w-full"
               />
             </div>
 
-            <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/50 text-xs">
+            <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/50 text-xs overflow-x-auto scrollbar-none shrink-0">
               <button
                 onClick={() => setFilterType('all')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
+                className={`px-2.5 py-1 rounded-md transition-all whitespace-nowrap shrink-0 ${
                   filterType === 'all'
                     ? 'bg-background font-semibold text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
@@ -228,7 +228,7 @@ export default function DatasetHistory() {
               </button>
               <button
                 onClick={() => setFilterType('baseline')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
+                className={`px-2.5 py-1 rounded-md transition-all whitespace-nowrap shrink-0 ${
                   filterType === 'baseline'
                     ? 'bg-background font-semibold text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
@@ -238,7 +238,7 @@ export default function DatasetHistory() {
               </button>
               <button
                 onClick={() => setFilterType('uploads')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
+                className={`px-2.5 py-1 rounded-md transition-all whitespace-nowrap shrink-0 ${
                   filterType === 'uploads'
                     ? 'bg-background font-semibold text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
@@ -248,7 +248,7 @@ export default function DatasetHistory() {
               </button>
               <button
                 onClick={() => setFilterType('active')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
+                className={`px-2.5 py-1 rounded-md transition-all whitespace-nowrap shrink-0 ${
                   filterType === 'active'
                     ? 'bg-background font-semibold text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
@@ -259,7 +259,7 @@ export default function DatasetHistory() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1 self-end sm:self-center border border-border/60 rounded-lg p-1 bg-background">
+          <div className="flex items-center gap-1 self-end md:self-center border border-border/60 rounded-lg p-1 bg-background shrink-0">
             <Button
               variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
               size="icon"
@@ -303,8 +303,8 @@ export default function DatasetHistory() {
         ) : viewMode === 'table' ? (
           /* Table View */
           <Card className="border-border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full min-w-[720px] text-xs text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
                     <th className="p-3 pl-4">Dataset ID</th>

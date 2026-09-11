@@ -270,12 +270,16 @@ export default function Matches() {
                 setPage(0);
               }}
             >
-              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium">
-                <span className="text-muted-foreground mr-1">Confidence:</span>
-                <SelectValue placeholder="all" />
+              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium px-3">
+                <div className="flex items-center gap-1.5 truncate text-left">
+                  <span className="text-muted-foreground shrink-0">Confidence:</span>
+                  <span className="font-semibold text-foreground truncate">
+                    <SelectValue placeholder="All" />
+                  </span>
+                </div>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">all</SelectItem>
+              <SelectContent className="bg-card border-border">
+                <SelectItem value="all">All Confidence</SelectItem>
                 <SelectItem value="HIGH">High (&ge; 85%)</SelectItem>
                 <SelectItem value="MEDIUM">Medium (60-84%)</SelectItem>
                 <SelectItem value="LOW">Low (&lt; 60%)</SelectItem>
@@ -290,13 +294,17 @@ export default function Matches() {
                 setPage(0);
               }}
             >
-              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium">
-                <span className="text-muted-foreground mr-1">Category:</span>
-                <SelectValue placeholder="all" />
+              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium px-3">
+                <div className="flex items-center gap-1.5 truncate text-left">
+                  <span className="text-muted-foreground shrink-0">Category:</span>
+                  <span className="font-semibold text-foreground truncate">
+                    <SelectValue placeholder="All" />
+                  </span>
+                </div>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">all</SelectItem>
-                {categories.map((cat) => (
+              <SelectContent className="bg-card border-border max-h-60">
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.filter(Boolean).map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
                   </SelectItem>
@@ -312,12 +320,16 @@ export default function Matches() {
                 setPage(0);
               }}
             >
-              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium">
-                <span className="text-muted-foreground mr-1">Status:</span>
-                <SelectValue placeholder="all" />
+              <SelectTrigger className="w-full h-10 rounded-xl bg-background border-border text-xs font-medium px-3">
+                <div className="flex items-center gap-1.5 truncate text-left">
+                  <span className="text-muted-foreground shrink-0">Status:</span>
+                  <span className="font-semibold text-foreground truncate">
+                    <SelectValue placeholder="All" />
+                  </span>
+                </div>
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">all</SelectItem>
+              <SelectContent className="bg-card border-border">
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="Exact">Exact</SelectItem>
                 <SelectItem value="Equivalent">Equivalent</SelectItem>
                 <SelectItem value="Review">Review</SelectItem>
@@ -340,8 +352,8 @@ export default function Matches() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-muted-foreground border-t border-border/40">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-muted-foreground border-t border-border/40">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <label className="flex items-center gap-1.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -355,24 +367,32 @@ export default function Matches() {
                 <span className="text-foreground font-medium text-xs">Cross-CPSE Only</span>
               </label>
 
-              {/* Source CPSE filter */}
-              <div className="flex items-center gap-1">
-                <span>CPSE:</span>
-                <select
+              {/* Source CPSE filter with matching Select UI */}
+              <div className="flex items-center">
+                <Select
                   value={sourceCpse}
-                  onChange={(e) => {
-                    setSourceCpse(e.target.value);
+                  onValueChange={(val) => {
+                    setSourceCpse(val);
                     setPage(0);
                   }}
-                  className="bg-background border border-border rounded px-2 py-0.5 text-xs text-foreground focus:outline-none"
                 >
-                  <option value="all">All CPSEs</option>
-                  {availableCpses.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-8 rounded-lg bg-background border-border text-xs font-medium px-2.5 min-w-[130px]">
+                    <div className="flex items-center gap-1.5 truncate text-left">
+                      <span className="text-muted-foreground shrink-0">CPSE:</span>
+                      <span className="font-semibold text-foreground truncate">
+                        <SelectValue placeholder="All CPSEs" />
+                      </span>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="all">All CPSEs</SelectItem>
+                    {availableCpses.filter(Boolean).map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -419,7 +439,7 @@ export default function Matches() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     {/* Left Column: Material comparison title & Subtitle */}
                     <div className="space-y-1.5 flex-1 min-w-0">
-                      <div className="flex items-center flex-wrap gap-1.5 text-sm sm:text-base leading-snug">
+                      <div className="flex items-center flex-wrap gap-1.5 text-sm sm:text-base leading-snug break-words [overflow-wrap:anywhere]">
                         <span className="font-bold text-foreground hover:text-primary transition-colors">
                           {sourceTitle}
                         </span>
@@ -438,7 +458,7 @@ export default function Matches() {
                       </div>
 
                       {/* Subtitle matching Image 1: Explainable Summary */}
-                      <p className="text-xs text-muted-foreground leading-relaxed">
+                      <p className="text-xs text-muted-foreground leading-relaxed break-words">
                         {item.explainable_summary || 'Multi-attribute canonical evaluation completed'}
                       </p>
                     </div>
@@ -470,8 +490,8 @@ export default function Matches() {
         )}
 
         {/* Pagination */}
-        <div className="flex items-center justify-between pt-2">
-          <div className="text-xs text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+          <div className="text-xs text-muted-foreground text-center sm:text-left">
             Page {page + 1} of {Math.max(1, totalPages)} ({totalMatches.toLocaleString()} pairs)
           </div>
           <div className="flex items-center gap-2">

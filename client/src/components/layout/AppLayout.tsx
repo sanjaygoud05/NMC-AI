@@ -57,9 +57,9 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full bg-background overflow-x-hidden">
         <AppSidebar />
-        <main className="flex-1 flex flex-col min-h-screen">
+        <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-x-hidden max-w-full">
           <header className="h-14 border-b border-border bg-card flex items-center px-2.5 sm:px-4 sticky top-0 z-10 gap-1.5 sm:gap-2">
             <SidebarTrigger className="text-foreground shrink-0" />
             <div className="flex-1" />
@@ -141,7 +141,7 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
             </DropdownMenu>
             )}
           </header>
-          <div className="flex-1 p-3 sm:p-4 md:p-6 bg-background bg-dot-pattern max-w-full overflow-x-hidden">
+          <div className="flex-1 p-2.5 sm:p-4 md:p-6 bg-background bg-dot-pattern w-full min-w-0 max-w-full overflow-x-hidden">
             {children}
           </div>
         </main>

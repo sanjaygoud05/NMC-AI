@@ -205,7 +205,11 @@ export default function CommonMasterDetail() {
               </div>
               <div className="flex justify-between border-b border-border pb-2">
                 <span className="text-muted-foreground">Contributing CPSEs:</span>
-                <span className="font-semibold">{material.cpse_coverage.join(', ')}</span>
+                <span className="font-semibold">
+                  {Array.isArray(material.cpse_coverage)
+                    ? material.cpse_coverage.join(', ')
+                    : String(material.cpse_coverage || 'N/A')}
+                </span>
               </div>
               <div className="flex justify-between border-b border-border pb-2">
                 <span className="text-muted-foreground">Mapped Members:</span>
@@ -240,8 +244,8 @@ export default function CommonMasterDetail() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto w-full">
+              <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="font-semibold text-xs uppercase">Source Code</TableHead>
