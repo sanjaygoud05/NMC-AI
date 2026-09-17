@@ -94,6 +94,10 @@ data/evaluation/*
 data/uploads/*
 !data/uploads/datasets_manifest.json
 !data/uploads/.gitkeep
+server/data/processed/
+server/data/uploads/*
+!server/data/uploads/datasets_manifest.json
+!server/data/uploads/.gitkeep
 
 # ML artifacts
 ml/embeddings/*.bin

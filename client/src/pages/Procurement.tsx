@@ -108,7 +108,7 @@ export default function Procurement() {
         setLoading(true);
         const [kpiData, cpseData] = await Promise.all([
           procurementService.getKPIs(activeDatasetId),
-          procurementService.getCPSESummaries(),
+          procurementService.getCPSESummaries(activeDatasetId),
         ]);
         setKpis(kpiData);
         setCpseSummaries(cpseData);
@@ -129,6 +129,7 @@ export default function Procurement() {
         const res = await procurementService.getOpportunities({
           opportunity_type: oppTypeFilter !== 'all' ? oppTypeFilter : undefined,
           source_cpse: oppCpseFilter !== 'all' ? oppCpseFilter : undefined,
+          dataset_id: activeDatasetId,
           page: oppPage,
           page_size: 15,
         });
@@ -140,7 +141,7 @@ export default function Procurement() {
       }
     };
     fetchOpps();
-  }, [oppTypeFilter, oppCpseFilter, oppPage]);
+  }, [oppTypeFilter, oppCpseFilter, oppPage, activeDatasetId]);
 
   // Fetch CMM summaries when filters/page change
   useEffect(() => {
@@ -167,13 +168,13 @@ export default function Procurement() {
 
   // Fetch plant distribution
   useEffect(() => {
-    if (activeTab === 'plants' && plantDistributions.length === 0) {
+    if (activeTab === 'plants') {
       procurementService
-        .getPlantDistribution()
+        .getPlantDistribution(activeDatasetId)
         .then((data) => setPlantDistributions(data))
         .catch((err) => console.error('Error loading plant distributions:', err));
     }
-  }, [activeTab, plantDistributions.length]);
+  }, [activeTab, activeDatasetId]);
 
   // Drill down into single CMM
   const handleOpenCmmDetail = async (cmmCode: string) => {

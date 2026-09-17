@@ -44,10 +44,13 @@ import { useDashboardMetrics, useMaterialStats, useDataQualityMetrics } from '@/
 import { useDataset } from '@/contexts/DatasetContext';
 
 export default function Dashboard() {
-  const { activeDatasetId, selectDataset } = useDataset();
+  const { activeDatasetId, datasets, selectDataset } = useDataset();
   const { data: metrics, isLoading } = useDashboardMetrics();
   const { data: cpseStats } = useMaterialStats();
   const { data: qualityMetrics } = useDataQualityMetrics();
+
+  const activeDs = datasets.find((d) => d.dataset_id === activeDatasetId);
+  const isProcessing = activeDs && ['UPLOADED', 'VALIDATING', 'VALIDATED', 'PROCESSING'].includes(activeDs.status);
 
   if (activeDatasetId === 'NONE') {
     return (
@@ -92,10 +95,10 @@ export default function Dashboard() {
   const highConfidenceMatches = metrics?.highConfidenceMatches ?? 0;
   const duplicateCandidates = metrics?.duplicateCandidates ?? 0;
   const dataQualityScore = metrics?.dataQualityScore ?? 0;
-  const processingProgress = metrics?.processingProgress ?? 100;
+  const processingProgress = isProcessing ? (activeDs?.progress ?? 0) : (metrics?.processingProgress ?? 100);
 
   const standardizationRate =
-    totalMaterials > 0 ? Math.round((standardizedMaterials / totalMaterials) * 100) : 100;
+    totalMaterials > 0 ? Math.round((standardizedMaterials / totalMaterials) * 100) : (isProcessing ? 0 : 100);
 
   // CPSE Data for Recharts Pie Chart
   const cpseColorsMap: Record<string, string> = {
@@ -123,11 +126,14 @@ export default function Dashboard() {
   });
 
   // Harmonization Tier Breakdown Bar Chart Data
+  const exactCount = Math.round(highConfidenceMatches * 0.45);
+  const equivCount = highConfidenceMatches - exactCount;
+  const disqualifiedCount = Math.max(0, duplicateCandidates - highConfidenceMatches - pendingReviews);
   const tierBreakdownData = [
-    { name: 'Exact Match', count: Math.round(highConfidenceMatches * 0.45) || 4111, color: '#10b981' },
-    { name: 'Equivalent', count: Math.round(highConfidenceMatches * 0.55) || 5025, color: '#3b82f6' },
-    { name: 'Needs Review', count: pendingReviews || 12185, color: '#f59e0b' },
-    { name: 'Disqualified', count: Math.max(0, duplicateCandidates - highConfidenceMatches - pendingReviews) || 16179, color: '#64748b' },
+    { name: 'Exact Match', count: exactCount, color: '#10b981' },
+    { name: 'Equivalent', count: equivCount, color: '#3b82f6' },
+    { name: 'Needs Review', count: pendingReviews, color: '#f59e0b' },
+    { name: 'Disqualified', count: disqualifiedCount, color: '#64748b' },
   ];
 
   const CustomPieTooltip = ({ active, payload }: any) => {
@@ -188,15 +194,71 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Primary KPI Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <KPICard
-            label="Total Materials"
-            value={isLoading ? '—' : totalMaterials.toLocaleString()}
-            change={{ value: 'All CPSEs combined', trend: 'neutral' }}
-            icon={Database}
-            animationDelay="50ms"
-          />
+        {/* Live Pipeline Processing Banner for active dataset */}
+        {isProcessing && (
+          <Card className="border-blue-500/40 bg-blue-950/20 backdrop-blur-sm p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-blue-400 animate-spin" />
+                  <span className="text-sm font-semibold text-blue-300">
+                    Active Pipeline Execution: {activeDs?.file_name}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] bg-blue-500/20 text-blue-300 border-blue-500/30">
+                    {activeDs?.status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Current Stage: <span className="text-blue-300 font-medium">{activeDs?.current_phase || 'Standardization & AI Matching'}</span>.
+                  The application is processing this upload across all harmonization phases. Real metrics will update automatically.
+                </p>
+              </div>
+              <div className="w-full sm:w-48 space-y-1">
+                <div className="flex justify-between text-xs text-blue-300 font-mono">
+                  <span>Progress</span>
+                  <span>{activeDs?.progress || 0}%</span>
+                </div>
+                <Progress value={activeDs?.progress || 0} className="h-2 bg-blue-900/40" />
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* No Dataset Selected Notice */}
+        {activeDatasetId === 'NONE' ? (
+          <Card className="border-border bg-card p-6 sm:p-12">
+            <EmptyState
+              icon={Database}
+              title="No Dataset Selected"
+              description="Welcome! Select Frozen Baseline from the dataset selector in the top bar or upload a new material dataset in Data Ingestion to begin."
+              action={{
+                label: "Upload Dataset",
+                icon: Upload,
+                href: "/ingest",
+              }}
+            />
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectDataset('BASELINE')}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Or select Frozen Baseline (1,250 records)
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <>
+            {/* Primary KPI Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <KPICard
+                label="Total Materials"
+                value={isLoading ? '—' : totalMaterials.toLocaleString()}
+                change={{ value: 'All CPSEs combined', trend: 'neutral' }}
+                icon={Database}
+                animationDelay="50ms"
+              />
           <KPICard
             label="CPSEs Integrated"
             value={isLoading ? '—' : totalCPSEs.toString()}
@@ -521,6 +583,8 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+        </>
+      )}
       </div>
     </AppLayout>
   );

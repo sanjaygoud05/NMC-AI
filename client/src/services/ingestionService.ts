@@ -92,15 +92,19 @@ export const ingestionService = {
   // Shared ingestion utilities
   // -------------------------------------------------------
 
-  async uploadFile(file: File) {
+  async uploadFile(file: File, userId?: string) {
     const formData = new FormData();
     formData.append('file', file);
+    if (userId) {
+      formData.append('user_id', userId);
+    }
 
     const token = localStorage.getItem('supabase.auth.token') || '';
     const res = await fetch(`${API_BASE}/api/ingest/upload`, {
       method: 'POST',
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(userId ? { 'x-user-id': userId } : {}),
       },
       body: formData,
     });
@@ -110,6 +114,31 @@ export const ingestionService = {
       throw new Error(err.detail || 'Failed to upload dataset file');
     }
     return res.json();
+  },
+
+  async getDataset(datasetId: string) {
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/datasets/${encodeURIComponent(datasetId)}`);
+      if (res.ok) return await res.json();
+    } catch {
+      // Fallback
+    }
+    return null;
+  },
+
+  async getDatasets(userId?: string) {
+    try {
+      const url = userId
+        ? `${API_BASE}/api/ingest/datasets?user_id=${encodeURIComponent(userId)}`
+        : `${API_BASE}/api/ingest/datasets`;
+      const res = await fetch(url, {
+        headers: userId ? { 'x-user-id': userId } : {},
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // Fallback
+    }
+    return [];
   },
 
   async getIngestionJobs() {

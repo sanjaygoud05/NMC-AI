@@ -7,6 +7,8 @@ Integrates with Supabase PostgreSQL and enforces server-derived reviewer identit
 
 import os
 import math
+import json
+from datetime import datetime, timezone
 import pandas as pd
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
@@ -21,6 +23,23 @@ router = APIRouter()
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 VALIDATED_CSV = os.path.join(WORKSPACE_ROOT, "data", "processed", "validated_candidates.csv")
 STD_MATERIALS_CSV = os.path.join(WORKSPACE_ROOT, "data", "processed", "standardized_materials.csv")
+ENGINEERING_VALUES_FILE = os.path.join(WORKSPACE_ROOT, "data", "stored_engineering_values.json")
+
+
+def _load_engineering_values() -> dict:
+    if os.path.exists(ENGINEERING_VALUES_FILE):
+        try:
+            with open(ENGINEERING_VALUES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def _save_engineering_values(data: dict):
+    os.makedirs(os.path.dirname(ENGINEERING_VALUES_FILE), exist_ok=True)
+    with open(ENGINEERING_VALUES_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 
 class DecisionRequest(BaseModel):
@@ -132,17 +151,19 @@ async def get_review_queue(
             "total_candidate_universe": 0,
         }
 
-    # 1. Apply View Mode Partitioning
-    if view_mode == "active":
-        df = df[df["review_priority"].isin(["CRITICAL", "HIGH"])]
-    elif view_mode == "secondary":
-        df = df[(df["review_priority"].isin(["MEDIUM", "LOW"])) & (df["validation_status"] != "ENGINEERING_INCOMPATIBLE")]
-    elif view_mode == "disqualified":
-        df = df[df["validation_status"] == "ENGINEERING_INCOMPATIBLE"]
-    elif view_mode == "all":
-        pass
-    else:
-        raise HTTPException(status_code=400, detail=f"Invalid view_mode '{view_mode}'. Must be active, secondary, disqualified, or all.")
+    # 1. Apply View Mode Partitioning (only for pending/unfiltered queue)
+    norm_decision_filter = (decision_filter or "all").strip().lower()
+    if norm_decision_filter in ["all", "pending", "unreviewed"]:
+        if view_mode == "active":
+            df = df[df["review_priority"].isin(["CRITICAL", "HIGH"])]
+        elif view_mode == "secondary":
+            df = df[(df["review_priority"].isin(["MEDIUM", "LOW"])) & (df["validation_status"] != "ENGINEERING_INCOMPATIBLE")]
+        elif view_mode == "disqualified":
+            df = df[df["validation_status"] == "ENGINEERING_INCOMPATIBLE"]
+        elif view_mode == "all":
+            pass
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid view_mode '{view_mode}'. Must be active, secondary, disqualified, or all.")
 
     # 2. Specific field filters
     if status and status != "all":
@@ -176,12 +197,20 @@ async def get_review_queue(
     decisions_map = review_repository.get_all_decisions()
 
     # Filter by decision if specified
-    if decision_filter != "all":
-        decision_target = decision_filter.upper()
-        if decision_target == "PENDING":
+    if norm_decision_filter != "all":
+        if norm_decision_filter in ["pending", "unreviewed"]:
             df = df[~df["candidate_id"].isin(decisions_map.keys())]
         else:
-            matching_ids = [cid for cid, d in decisions_map.items() if d.get("decision") == decision_target]
+            if norm_decision_filter in ["accepted", "accept", "approved", "approve"]:
+                target_verdict = "ACCEPT"
+            elif norm_decision_filter in ["rejected", "reject"]:
+                target_verdict = "REJECT"
+            elif norm_decision_filter in ["deferred", "defer", "needs_review", "review"]:
+                target_verdict = "DEFER"
+            else:
+                target_verdict = norm_decision_filter.upper()
+
+            matching_ids = [cid for cid, d in decisions_map.items() if (d.get("decision") or "").upper() == target_verdict]
             df = df[df["candidate_id"].isin(matching_ids)]
 
     # 4. Priority sorting: CRITICAL > HIGH > MEDIUM > LOW, then refined_score desc
@@ -195,12 +224,15 @@ async def get_review_queue(
     page_df = df.iloc[start:end]
 
     std_map = _get_std_map(effective_id)
+    eng_values_map = _load_engineering_values()
     raw_items = page_df.to_dict("records")
     items = []
     for row in raw_items:
         cid = row.get("candidate_id")
         dec = decisions_map.get(cid)
+        stored_eng = eng_values_map.get(cid)
         row_dict = _clean_dict(row)
+        row_dict["stored_engineering_values"] = stored_eng["values"] if stored_eng else None
         if dec:
             row_dict["human_decision"] = dec["decision"]
             row_dict["human_rationale"] = dec["rationale"]
@@ -250,6 +282,10 @@ async def get_review_queue(
                 "source": _clean_attr_val(s_mat.get("Canonical_Size") or s_mat.get("Size")),
                 "candidate": _clean_attr_val(c_mat.get("Canonical_Size") or c_mat.get("Size")),
             },
+            "Specification": {
+                "source": _clean_attr_val(s_mat.get("Specification")),
+                "candidate": _clean_attr_val(c_mat.get("Specification")),
+            },
             "Coating": {
                 "source": _clean_attr_val(s_mat.get("Canonical_Coating") or s_mat.get("Coating")),
                 "candidate": _clean_attr_val(c_mat.get("Canonical_Coating") or c_mat.get("Coating")),
@@ -257,6 +293,14 @@ async def get_review_queue(
             "Unit": {
                 "source": _clean_attr_val(s_mat.get("Canonical_Unit") or s_mat.get("Unit")),
                 "candidate": _clean_attr_val(c_mat.get("Canonical_Unit") or c_mat.get("Unit")),
+            },
+            "Manufacturer": {
+                "source": _clean_attr_val(s_mat.get("Manufacturer")),
+                "candidate": _clean_attr_val(c_mat.get("Manufacturer")),
+            },
+            "Plant": {
+                "source": _clean_attr_val(s_mat.get("Plant")),
+                "candidate": _clean_attr_val(c_mat.get("Plant")),
             },
         }
 
@@ -406,7 +450,7 @@ async def get_review_candidate_detail(
         raise HTTPException(status_code=404, detail=f"Candidate ID '{candidate_id}' not found")
 
     cand_row = _clean_dict(match.iloc[0].to_dict())
-    materials = get_cached_materials()
+    materials = _get_std_map("BASELINE")
 
     src_mat = materials.get(str(cand_row.get("source_material_code")), {})
     cand_mat = materials.get(str(cand_row.get("candidate_material_code")), {})
@@ -554,3 +598,59 @@ async def get_candidate_review_history(
         "events": history,
         "total_events": len(history),
     }
+
+
+class StoreEngineeringValuesRequest(BaseModel):
+    values: Dict[str, Any] = Field(..., description="Map of engineering attribute names to standard canonical values")
+    source_material_code: Optional[str] = None
+    candidate_material_code: Optional[str] = None
+    notes: Optional[str] = None
+    dataset_id: Optional[str] = None
+
+
+@router.post("/{candidate_id}/engineering-values")
+async def store_engineering_values(
+    candidate_id: str,
+    payload: StoreEngineeringValuesRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Store authoritative standardized engineering values for a material harmonization pair.
+    """
+    all_data = _load_engineering_values()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    record = {
+        "candidate_id": candidate_id,
+        "values": payload.values,
+        "source_material_code": payload.source_material_code,
+        "candidate_material_code": payload.candidate_material_code,
+        "notes": payload.notes,
+        "dataset_id": payload.dataset_id or "BASELINE",
+        "updated_by": current_user.get("email") or current_user.get("id"),
+        "updated_at": now_iso,
+    }
+    all_data[candidate_id] = record
+    _save_engineering_values(all_data)
+    return {
+        "status": "success",
+        "message": f"Engineering values stored successfully for {candidate_id}",
+        "record": record,
+    }
+
+
+@router.get("/{candidate_id}/engineering-values")
+async def get_engineering_values(
+    candidate_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Get stored engineering values for a candidate if present.
+    """
+    all_data = _load_engineering_values()
+    record = all_data.get(candidate_id)
+    return {
+        "candidate_id": candidate_id,
+        "stored": record is not None,
+        "record": record,
+    }
+

@@ -232,6 +232,7 @@ export const procurementService = {
     source_cpse?: string;
     page?: number;
     page_size?: number;
+    dataset_id?: string;
   }): Promise<OpportunityCatalogResponse> {
     const q = new URLSearchParams();
     if (params.opportunity_type && params.opportunity_type !== 'all') {
@@ -241,6 +242,7 @@ export const procurementService = {
     if (params.source_cpse && params.source_cpse !== 'all') {
       q.append('source_cpse', params.source_cpse);
     }
+    if (params.dataset_id) q.append('dataset_id', params.dataset_id);
     q.append('page', String(params.page || 1));
     q.append('page_size', String(params.page_size || 20));
 
@@ -261,9 +263,10 @@ export const procurementService = {
   /**
    * Fetch plant distribution partitioned by UOM
    */
-  async getPlantDistribution(): Promise<PlantDistributionRecord[]> {
+  async getPlantDistribution(datasetId?: string): Promise<PlantDistributionRecord[]> {
     const token = localStorage.getItem('supabase.auth.token') || '';
-    const res = await fetch(`${API_BASE}/api/procurement/plants`, {
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/procurement/plants${query}`, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

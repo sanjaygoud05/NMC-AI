@@ -72,12 +72,18 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 1: Load Source Data
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 1: Ingestion & Validation", progress=5
+            )
             df_raw = pd.read_csv(source_file, dtype=str).fillna("")
             df_raw["dataset_id"] = dataset_id
 
             # ------------------------------------------------------------
             # Step 2: Phase 2 Normalization
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 2: Cleaning & Normalization", progress=15
+            )
             df_norm, norm_report = normalization_service.normalize_dataset(df_raw)
             df_norm["dataset_id"] = dataset_id
             df_norm.to_csv(out_dir / "normalized_materials.csv", index=False)
@@ -87,6 +93,9 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 3: Phase 3 Attribute Extraction
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 3: Attribute Extraction", progress=30
+            )
             df_extract, extract_report = attribute_extraction_service.extract_dataset(df_norm)
             df_extract["dataset_id"] = dataset_id
             df_extract.to_csv(out_dir / "extracted_attributes.csv", index=False)
@@ -96,6 +105,9 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 4: Phase 4 Standardization & Canonicalization
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 4: Standardization & Canonicalization", progress=45
+            )
             df_std, std_report = standardization_service.standardize_dataset(df_extract)
             df_std["dataset_id"] = dataset_id
             df_std.to_csv(out_dir / "standardized_materials.csv", index=False)
@@ -105,6 +117,9 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 5: Phase 5 Embeddings + Candidate Generation
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 5: Embeddings & Candidate Generation", progress=60
+            )
             texts = [
                 embedding_service.build_engineering_text(row.to_dict())
                 for _, row in df_std.iterrows()
@@ -130,7 +145,24 @@ class UploadProcessingService:
                 cand_counter += 1
                 candidates_list.append(m_data)
 
-            df_candidates = pd.DataFrame(candidates_list)
+            if candidates_list:
+                df_candidates = pd.DataFrame(candidates_list)
+            else:
+                df_candidates = pd.DataFrame(columns=[
+                    "source_material_code", "source_cpse", "candidate_material_code", "candidate_cpse",
+                    "source_canonical_key", "candidate_canonical_key", "canonical_key_exact",
+                    "description_similarity", "embedding_similarity", "attribute_agreement",
+                    "evaluated_attribute_count", "blocking_strategies", "conflict_present",
+                    "conflict_details", "engineering_conflict_class", "engineering_incompatibility",
+                    "penalty_applied", "final_match_score", "confidence_level", "evidence_summary",
+                    "material_family_similarity", "material_type_similarity", "material_subtype_similarity",
+                    "material_similarity", "material_grade_similarity", "nominal_size_similarity",
+                    "size_similarity", "length_similarity", "width_similarity", "height_similarity",
+                    "diameter_similarity", "thickness_similarity", "pressure_class_similarity",
+                    "schedule_similarity", "rating_similarity", "standard_similarity", "coating_similarity",
+                    "connection_type_similarity", "end_type_similarity", "construction_similarity",
+                    "orientation_similarity", "dataset_id", "candidate_id"
+                ])
             df_candidates.to_csv(out_dir / "match_candidates.csv", index=False)
 
             matching_report = {
@@ -145,6 +177,9 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 6: Phase 6 Technical Validation
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 6: Technical Validation", progress=75
+            )
             materials_by_code = {
                 str(r.get("Material_Code", "")).strip(): r.to_dict()
                 for _, r in df_std.iterrows()
@@ -173,7 +208,20 @@ class UploadProcessingService:
                 out_record["upstream_conflict_preserved"] = val_res["upstream_conflict_preserved"]
                 validated_rows.append(out_record)
 
-            df_validated = pd.DataFrame(validated_rows)
+            if validated_rows:
+                df_validated = pd.DataFrame(validated_rows)
+            else:
+                df_validated = pd.DataFrame(columns=[
+                    "source_material_code", "source_cpse", "candidate_material_code", "candidate_cpse",
+                    "source_canonical_key", "candidate_canonical_key", "canonical_key_exact",
+                    "description_similarity", "embedding_similarity", "attribute_agreement",
+                    "evaluated_attribute_count", "blocking_strategies", "conflict_present",
+                    "conflict_details", "engineering_conflict_class", "engineering_incompatibility",
+                    "penalty_applied", "final_match_score", "confidence_level", "evidence_summary",
+                    "dataset_id", "candidate_id", "validation_status", "validation_reason_codes",
+                    "refined_score", "refined_confidence", "review_priority", "validation_evidence",
+                    "upstream_conflict_present", "upstream_conflict_details", "upstream_conflict_preserved"
+                ])
             df_validated.to_csv(out_dir / "validated_candidates.csv", index=False)
 
             val_report = {
@@ -187,6 +235,9 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 7: Phase 7 Review Governance (0 Auto-Accepts)
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 7: Review Governance", progress=80
+            )
             # Strict rule: No automatic acceptance.
             accepted_pairs_df = pd.DataFrame(columns=["source_material_code", "candidate_material_code", "decision"])
             accepted_pairs_df.to_csv(out_dir / "accepted_harmonization_pairs.csv", index=False)
@@ -194,6 +245,9 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 8: Phase 8 Common Material Master (Standalone per unapproved item)
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 8: Common Material Master", progress=85
+            )
             cmm_masters = []
             cmm_members = []
             for idx, r in df_std.iterrows():
@@ -252,6 +306,9 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 9: Phase 9 Legacy Material Mapping
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 9: Legacy Material Mapping", progress=92
+            )
             legacy_mappings = []
             for idx, r in df_std.iterrows():
                 mat_code = str(r.get("Material_Code", "")).strip()
@@ -287,6 +344,9 @@ class UploadProcessingService:
             # ------------------------------------------------------------
             # Step 10: Phase 10 Procurement Intelligence & Analytics
             # ------------------------------------------------------------
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "PROCESSING", current_phase="Phase 10: Procurement Intelligence", progress=96
+            )
             facts = []
             for idx, r in df_raw.iterrows():
                 mat_code = str(r.get("Material_Code", "")).strip()
@@ -356,7 +416,9 @@ class UploadProcessingService:
             df_opps.to_csv(out_dir / "procurement_opportunities.csv", index=False)
 
             # Mark dataset COMPLETED in registry
-            dataset_registry_service.update_dataset_status(dataset_id, "COMPLETED")
+            dataset_registry_service.update_dataset_status(
+                dataset_id, "COMPLETED", current_phase="COMPLETED", progress=100
+            )
             logger.info(f"Dataset {dataset_id} processed successfully")
 
             return {

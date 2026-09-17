@@ -54,6 +54,7 @@ export interface ValidatedCandidateRecord {
   status_tier?: 'Exact' | 'Equivalent' | 'Review' | 'Not match';
   score_percent?: number;
   attributes?: Record<string, { source: string; candidate: string }>;
+  stored_engineering_values?: Record<string, string>;
 }
 
 export interface ReviewStats {
@@ -164,8 +165,9 @@ export interface ReviewEventRecord {
 }
 
 export const reviewService = {
-  async getReviewStats(): Promise<ReviewStats> {
-    const res = await fetch(`${API_BASE}/api/review/stats`);
+  async getReviewStats(datasetId?: string): Promise<ReviewStats> {
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/review/stats${query}`);
     if (!res.ok) {
       throw new Error(`Failed to load review stats: ${res.statusText}`);
     }
@@ -229,9 +231,11 @@ export const reviewService = {
       escalated?: boolean;
       needs_spec_sheet?: boolean;
       expected_version?: number;
-    }
+    },
+    datasetId?: string
   ): Promise<Record<string, unknown>> {
-    const res = await fetch(`${API_BASE}/api/review/${candidateId}/decision`, {
+    const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+    const res = await fetch(`${API_BASE}/api/review/${candidateId}/decision${query}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -251,6 +255,40 @@ export const reviewService = {
     const res = await fetch(`${API_BASE}/api/review/${candidateId}/history`);
     if (!res.ok) {
       throw new Error(`Failed to load review history: ${res.statusText}`);
+    }
+    return await res.json();
+  },
+
+  async storeEngineeringValues(
+    candidateId: string,
+    payload: {
+      values: Record<string, string>;
+      source_material_code?: string;
+      candidate_material_code?: string;
+      notes?: string;
+      dataset_id?: string;
+    }
+  ): Promise<{ status: string; message: string; record: Record<string, unknown> }> {
+    const res = await fetch(`${API_BASE}/api/review/${candidateId}/engineering-values`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.detail || `Failed to store engineering values (${res.status})`);
+    }
+    return await res.json();
+  },
+
+  async getStoredEngineeringValues(candidateId: string): Promise<{
+    candidate_id: string;
+    stored: boolean;
+    record: Record<string, unknown> | null;
+  }> {
+    const res = await fetch(`${API_BASE}/api/review/${candidateId}/engineering-values`);
+    if (!res.ok) {
+      throw new Error(`Failed to load engineering values: ${res.statusText}`);
     }
     return await res.json();
   },
