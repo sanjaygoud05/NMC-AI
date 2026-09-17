@@ -1,9 +1,34 @@
-from typing import Optional
+from typing import Optional, Dict, Tuple
+from pathlib import Path
 from fastapi import APIRouter, Query
 from services.ingestion_service import ingestion_service
 from services.profiling_service import profiling_service
 
 router = APIRouter()
+
+_PROFILE_CACHE: Dict[Tuple[str, float], dict] = {}
+
+
+def _get_cached_profile(path: Path, df) -> dict:
+    """Return cached profiling result if file mtime hasn't changed"""
+    try:
+        res_str = str(path.resolve())
+        mtime = path.stat().st_mtime
+    except Exception:
+        res_str = str(path)
+        mtime = 0.0
+
+    key = (res_str, mtime)
+    if key in _PROFILE_CACHE:
+        return _PROFILE_CACHE[key]
+
+    for k in list(_PROFILE_CACHE.keys()):
+        if k[0] == res_str:
+            del _PROFILE_CACHE[k]
+
+    profile = profiling_service.profile_dataset(df)
+    _PROFILE_CACHE[key] = profile
+    return profile
 
 
 @router.get("/dashboard")
@@ -32,6 +57,9 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
 
     df_std = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
     if df_std.empty and effective_id != "BASELINE":
+        from server.services.dataset_registry_service import dataset_registry_service
+        meta = dataset_registry_service.get_dataset(effective_id)
+        reg_progress = meta.get("progress", 0) if meta else 0
         return {
             "total_materials": 0,
             "total_cpse": 0,
@@ -41,7 +69,7 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
             "high_confidence_matches": 0,
             "duplicate_candidates": 0,
             "data_quality_score": 0,
-            "processing_progress": 0,
+            "processing_progress": reg_progress,
             "dataset_id": effective_id,
             "has_dataset": True,
             "data_available": False,
@@ -68,7 +96,7 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
 
     is_baseline = effective_id == "BASELINE"
 
-    # Calculate actual data quality score from the dataset
+    # Calculate actual data quality score from the dataset (cached by mtime)
     data_quality_score = 0
     if total_mats > 0:
         try:
@@ -77,7 +105,15 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
             if norm_path and norm_path.exists():
                 df_norm = load_dataset_dataframe("normalized_materials.csv", dataset_id=effective_id)
                 if not df_norm.empty:
-                    profile = profiling_service.profile_dataset(df_norm)
+                    profile = _get_cached_profile(norm_path, df_norm)
+                    data_quality_score = profile["quality_score"]["overall_score"]
+            elif effective_id == "BASELINE":
+                raw_path = Path("data/raw/data.csv")
+                if not raw_path.exists():
+                    raw_path = Path("data/raw/CPSE_Material_Master_cleaned.csv")
+                if raw_path.exists():
+                    df_raw = ingestion_service.load_raw_dataframe()
+                    profile = _get_cached_profile(raw_path, df_raw)
                     data_quality_score = profile["quality_score"]["overall_score"]
         except Exception:
             data_quality_score = 0
@@ -168,7 +204,7 @@ async def get_data_quality_metrics(dataset_id: Optional[str] = Query(None)):
             norm_path = resolve_artifact_path("normalized_materials.csv", dataset_id=effective_id)
             if norm_path and norm_path.exists():
                 df = _pd.read_csv(norm_path, dtype=str)
-                profile = profiling_service.profile_dataset(df)
+                profile = _get_cached_profile(norm_path, df)
                 return {
                     "data_quality_score": profile["quality_score"]["overall_score"],
                     "quality_scoring": profile["quality_score"],
@@ -191,9 +227,12 @@ async def get_data_quality_metrics(dataset_id: Optional[str] = Query(None)):
                     "data_available": False,
                     "message": "Processing not yet complete for this dataset",
                 }
-        # Baseline: profile raw frozen CSV
+        # Baseline: profile raw frozen CSV (cached)
+        raw_path = Path("data/raw/data.csv")
+        if not raw_path.exists():
+            raw_path = Path("data/raw/CPSE_Material_Master_cleaned.csv")
         df = ingestion_service.load_raw_dataframe()
-        profile = profiling_service.profile_dataset(df)
+        profile = _get_cached_profile(raw_path, df) if raw_path.exists() else profiling_service.profile_dataset(df)
         return {
             "data_quality_score": profile["quality_score"]["overall_score"],
             "quality_scoring": profile["quality_score"],

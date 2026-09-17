@@ -59,6 +59,11 @@ async def get_materials(
     if category and category.lower() != "all":
         df = df[df["Material_Category"].str.upper() == category.upper()]
 
+    # Filter by Status
+    if status and status.lower() != "all":
+        if "Material_Status" in df.columns:
+            df = df[df["Material_Status"].astype(str).str.upper() == status.upper()]
+
     # Filter by search
     if search:
         s = search.strip().lower()

@@ -14,8 +14,14 @@ import pandas as pd
 
 from server.services.dataset_registry_service import dataset_registry_service
 
-PROCESSED_BASE = Path("data/processed")
-UPLOADS_BASE = Path("data/uploads")
+_WORKSPACE_ROOT = Path(__file__).resolve().parent.parent.parent
+PROCESSED_BASE = _WORKSPACE_ROOT / "data" / "processed"
+if not PROCESSED_BASE.exists():
+    PROCESSED_BASE = Path("data/processed")
+
+UPLOADS_BASE = _WORKSPACE_ROOT / "data" / "uploads"
+if not UPLOADS_BASE.exists():
+    UPLOADS_BASE = Path("data/uploads")
 
 
 def resolve_dataset_files(
@@ -71,6 +77,59 @@ def resolve_artifact_path(filename: str, dataset_id: Optional[str] = None) -> Op
     return paths[0] if paths else None
 
 
+_DF_CACHE: Dict[Tuple[str, float], pd.DataFrame] = {}
+
+
+def clear_dataframe_cache(dataset_id: Optional[str] = None):
+    """Clear in-memory DataFrame cache, optionally filtered by dataset_id"""
+    global _DF_CACHE
+    if not dataset_id:
+        _DF_CACHE.clear()
+        return
+    keys_to_del = [k for k in _DF_CACHE.keys() if dataset_id in k[0]]
+    for k in keys_to_del:
+        _DF_CACHE.pop(k, None)
+
+
+def _read_cached_csv(p: Path, scope: str) -> Optional[pd.DataFrame]:
+    """Read CSV with memory caching keyed by resolved path and file modification time (st_mtime)"""
+    try:
+        resolved_str = str(p.resolve())
+        mtime = p.stat().st_mtime
+    except Exception:
+        resolved_str = str(p)
+        mtime = 0.0
+
+    cache_key = (resolved_str, mtime)
+    if cache_key in _DF_CACHE:
+        # Return a copy to avoid in-place mutation issues across requests
+        return _DF_CACHE[cache_key].copy(deep=False)
+
+    # Clean out any older versions of this file from cache
+    for k in list(_DF_CACHE.keys()):
+        if k[0] == resolved_str:
+            del _DF_CACHE[k]
+
+    try:
+        df = pd.read_csv(p, dtype=str)
+        if "dataset_id" not in df.columns:
+            if "uploads" in str(p):
+                parts = p.parts
+                for part in parts:
+                    if part.startswith("UPLOAD-"):
+                        df["dataset_id"] = part
+                        break
+                else:
+                    df["dataset_id"] = scope
+            else:
+                df["dataset_id"] = "BASELINE"
+
+        _DF_CACHE[cache_key] = df
+        return df.copy(deep=False)
+    except Exception:
+        return None
+
+
 def load_dataset_dataframe(
     filename: str,
     dataset_id: Optional[str] = None,
@@ -78,6 +137,7 @@ def load_dataset_dataframe(
     """
     Loads DataFrame from resolved dataset files, attaching dataset_id provenance.
     If scope is ALL, concatenates all matching datasets preserving provenance.
+    Uses in-memory cache with automatic mtime invalidation for near-instant responses.
     """
     paths, scope = resolve_dataset_files(filename, dataset_id)
     if not paths:
@@ -85,24 +145,9 @@ def load_dataset_dataframe(
 
     dfs = []
     for p in paths:
-        try:
-            df = pd.read_csv(p, dtype=str)
-            # Infer or ensure dataset_id column
-            if "dataset_id" not in df.columns:
-                if "uploads" in str(p):
-                    # extract UPLOAD-... from path
-                    parts = p.parts
-                    for part in parts:
-                        if part.startswith("UPLOAD-"):
-                            df["dataset_id"] = part
-                            break
-                    else:
-                        df["dataset_id"] = scope
-                else:
-                    df["dataset_id"] = "BASELINE"
-            dfs.append(df)
-        except Exception:
-            continue
+        cached_df = _read_cached_csv(p, scope)
+        if cached_df is not None and not cached_df.empty:
+            dfs.append(cached_df)
 
     if not dfs:
         return pd.DataFrame()
@@ -112,3 +157,4 @@ def load_dataset_dataframe(
 
     combined = pd.concat(dfs, ignore_index=True)
     return combined
+

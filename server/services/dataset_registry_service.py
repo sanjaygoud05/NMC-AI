@@ -19,7 +19,10 @@ import pandas as pd
 
 from server.services.ingestion_service import EXPECTED_SCHEMA
 
-UPLOADS_DIR = Path("data/uploads")
+_WORKSPACE_ROOT = Path(__file__).resolve().parent.parent.parent
+UPLOADS_DIR = _WORKSPACE_ROOT / "data" / "uploads"
+if not UPLOADS_DIR.exists():
+    UPLOADS_DIR = Path("data/uploads")
 MANIFEST_PATH = UPLOADS_DIR / "datasets_manifest.json"
 
 BASELINE_HASH = "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1"
@@ -101,20 +104,24 @@ class DatasetRegistryService:
         self._save_manifest(manifest)
         return f"UPLOAD-{date_str}-{current_seq:03d}"
 
-    def list_datasets(self) -> List[Dict[str, Any]]:
-        """List all registered datasets sorted with BASELINE first, then uploads reverse chronologically"""
+    def list_datasets(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        List datasets visible to the user:
+        - BASELINE is always included.
+        - Uploads are strictly scoped to the requesting user_id.
+        - For a new user (or no user_id), only BASELINE is returned so no unwanted mock datasets appear.
+        """
         manifest = self._load_manifest()
         datasets = list(manifest.get("datasets", {}).values())
         
-        def sort_key(d):
-            if d.get("dataset_id") == "BASELINE":
-                return (0, "")
-            return (1, d.get("uploaded_at", ""))
-
-        datasets.sort(key=sort_key, reverse=False)
-        # Put uploads in descending order after baseline
         baseline = [d for d in datasets if d.get("dataset_id") == "BASELINE"]
-        uploads = [d for d in datasets if d.get("dataset_id") != "BASELINE"]
+        if user_id:
+            uploads = [
+                d for d in datasets
+                if d.get("dataset_id") != "BASELINE" and d.get("user_id") == user_id
+            ]
+        else:
+            uploads = []
         uploads.sort(key=lambda d: d.get("uploaded_at", ""), reverse=True)
         return baseline + uploads
 
@@ -128,24 +135,41 @@ class DatasetRegistryService:
         dataset_id: str,
         status: str,
         error_message: Optional[str] = None,
+        current_phase: Optional[str] = None,
+        progress: Optional[int] = None,
         extra_fields: Optional[Dict[str, Any]] = None,
     ):
-        """Update dataset status and execution lifecycle timestamps"""
+        """Update dataset status, current phase, progress, and execution lifecycle timestamps"""
         manifest = self._load_manifest()
         if dataset_id not in manifest.get("datasets", {}):
             return
         entry = manifest["datasets"][dataset_id]
         entry["status"] = status
+        if current_phase is not None:
+            entry["current_phase"] = current_phase
+        if progress is not None:
+            entry["progress"] = progress
         if error_message is not None:
             entry["error_message"] = error_message
         now_str = datetime.now(timezone.utc).isoformat()
         if status == "PROCESSING" and not entry.get("processing_started_at"):
             entry["processing_started_at"] = now_str
+            entry["started_at"] = now_str
         elif status in ["COMPLETED", "FAILED", "CANCELLED"]:
             entry["processing_completed_at"] = now_str
+            entry["completed_at"] = now_str
         if extra_fields:
             entry.update(extra_fields)
         self._save_manifest(manifest)
+
+        # Sync local metadata.json in dataset folder if directory exists
+        dataset_dir = self.uploads_dir / dataset_id
+        if dataset_dir.exists():
+            try:
+                with open(dataset_dir / "metadata.json", "w", encoding="utf-8") as f:
+                    json.dump(entry, f, indent=2)
+            except Exception:
+                pass
 
     def validate_csv_content(self, content: bytes) -> Dict[str, Any]:
         """
@@ -211,7 +235,7 @@ class DatasetRegistryService:
             "cpse_summary": df["CPSE"].value_counts().to_dict() if "CPSE" in df.columns else {},
         }
 
-    def register_upload(self, file_name: str, content: bytes) -> Dict[str, Any]:
+    def register_upload(self, file_name: str, content: bytes, user_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Register a newly uploaded CSV dataset file:
         1. Generate unique dataset_id (UPLOAD-YYYYMMDD-XXX).
@@ -219,7 +243,7 @@ class DatasetRegistryService:
         3. Compute SHA256 checksum.
         4. Validate schema and structure.
         5. Persist source.csv and metadata.json.
-        6. Record in manifest with initial status (VALIDATED or FAILED).
+        6. Record in manifest with initial status (VALIDATED or FAILED) and user_id ownership.
         """
         dataset_id = self.generate_next_dataset_id()
         dataset_dir = self.uploads_dir / dataset_id
@@ -238,6 +262,7 @@ class DatasetRegistryService:
 
         dataset_entry = {
             "dataset_id": dataset_id,
+            "user_id": user_id,
             "file_name": file_name,
             "file_hash": file_hash,
             "row_count": val_result.get("row_count", 0),

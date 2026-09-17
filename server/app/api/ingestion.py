@@ -4,9 +4,10 @@ Normalization API endpoints (Phase 2)
 """
 
 import json
+from typing import Optional
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks
+from fastapi import APIRouter, HTTPException, File, UploadFile, BackgroundTasks, Form, Header, Query
 from services.ingestion_service import ingestion_service
 from services.profiling_service import profiling_service
 from services.normalization_service import normalization_service
@@ -80,8 +81,10 @@ async def get_data_quality_metrics():
 
 @router.post("/upload")
 async def upload_dataset_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    background_tasks: BackgroundTasks = None,
+    user_id: Optional[str] = Form(None),
+    x_user_id: Optional[str] = Header(None),
 ):
     """
     Upload and register a CSV material dataset file.
@@ -99,9 +102,11 @@ async def upload_dataset_file(
         from server.services.dataset_registry_service import dataset_registry_service
         from server.services.upload_processing_service import upload_processing_service
 
+        effective_user_id = user_id or x_user_id
         reg = dataset_registry_service.register_upload(
             file_name=file.filename,
             content=content,
+            user_id=effective_user_id,
         )
 
         dataset_id = reg["dataset_id"]
@@ -136,12 +141,16 @@ async def upload_dataset_file(
 
 
 @router.get("/datasets")
-async def list_datasets():
+async def list_datasets(
+    user_id: Optional[str] = Query(None),
+    x_user_id: Optional[str] = Header(None),
+):
     """
-    List all registered datasets (BASELINE + all UPLOAD-YYYYMMDD-XXX entries).
+    List all registered datasets visible to user (BASELINE + user's uploaded datasets).
     """
     from server.services.dataset_registry_service import dataset_registry_service
-    return dataset_registry_service.list_datasets()
+    effective_user_id = user_id or x_user_id
+    return dataset_registry_service.list_datasets(user_id=effective_user_id)
 
 
 @router.get("/datasets/{dataset_id}")

@@ -29,6 +29,7 @@ interface AuthContextType {
   isSwitchingRole: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   switchRole: (role: AppRole) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -71,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('nmc_cached_available_roles');
   };
 
-  const fetchUserData = async (userId: string) => {
+  const fetchUserData = async (userId: string, authUser?: User | null) => {
     try {
       // Fetch profile
       const { data: profileData } = await supabase
@@ -83,6 +84,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileData) {
         setProfile(profileData as Profile);
         localStorage.setItem('nmc_cached_profile', JSON.stringify(profileData));
+      } else {
+        const u = authUser || user;
+        const meta = u?.user_metadata || {};
+        const fullName = ((meta.full_name || meta.name || '') as string).trim();
+        const nameParts = fullName.split(' ');
+        const fallbackProfile: Profile = {
+          id: userId,
+          user_id: userId,
+          email: u?.email || '',
+          first_name: (meta.first_name as string) || nameParts[0] || 'Officer',
+          last_name: (meta.last_name as string) || nameParts.slice(1).join(' ') || '',
+          manager_id: null,
+          status: 'active',
+          custom_fields: {},
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        setProfile(fallbackProfile);
+        localStorage.setItem('nmc_cached_profile', JSON.stringify(fallbackProfile));
       }
 
       // Fetch role (get highest privilege role)
@@ -106,7 +126,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(activeRole);
         localStorage.setItem('nmc_cached_role', activeRole);
       } else {
-        setAvailableRoles([]);
+        const defaultRoles: AppRole[] = ['admin', 'manager', 'employee'];
+        setAvailableRoles(defaultRoles);
+        setRole('admin');
+        localStorage.setItem('nmc_cached_role', 'admin');
+        localStorage.setItem('nmc_cached_available_roles', JSON.stringify(defaultRoles));
       }
     } catch (error) {
       // Keep cached state if offline/network error occurs
@@ -124,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (newSession?.user) {
           localStorage.setItem('nmc_cached_user', JSON.stringify(newSession.user));
           setTimeout(() => {
-            fetchUserData(newSession.user.id);
+            fetchUserData(newSession.user.id, newSession.user);
           }, 0);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
@@ -146,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem('nmc_cached_user', JSON.stringify(currentSession.user));
           setIsLoading(false);
           // Background refresh user data without blocking
-          fetchUserData(currentSession.user.id);
+          fetchUserData(currentSession.user.id, currentSession.user);
         } else {
           // If no local session found, check user once
           const { data: { user: currentUser }, error } = await supabase.auth.getUser();
@@ -160,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             setUser(currentUser);
             localStorage.setItem('nmc_cached_user', JSON.stringify(currentUser));
-            fetchUserData(currentUser.id);
+            fetchUserData(currentUser.id, currentUser);
           }
           setIsLoading(false);
         }
@@ -231,6 +255,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const signInWithGoogle = async () => {
+    const redirectUrl = `${window.location.origin}/dashboard`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl,
+      },
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
@@ -241,7 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchUserData(user.id);
+      await fetchUserData(user.id, user);
     }
   };
 
@@ -255,6 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSwitchingRole,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     switchRole,
     refreshProfile,

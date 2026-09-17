@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { materialService } from '@/services/materialService';
 import { useDataset } from '@/contexts/DatasetContext';
 import type { Material, MaterialFilters } from '@/types';
@@ -8,6 +8,7 @@ export function useMaterials(filters?: MaterialFilters) {
   return useQuery({
     queryKey: ['materials', filters, activeDatasetId],
     queryFn: () => materialService.getMaterials({ ...filters, datasetId: activeDatasetId }),
+    placeholderData: keepPreviousData,
     enabled: activeDatasetId !== 'NONE',
   });
 }

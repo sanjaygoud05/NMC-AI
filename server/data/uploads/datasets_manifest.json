@@ -1,8 +1,10 @@
 {
   "version": "1.0",
-  "last_updated": "2026-09-11T12:34:04.121757+00:00",
+  "last_updated": "2026-09-15T05:53:14.795781+00:00",
   "sequence_counters": {
-    "20260911": 1
+    "20260911": 1,
+    "20260912": 2,
+    "20260915": 1
   },
   "datasets": {
     "BASELINE": {
@@ -58,6 +60,88 @@
       "started_at": null,
       "completed_at": null,
       "cpse_count": 2
+    },
+    "UPLOAD-20260912-001": {
+      "dataset_id": "UPLOAD-20260912-001",
+      "file_name": "CPSE_Material_Master_test_variant222.csv",
+      "file_hash": "dfb9f8fb631ac1f94b321341a95515e3bc88caae52d637a51f613b2c23e2a46e",
+      "row_count": 1250,
+      "column_count": 18,
+      "cpse_summary": {
+        "ONGC": 332,
+        "IOCL": 319,
+        "HPCL": 301,
+        "CPCL": 298
+      },
+      "status": "COMPLETED",
+      "is_baseline": false,
+      "schema_version": "1.0",
+      "uploaded_at": "2026-09-12T05:49:21.017054+00:00",
+      "processing_started_at": "2026-09-12T05:49:21.139267+00:00",
+      "processing_completed_at": "2026-09-12T05:51:13.018049+00:00",
+      "error_message": null,
+      "data_dir": "data\\uploads\\UPLOAD-20260912-001\\processed",
+      "source_file": "data\\uploads\\UPLOAD-20260912-001\\source.csv",
+      "current_phase": "COMPLETED",
+      "progress": 100,
+      "created_at": "2026-09-12T05:49:21.017145+00:00",
+      "started_at": "2026-09-12T05:49:21.139267+00:00",
+      "completed_at": "2026-09-12T05:51:13.018049+00:00",
+      "cpse_count": 4
+    },
+    "UPLOAD-20260912-002": {
+      "dataset_id": "UPLOAD-20260912-002",
+      "file_name": "_MConverter.eu_test_data.csv",
+      "file_hash": "77848b9b82f54253199a5681555c1c498e3168a26ee8f22adf68ed8743f159a9",
+      "row_count": 8,
+      "column_count": 18,
+      "cpse_summary": {
+        "CPCL": 7,
+        "HPCL": 1
+      },
+      "status": "COMPLETED",
+      "is_baseline": false,
+      "schema_version": "1.0",
+      "uploaded_at": "2026-09-12T06:58:19.402526+00:00",
+      "processing_started_at": "2026-09-12T06:58:19.501809+00:00",
+      "processing_completed_at": "2026-09-12T06:59:30.738703+00:00",
+      "error_message": null,
+      "data_dir": "data\\uploads\\UPLOAD-20260912-002\\processed",
+      "source_file": "data\\uploads\\UPLOAD-20260912-002\\source.csv",
+      "current_phase": "COMPLETED",
+      "progress": 100,
+      "created_at": "2026-09-12T06:58:19.402696+00:00",
+      "started_at": "2026-09-12T06:58:19.501809+00:00",
+      "completed_at": "2026-09-12T06:59:30.738703+00:00",
+      "cpse_count": 2
+    },
+    "UPLOAD-20260915-001": {
+      "dataset_id": "UPLOAD-20260915-001",
+      "file_name": "CPSE_Material_Master_test_variant222.csv",
+      "file_hash": "dfb9f8fb631ac1f94b321341a95515e3bc88caae52d637a51f613b2c23e2a46e",
+      "row_count": 1250,
+      "column_count": 18,
+      "cpse_summary": {
+        "ONGC": 332,
+        "IOCL": 319,
+        "HPCL": 301,
+        "CPCL": 298
+      },
+      "status": "COMPLETED",
+      "is_baseline": false,
+      "schema_version": "1.0",
+      "uploaded_at": "2026-09-15T05:51:19.394305+00:00",
+      "processing_started_at": "2026-09-15T05:51:19.524330+00:00",
+      "processing_completed_at": "2026-09-15T05:53:14.795764+00:00",
+      "error_message": null,
+      "data_dir": "data\\uploads\\UPLOAD-20260915-001\\processed",
+      "source_file": "data\\uploads\\UPLOAD-20260915-001\\source.csv",
+      "current_phase": "COMPLETED",
+      "progress": 100,
+      "created_at": "2026-09-15T05:51:19.394404+00:00",
+      "started_at": "2026-09-15T05:51:19.524330+00:00",
+      "completed_at": "2026-09-15T05:53:14.795764+00:00",
+      "cpse_count": 4
     }
   }
 }

@@ -258,10 +258,7 @@ async def get_matches(
     # Pre-extract categories from standardized map
     all_categories = sorted(list(set(str(v.get("Material_Category", "")).strip() for v in std_map.values() if v.get("Material_Category") and str(v.get("Material_Category")).strip() != "nan")))
 
-    # Enrich candidates
-    raw_records = filtered.to_dict("records")
-    enriched_list = []
-    for r in raw_records:
+    def _enrich_single(r):
         clean_r = _clean_dict(r)
         s_code = clean_r.get("source_material_code", "")
         c_code = clean_r.get("candidate_material_code", "")
@@ -280,7 +277,6 @@ async def get_matches(
         clean_r["score_percent"] = int(round(score_val * 100))
         clean_r["explainable_summary"] = _generate_clean_summary(clean_r, s_mat, c_mat)
 
-        # Attribute comparison pairs for side-by-side view
         clean_r["attributes"] = {
             "Type": {
                 "source": _clean_attr_val(s_mat.get("Canonical_Material_Type") or s_mat.get("Material_Type")),
@@ -303,14 +299,32 @@ async def get_matches(
                 "candidate": _clean_attr_val(c_mat.get("Canonical_Unit") or c_mat.get("Unit")),
             },
         }
+        return clean_r
 
-        # Apply category / status filters if present
-        if category and category != "all" and cat.lower() != category.lower():
-            continue
-        if status_filter and status_filter != "all" and tier.lower() != status_filter.lower():
-            continue
+    has_cat_filter = bool(category and category.lower() != "all")
+    has_status_filter = bool(status_filter and status_filter.lower() != "all")
 
-        enriched_list.append(clean_r)
+    if not has_cat_filter and not has_status_filter:
+        total = len(filtered)
+        page_df = filtered.iloc[skip : skip + limit]
+        page_records = [_enrich_single(r) for r in page_df.to_dict("records")]
+        return {
+            "matches": page_records,
+            "total": total,
+            "skip": skip,
+            "limit": limit,
+            "categories": all_categories,
+        }
+
+    # If category or status filter is active, filter candidates
+    enriched_list = []
+    for r in filtered.to_dict("records"):
+        enriched = _enrich_single(r)
+        if has_cat_filter and enriched["category"].lower() != category.lower():
+            continue
+        if has_status_filter and enriched["status_tier"].lower() != status_filter.lower():
+            continue
+        enriched_list.append(enriched)
 
     total = len(enriched_list)
     page_records = enriched_list[skip : skip + limit]

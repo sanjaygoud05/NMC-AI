@@ -1,12 +1,32 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Moon, Sun, Loader2, Database } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import {
+  ChevronDown,
+  Moon,
+  Sun,
+  Loader2,
+  Database,
+  Zap,
+  CheckCircle,
+  CheckCircle2,
+  ArrowRight,
+} from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useDataset } from '@/contexts/DatasetContext';
+import { PipelineProgressModal } from '@/components/shared/PipelineProgressModal';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -28,9 +49,19 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, requireRole }: AppLayoutProps) {
+  const navigate = useNavigate();
   const { user, role, availableRoles, isLoading, isSwitchingRole, switchRole } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { activeDatasetId, datasets, selectDataset } = useDataset();
+  const {
+    activeDatasetId,
+    datasets,
+    selectDataset,
+    backgroundTask,
+    completedNotification,
+    dismissCompletedNotification,
+    isProgressDialogOpen,
+    setIsProgressDialogOpen,
+  } = useDataset();
 
   // Show skeleton while auth state is being determined
   if (isLoading) {
@@ -54,6 +85,12 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
   if (requireRole && role && !requireRole.includes(role)) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  // Detect if active dataset is currently being processed
+  const activeDs = datasets.find((d) => d.dataset_id === activeDatasetId);
+  const isProcessing = activeDs && ['UPLOADED', 'VALIDATING', 'VALIDATED', 'PROCESSING'].includes(activeDs.status);
+  const processingPhase = (activeDs as any)?.current_phase || null;
+  const processingProgress = (activeDs as any)?.progress ?? 0;
 
   return (
     <SidebarProvider>
@@ -105,6 +142,25 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
               )}
             </Button>
 
+            {/* Header Background Processing Status Indicator */}
+            {backgroundTask && backgroundTask.status === 'PROCESSING' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/ingest')}
+                className="h-8 px-2 sm:px-3 text-xs bg-primary/10 border-primary/30 text-primary hover:bg-primary/20 gap-1.5 shrink-0 rounded-xl"
+                title="Pipeline running in background. Click to view progress."
+              >
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
+                <span className="hidden sm:inline font-medium truncate max-w-[130px]">
+                  {backgroundTask.fileName}
+                </span>
+                <Badge className="bg-primary text-primary-foreground text-[10px] font-mono font-bold px-1.5 py-0 h-4">
+                  {backgroundTask.progress}%
+                </Badge>
+              </Button>
+            )}
+
             {/* Role Switcher - only shown when user holds multiple roles */}
             {availableRoles.length > 1 && (
             <DropdownMenu>
@@ -141,11 +197,96 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
             </DropdownMenu>
             )}
           </header>
+
           <div className="flex-1 p-2.5 sm:p-4 md:p-6 bg-background bg-dot-pattern w-full min-w-0 max-w-full overflow-x-hidden">
             {children}
           </div>
+
+          {/* Global Completion Modal with "View Dashboard" */}
+          <Dialog
+            open={!!completedNotification}
+            onOpenChange={(open) => {
+              if (!open) dismissCompletedNotification();
+            }}
+          >
+            <DialogContent className="sm:max-w-md bg-card border-border shadow-2xl p-6 rounded-2xl">
+              <DialogHeader className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-500">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-base font-bold text-foreground">
+                      Dataset Harmonization Completed!
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                      All pipeline phases have executed successfully.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="py-3 space-y-3">
+                <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-foreground font-medium">
+                    Dataset <span className="font-bold text-emerald-600 dark:text-emerald-400">"{completedNotification?.fileName}"</span> is fully standardized and harmonized across all CPSEs.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mt-3 pt-2.5 border-t border-emerald-500/20">
+                    <div className="p-2 rounded-lg bg-background/60 text-center">
+                      <span className="text-[10px] text-muted-foreground block font-medium">Processed Records</span>
+                      <span className="text-sm font-bold text-foreground">
+                        {completedNotification?.rows?.toLocaleString() ?? '—'}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-background/60 text-center">
+                      <span className="text-[10px] text-muted-foreground block font-medium">CPSE Entities</span>
+                      <span className="text-sm font-bold text-foreground">
+                        {completedNotification?.cpses ?? '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-between pt-2 border-t border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={dismissCompletedNotification}
+                  className="text-xs"
+                >
+                  Stay Here
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (completedNotification?.datasetId) {
+                      selectDataset(completedNotification.datasetId);
+                    }
+                    dismissCompletedNotification();
+                    navigate('/dashboard');
+                  }}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-1.5 shadow-md shadow-primary/25"
+                >
+                  View Dashboard
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Detailed Progress Modal */}
+          {backgroundTask && (
+            <PipelineProgressModal
+              open={isProgressDialogOpen}
+              onOpenChange={setIsProgressDialogOpen}
+              task={backgroundTask}
+              onRunInBackground={() => setIsProgressDialogOpen(false)}
+            />
+          )}
         </main>
       </div>
     </SidebarProvider>
   );
 }
+
