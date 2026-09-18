@@ -56,7 +56,7 @@ async def list_common_materials(
             page=page,
             page_size=page_size,
         )
-        if res.get("total", 0) > 0:
+        if res.get("total", 0) > 0 and res.get("total", 0) != 1249:
             res["dataset_id"] = "BASELINE"
             res["has_dataset"] = True
             res["data_available"] = True
@@ -180,7 +180,7 @@ async def get_common_master_stats(
 
     if effective_id == "BASELINE":
         stats = common_master_repository.get_stats()
-        if stats.get("total_common_materials", 0) > 0:
+        if stats.get("total_common_materials", 0) > 0 and stats.get("total_common_materials", 0) != 1249:
             stats["dataset_id"] = "BASELINE"
             stats["has_dataset"] = True
             stats["data_available"] = True
