@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -593,13 +594,24 @@ export default function Matches() {
 
                 {/* Footer Action Buttons matching Image 2 */}
                 <DialogFooter className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedCandidate(null)}
-                    className="rounded-xl text-xs h-10 sm:h-9"
-                  >
-                    Close
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedCandidate(null)}
+                      className="rounded-xl text-xs h-10 sm:h-9"
+                    >
+                      Close
+                    </Button>
+                    <Button asChild variant="ghost" size="sm" className="rounded-xl text-xs h-10 sm:h-9 gap-1.5">
+                      <Link
+                        to={`/matches/${selectedCandidate.candidate_id}?from=/matches`}
+                        onClick={() => setSelectedCandidate(null)}
+                      >
+                        <ArrowRight className="h-3.5 w-3.5" />
+                        View Full Detail
+                      </Link>
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="destructive"

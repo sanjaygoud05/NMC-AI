@@ -366,31 +366,33 @@ export default function CommonMaster() {
           )}
         </div>
 
-        {/* Clean, Readable Enterprise Table */}
-        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-          <div className="overflow-x-auto w-full">
-            <Table className="min-w-[760px]">
+        {/* Clean, Readable Enterprise Table for Laptop & Card View for Mobile */}
+        {/* Clean, Readable Enterprise Table for Laptop & Card View for Mobile */}
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden w-full">
+          {/* Desktop/Laptop Table View (>= 768px) - 100% Fluid, Zero Side Scroll */}
+          <div className="hidden md:block w-full overflow-hidden">
+            <Table className="w-full table-fixed">
               <TableHeader className="bg-muted/30">
                 <TableRow className="border-border">
-                  <TableHead className="font-medium text-xs text-muted-foreground pl-5 py-3.5 w-44">
+                  <TableHead className="font-medium text-xs text-muted-foreground pl-4 py-3.5 w-[17%]">
                     Common Code
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5">
+                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[35%]">
                     Standardized Description
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-32">
+                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[13%]">
                     Family
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-36">
+                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[14%]">
                     Enterprises
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground text-center py-3.5 w-20">
+                  <TableHead className="font-medium text-xs text-muted-foreground text-center py-3.5 w-[6%]">
                     Items
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-36">
+                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[9%]">
                     Status
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground text-right pr-5 py-3.5 w-24">
+                  <TableHead className="font-medium text-xs text-muted-foreground text-right pr-4 py-3.5 w-[6%]">
                     Action
                   </TableHead>
                 </TableRow>
@@ -425,20 +427,20 @@ export default function CommonMaster() {
                         onClick={() => openInspector(m)}
                         className="border-border/60 hover:bg-muted/30 cursor-pointer transition-colors"
                       >
-                        <TableCell className="pl-5 py-3.5 font-medium text-xs text-primary">
+                        <TableCell className="pl-4 py-3.5 font-medium text-xs text-primary font-mono truncate">
                           {m.common_code}
                         </TableCell>
-                        <TableCell className="py-3.5 max-w-lg">
-                          <div className="text-sm font-medium text-foreground leading-normal">
+                        <TableCell className="py-3.5">
+                          <div className="text-sm font-medium text-foreground leading-snug truncate" title={readableTitle}>
                             {readableTitle}
                           </div>
                           {specs.length > 0 && (
-                            <div className="text-xs text-muted-foreground mt-0.5">
+                            <div className="text-xs text-muted-foreground mt-0.5 truncate">
                               {specs.join('  •  ')}
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="py-3.5 text-xs text-muted-foreground">
+                        <TableCell className="py-3.5 text-xs text-muted-foreground truncate">
                           {formatReadableText(m.material_family)}
                         </TableCell>
                         <TableCell className="py-3.5">
@@ -452,12 +454,12 @@ export default function CommonMaster() {
                         <TableCell className="py-3.5">
                           {getStatusBadge(m.governance_status)}
                         </TableCell>
-                        <TableCell className="py-3.5 text-right pr-5" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="py-3.5 text-right pr-4" onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => openInspector(m)}
-                            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
                           >
                             View
                           </Button>
@@ -468,6 +470,79 @@ export default function CommonMaster() {
                 )}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile Card List (< 768px) - High Density, Native App Feel */}
+          <div className="block md:hidden divide-y divide-border">
+            {loading ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                Loading catalog records...
+              </div>
+            ) : materials.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                No common material records match your filters.
+              </div>
+            ) : (
+              materials.map((m) => {
+                const readableTitle = formatReadableText(m.common_description);
+                const specs = [
+                  m.material_grade && String(m.material_grade) !== '-' ? `Grade: ${formatReadableText(m.material_grade)}` : null,
+                  m.nominal_size && String(m.nominal_size) !== '-' ? `Size: ${formatReadableText(m.nominal_size)}` : null,
+                  m.standard_spec && String(m.standard_spec) !== '-' ? `Std: ${String(m.standard_spec).toUpperCase()}` : null,
+                  m.unit_of_measure && String(m.unit_of_measure) !== '-' ? `UOM: ${String(m.unit_of_measure).toUpperCase()}` : null,
+                ].filter(Boolean);
+                const coverageList = getCpseList(m.cpse_coverage);
+
+                return (
+                  <div
+                    key={m.common_material_id || m.common_code}
+                    onClick={() => openInspector(m)}
+                    className="p-3.5 hover:bg-muted/20 active:bg-muted/30 cursor-pointer transition-colors space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono font-semibold text-xs text-primary truncate">
+                        {m.common_code}
+                      </span>
+                      {getStatusBadge(m.governance_status)}
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-medium text-foreground leading-snug">
+                        {readableTitle}
+                      </div>
+                      {specs.length > 0 && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {specs.join(' • ')}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+                        <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                          {formatReadableText(m.material_family)}
+                        </span>
+                        <span className="text-muted-foreground/40 shrink-0">·</span>
+                        <div className="flex flex-wrap gap-1">
+                          {coverageList.map((cpse) => getCpseBadge(cpse))}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openInspector(m);
+                        }}
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                      >
+                        View
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* Simple Pagination Bar */}
@@ -540,33 +615,33 @@ export default function CommonMaster() {
                     Specifications
                   </div>
                   <div className="rounded-lg border border-border divide-y divide-border/60 text-xs">
-                    <div className="flex py-2 px-3.5 justify-between">
-                      <span className="text-muted-foreground">Material Family</span>
-                      <span className="font-medium text-foreground">{formatReadableText(selectedRecord.material_family)}</span>
+                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
+                      <span className="text-muted-foreground shrink-0">Material Family</span>
+                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.material_family)}</span>
                     </div>
-                    <div className="flex py-2 px-3.5 justify-between">
-                      <span className="text-muted-foreground">Material Type</span>
-                      <span className="font-medium text-foreground">{formatReadableText(selectedRecord.material_type)}</span>
+                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
+                      <span className="text-muted-foreground shrink-0">Material Type</span>
+                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.material_type)}</span>
                     </div>
-                    <div className="flex py-2 px-3.5 justify-between">
-                      <span className="text-muted-foreground">Material Grade</span>
-                      <span className="font-medium text-foreground">{formatReadableText(selectedRecord.material_grade)}</span>
+                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
+                      <span className="text-muted-foreground shrink-0">Material Grade</span>
+                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.material_grade)}</span>
                     </div>
-                    <div className="flex py-2 px-3.5 justify-between">
-                      <span className="text-muted-foreground">Nominal Size</span>
-                      <span className="font-medium text-foreground">{formatReadableText(selectedRecord.nominal_size)}</span>
+                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
+                      <span className="text-muted-foreground shrink-0">Nominal Size</span>
+                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.nominal_size)}</span>
                     </div>
-                    <div className="flex py-2 px-3.5 justify-between">
-                      <span className="text-muted-foreground">Pressure Rating</span>
-                      <span className="font-medium text-foreground">{formatReadableText(selectedRecord.pressure_rating)}</span>
+                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
+                      <span className="text-muted-foreground shrink-0">Pressure Rating</span>
+                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.pressure_rating)}</span>
                     </div>
-                    <div className="flex py-2 px-3.5 justify-between">
-                      <span className="text-muted-foreground">Standard / Spec</span>
-                      <span className="font-medium text-foreground">{formatReadableText(selectedRecord.standard_spec)}</span>
+                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
+                      <span className="text-muted-foreground shrink-0">Standard / Spec</span>
+                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.standard_spec)}</span>
                     </div>
-                    <div className="flex py-2 px-3.5 justify-between">
-                      <span className="text-muted-foreground">Unit of Measure</span>
-                      <span className="font-medium text-foreground">{formatReadableText(selectedRecord.unit_of_measure)}</span>
+                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
+                      <span className="text-muted-foreground shrink-0">Unit of Measure</span>
+                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.unit_of_measure)}</span>
                     </div>
                   </div>
                 </div>

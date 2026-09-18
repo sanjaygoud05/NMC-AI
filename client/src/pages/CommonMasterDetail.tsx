@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 export default function CommonMasterDetail() {
   const { commonCode } = useParams<{ commonCode: string }>();
   const { activeDatasetId } = useDataset();
+  const navigate = useNavigate();
   const [material, setMaterial] = useState<CommonMaterialRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [rationale, setRationale] = useState('');
@@ -118,11 +119,14 @@ export default function CommonMasterDetail() {
       <div className="space-y-6">
         {/* Navigation */}
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
-            <Link to="/common-master">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Catalog
-            </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
           </Button>
         </div>
 

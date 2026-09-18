@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -38,6 +38,18 @@ import type { Material } from '@/types';
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const { activeDatasetId } = useDataset();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Determine where to go back: use query param ?from=, or router history (navigate(-1))
+  const fromParam = new URLSearchParams(location.search).get('from');
+  const handleBack = () => {
+    if (fromParam) {
+      navigate(fromParam);
+    } else {
+      navigate(-1);
+    }
+  };
 
   const { data: match, isLoading: matchLoading, error: matchError } = useQuery({
     queryKey: ['match', id, activeDatasetId],
@@ -71,9 +83,9 @@ export default function MatchDetail() {
           <Package className="h-12 w-12 text-muted-foreground" />
           <h2 className="text-xl font-semibold">No Dataset Selected</h2>
           <p className="text-muted-foreground">Please select a dataset to view match details</p>
-          <Button asChild variant="outline">
-            <Link to="/matches"><ArrowLeft className="h-4 w-4 mr-2" />Back to Matches</Link>
-          </Button>
+          <Button variant="outline" onClick={handleBack}>
+              <ArrowLeft className="h-4 w-4 mr-2" />Go Back
+            </Button>
         </div>
       </AppLayout>
     );
@@ -95,8 +107,8 @@ export default function MatchDetail() {
       <AppLayout>
         <div className="text-center py-12">
           <p className="text-muted-foreground">Match pair not found.</p>
-          <Button asChild className="mt-4" variant="outline">
-            <Link to="/matches">Return to Matches</Link>
+          <Button className="mt-4" variant="outline" onClick={handleBack}>
+            Go Back
           </Button>
         </div>
       </AppLayout>
@@ -108,11 +120,14 @@ export default function MatchDetail() {
       <div className="space-y-6">
         {/* Navigation back */}
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
-            <Link to="/matches">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Matches
-            </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground"
+            onClick={handleBack}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
           </Button>
         </div>
 

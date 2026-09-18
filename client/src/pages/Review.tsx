@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Link } from 'react-router-dom';
+
 import {
   Select,
   SelectContent,
@@ -61,6 +63,8 @@ export default function Review() {
   // Review & tab state
   const [reviewComment, setReviewComment] = useState('');
   const [filterDecision, setFilterDecision] = useState<'pending' | 'accepted' | 'rejected'>('pending');
+  // Track local decisions made in this session (item stays visible with badge)
+  const [localDecisions, setLocalDecisions] = useState<Record<string, 'ACCEPT' | 'REJECT' | 'DEFER'>>({});
 
   // Track totals per tab so tab badges match list totals 100%
   const [tabTotals, setTabTotals] = useState<{ pending: number; accepted: number; rejected: number }>({
@@ -199,20 +203,22 @@ export default function Review() {
 
       const label =
         decision === 'ACCEPT'
-          ? 'Approved'
+          ? 'Approved ✓'
           : decision === 'REJECT'
           ? 'Rejected'
           : 'Marked as Needs Review';
-      toast.success(`Match ${currentItem.candidate_id} ${label}`);
+      toast.success(`Match ${currentItem.candidate_id} — ${label}`);
 
-      // Remove from pending list
-      setItems((prev) => prev.filter((it) => it.candidate_id !== currentItem.candidate_id));
+      // Mark item with local decision (keeps it visible with badge), then advance
+      setLocalDecisions((prev) => ({ ...prev, [currentItem.candidate_id]: decision }));
       setReviewComment('');
       loadStats();
 
-      if (currentIndex >= filteredItems.length - 1) {
+      // Auto-advance to next pending item after a short delay
+      setTimeout(() => {
+        setItems((prev) => prev.filter((it) => it.candidate_id !== currentItem.candidate_id));
         setCurrentIndex((i) => Math.max(0, i - 1));
-      }
+      }, 1200);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to record review decision';
       toast.error(msg);
@@ -310,10 +316,10 @@ export default function Review() {
           />
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" size="sm" className="text-xs sm:text-sm h-9">
-              <a href="/matches">
+              <Link to="/matches">
                 View All Matches
                 <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
-              </a>
+              </Link>
             </Button>
           </div>
         </div>
@@ -517,7 +523,7 @@ export default function Review() {
             </Card>
           ) : (
             <div className="bg-card rounded-xl border border-border/80 shadow-sm p-4 sm:p-6 space-y-5 animate-fade-in">
-              {/* Header: Match counter + Navigation + Confidence */}
+              {/* Header: Match counter + Navigation + Confidence + Local decision status */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm font-medium border-b border-border/40 pb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-foreground font-semibold text-sm sm:text-base">
@@ -526,6 +532,22 @@ export default function Review() {
                   <span className="text-xs font-mono text-muted-foreground">
                     ({currentItem?.candidate_id})
                   </span>
+                  {/* Show local decision badge if just decided */}
+                  {currentItem && localDecisions[currentItem.candidate_id] === 'ACCEPT' && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-0.5 rounded-full border border-emerald-500/30 animate-fade-in">
+                      <CheckCircle2 className="h-3 w-3" /> Approved
+                    </span>
+                  )}
+                  {currentItem && localDecisions[currentItem.candidate_id] === 'REJECT' && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 dark:text-rose-400 bg-rose-500/15 px-2.5 py-0.5 rounded-full border border-rose-500/30 animate-fade-in">
+                      <XCircle className="h-3 w-3" /> Rejected
+                    </span>
+                  )}
+                  {currentItem && localDecisions[currentItem.candidate_id] === 'DEFER' && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30 animate-fade-in">
+                      <Clock className="h-3 w-3" /> Needs Review
+                    </span>
+                  )}
                 </div>
 
                 {/* Right: Prev / Next + Confidence */}
@@ -843,8 +865,19 @@ export default function Review() {
                             </div>
                           </div>
 
-                          {/* Right: View Attributes Toggle Button (Generous Padding & Comfortable Touch Target) */}
-                          <div className="shrink-0 flex items-center self-start sm:self-center pt-1 sm:pt-0">
+                          {/* Right: View Attributes + View Match Full Page */}
+                          <div className="shrink-0 flex items-center gap-2 self-start sm:self-center pt-1 sm:pt-0">
+                            <Button
+                              asChild
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto py-2 px-3 text-xs rounded-lg border border-border/60 bg-background hover:bg-muted font-medium gap-1 shadow-xs"
+                            >
+                              <Link to={`/matches/${item.candidate_id}?from=/review`}>
+                                <ArrowRight className="h-3.5 w-3.5" />
+                                View Match
+                              </Link>
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
