@@ -94,10 +94,10 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background overflow-x-hidden">
+      <div className="h-screen flex w-full bg-background overflow-hidden">
         <AppSidebar />
-        <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-x-hidden max-w-full">
-          <header className="h-14 border-b border-border bg-card flex items-center px-2.5 sm:px-4 sticky top-0 z-10 gap-1.5 sm:gap-2">
+        <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden max-w-full">
+          <header className="h-14 border-b border-border bg-card flex items-center px-2.5 sm:px-4 z-10 gap-1.5 sm:gap-2 shrink-0">
             <SidebarTrigger className="text-foreground shrink-0" />
             <div className="flex-1" />
 
@@ -126,7 +126,7 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
                 </SelectContent>
               </Select>
             </div>
-            
+
             {/* Theme Toggle */}
             <Button
               variant="ghost"
@@ -163,42 +163,42 @@ export function AppLayout({ children, requireRole }: AppLayoutProps) {
 
             {/* Role Switcher - only shown when user holds multiple roles */}
             {availableRoles.length > 1 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2 sm:px-3 text-xs border-primary/30 text-primary bg-primary/10 hover:bg-primary/20 shrink-0"
-                  disabled={isSwitchingRole}
-                >
-                  {isSwitchingRole ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1 sm:mr-1.5" />
-                  ) : (
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary mr-1 sm:mr-1.5" />
-                  )}
-                  <span className="hidden sm:inline">Role: </span>
-                  <span className="capitalize">{role}</span>
-                  <ChevronDown className="ml-1 sm:ml-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 opacity-70" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-card border-border">
-                {availableRoles.map((r) => (
-                  <DropdownMenuItem
-                    key={r}
-                    onClick={() => switchRole(r)}
-                    className={role === r ? 'bg-muted font-medium' : ''}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 sm:px-3 text-xs border-primary/30 text-primary bg-primary/10 hover:bg-primary/20 shrink-0"
                     disabled={isSwitchingRole}
                   >
-                    <span className={`h-2 w-2 rounded-full mr-2 ${role === r ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
-                    {r.charAt(0).toUpperCase()}{r.slice(1)}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    {isSwitchingRole ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1 sm:mr-1.5" />
+                    ) : (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary mr-1 sm:mr-1.5" />
+                    )}
+                    <span className="hidden sm:inline">Role: </span>
+                    <span className="capitalize">{role}</span>
+                    <ChevronDown className="ml-1 sm:ml-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-card border-border">
+                  {availableRoles.map((r) => (
+                    <DropdownMenuItem
+                      key={r}
+                      onClick={() => switchRole(r)}
+                      className={role === r ? 'bg-muted font-medium' : ''}
+                      disabled={isSwitchingRole}
+                    >
+                      <span className={`h-2 w-2 rounded-full mr-2 ${role === r ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                      {r.charAt(0).toUpperCase()}{r.slice(1)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </header>
 
-          <div className="flex-1 p-2.5 sm:p-4 md:p-6 bg-background bg-dot-pattern w-full min-w-0 max-w-full overflow-x-hidden">
+          <div className="flex-1 p-2.5 sm:p-4 md:p-6 bg-background bg-dot-pattern w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden">
             {children}
           </div>
 

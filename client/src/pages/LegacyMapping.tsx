@@ -217,7 +217,7 @@ export default function LegacyMapping() {
       <div className="space-y-6">
         <PageHeader
           title="Legacy Material Mapping Registry"
-          description="Phase 9 cross-walk cross-referencing all 1,250 raw CPSE legacy materials to Phase 8 Common Material Master codes with deterministic provenance."
+          description="Cross-walk registry cross-referencing all 1,250 raw CPSE legacy materials to Common Material Master codes with deterministic provenance."
         />
 
         {/* Semantic Clarification Alert */}
@@ -517,7 +517,7 @@ export default function LegacyMapping() {
                 <Hash className="h-4 w-4 text-primary" /> Mapping Provenance & Cross-Walk Audit
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Deterministic cross-walk trace verifying source raw material identity and Phase 8 CMM association.
+                Deterministic cross-walk trace verifying source raw material identity and Common Material Master association.
               </DialogDescription>
             </DialogHeader>
 
@@ -561,7 +561,7 @@ export default function LegacyMapping() {
                 </div>
 
                 <div className="rounded-md border border-border bg-card p-3 space-y-1.5">
-                  <span className="text-[11px] text-muted-foreground font-semibold">Phase 6 & 7 Evidence Trace</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">Verification & Review Evidence Trace</span>
                   <div className="flex justify-between text-xs py-1 border-b border-border/50">
                     <span className="text-muted-foreground">Accepted Candidate ID:</span>
                     <span className="font-mono text-foreground font-semibold">
@@ -569,13 +569,13 @@ export default function LegacyMapping() {
                     </span>
                   </div>
                   <div className="flex justify-between text-xs py-1 border-b border-border/50">
-                    <span className="text-muted-foreground">Phase 6 Validation Status:</span>
+                    <span className="text-muted-foreground">Validation Status:</span>
                     <span className="font-mono text-foreground">
                       {selectedRecord.phase6_validation_status || 'NOT_EVALUATED'}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs py-1 border-b border-border/50">
-                    <span className="text-muted-foreground">Phase 7 Review Decision:</span>
+                    <span className="text-muted-foreground">Review Decision:</span>
                     <span className="font-mono text-foreground">
                       {selectedRecord.phase7_review_decision || 'N/A (Standalone)'}
                     </span>

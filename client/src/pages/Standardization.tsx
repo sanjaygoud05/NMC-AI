@@ -191,7 +191,7 @@ export default function Standardization() {
       <div className="space-y-6 pb-12">
         <PageHeader
           title="Material Standardization & Canonicalization"
-          description="Phase 4: Deterministic rule-based canonical representations and stable material identity keys without similarity matching."
+          description="Deterministic rule-based canonical representations and stable material identity keys without similarity matching."
         >
           <div className="flex items-center gap-2">
             <Button
@@ -200,7 +200,7 @@ export default function Standardization() {
               onClick={() => setActiveTab('canonicalization')}
             >
               <KeyRound className="h-4 w-4 mr-1.5" />
-              Phase 4: Canonicalization
+              Canonicalization
             </Button>
             <Button
               variant={activeTab === 'extraction' ? 'default' : 'outline'}
@@ -208,7 +208,7 @@ export default function Standardization() {
               onClick={() => setActiveTab('extraction')}
             >
               <Cpu className="h-4 w-4 mr-1.5" />
-              Phase 3: Attributes
+              Attributes
             </Button>
             <Button
               variant="outline"
@@ -217,7 +217,7 @@ export default function Standardization() {
               disabled={isRunning}
             >
               <RefreshCw className={`h-4 w-4 mr-1.5 ${isRunning ? 'animate-spin' : ''}`} />
-              {isRunning ? 'Running...' : 'Re-run Phase 4'}
+              {isRunning ? 'Running...' : 'Re-run Pipeline'}
             </Button>
           </div>
         </PageHeader>

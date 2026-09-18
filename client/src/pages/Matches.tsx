@@ -16,10 +16,7 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Search,
@@ -528,130 +525,160 @@ export default function Matches() {
           </div>
         </div>
 
-        {/* Candidate Detail / Review Inspection Modal matching Image 2 style */}
+        {/* Candidate Detail / Review Inspection Modal */}
         <Dialog open={!!selectedCandidate} onOpenChange={(open) => !open && setSelectedCandidate(null)}>
-          <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-4 sm:p-6">
+          <DialogContent
+            hideCloseButton
+            className={[
+              // Mobile: override base centering — float up from bottom with side margins
+              '!top-auto !bottom-0 !left-3 !right-3',
+              '!translate-x-0 !translate-y-0',
+              '!w-auto !max-w-full rounded-2xl mb-3',
+              // Desktop: centered, compact width
+              'sm:!top-1/2 sm:!bottom-auto sm:!left-1/2 sm:!right-auto',
+              'sm:!translate-x-[-50%] sm:!translate-y-[-50%]',
+              'sm:!w-[480px] sm:!max-w-[90vw] sm:mb-0',
+              // Shared layout
+              'max-h-[88vh] sm:max-h-[88vh] overflow-hidden flex flex-col',
+              'p-0 gap-0 border-border bg-card shadow-2xl',
+            ].join(' ')}
+          >
             {selectedCandidate && (
-              <div className="space-y-5">
-                <DialogHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-                    <div>
-                      <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
-                        Match Review: {selectedCandidate.candidate_id}
-                      </DialogTitle>
-                      <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                        Rank #{selectedCandidate.candidate_rank} cross-CPSE equivalence assessment
-                      </DialogDescription>
-                    </div>
-                    <div className="flex items-center gap-2 self-start sm:self-auto">
-                      <span className="font-mono font-bold text-sm text-foreground">
-                        {selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100)}%
-                      </span>
-                      {getStatusBadge(selectedCandidate.status_tier, selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100))}
-                    </div>
+              <>
+                {/* Drag handle — mobile only */}
+                <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+                  <div className="w-10 h-1 rounded-full bg-border" />
+                </div>
+
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3 px-4 sm:px-5 pt-4 sm:pt-5 pb-3 border-b border-border shrink-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-0.5">
+                      {selectedCandidate.candidate_id} · Rank #{selectedCandidate.candidate_rank}
+                    </p>
+                    <DialogTitle className="text-sm sm:text-base font-bold text-foreground leading-tight">
+                      Match Review
+                    </DialogTitle>
                   </div>
-                </DialogHeader>
-
-                {/* Attribute Comparison Table matching Image 2 */}
-                <div className="border border-border/80 rounded-xl overflow-x-auto bg-card">
-                  <table className="w-full min-w-[440px] text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/40 text-muted-foreground font-medium">
-                        <th className="p-3 text-left w-28">Attribute</th>
-                        <th className="p-3 text-left">
-                          <span className="font-semibold text-foreground">
-                            {selectedCandidate.source_title || selectedCandidate.source_material_code}
-                          </span>{' '}
-                          <span className="text-muted-foreground">— {selectedCandidate.source_cpse}</span>
-                        </th>
-                        <th className="p-3 text-left">
-                          <span className="font-semibold text-foreground">
-                            {selectedCandidate.candidate_title || selectedCandidate.candidate_material_code}
-                          </span>{' '}
-                          <span className="text-muted-foreground">— {selectedCandidate.candidate_cpse}</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {['Type', 'Grade', 'Size', 'Coating', 'Unit'].map((attr) => {
-                        const attrObj = selectedCandidate.attributes?.[attr];
-                        const sVal = attrObj?.source || '-';
-                        const cVal = attrObj?.candidate || '-';
-                        const isDiff = sVal !== '-' && cVal !== '-' && sVal.toLowerCase() !== cVal.toLowerCase();
-
-                        return (
-                          <tr key={attr} className="hover:bg-muted/20 transition-colors">
-                            <td className="p-3 font-semibold text-muted-foreground">{attr}</td>
-                            <td className={`p-3 font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
-                              {sVal}
-                            </td>
-                            <td className={`p-3 font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
-                              {cVal}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Explainable summary quote */}
-                <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
-                  <span className="font-semibold uppercase tracking-wider text-[11px] text-foreground">Evidence:</span>
-                  <p className="text-foreground leading-relaxed font-mono text-xs">
-                    {selectedCandidate.explainable_summary || selectedCandidate.evidence_summary}
-                  </p>
-                </div>
-
-                {/* Footer Action Buttons matching Image 2 */}
-                <DialogFooter className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-bold text-sm text-foreground">
+                      {selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100)}%
+                    </span>
+                    {getStatusBadge(selectedCandidate.status_tier, selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100))}
+                    <button
                       onClick={() => setSelectedCandidate(null)}
-                      className="rounded-xl text-xs h-10 sm:h-9"
+                      className="ml-1 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                      aria-label="Close"
                     >
-                      Close
-                    </Button>
-                    <Button asChild variant="ghost" size="sm" className="rounded-xl text-xs h-10 sm:h-9 gap-1.5">
-                      <Link
-                        to={`/matches/${selectedCandidate.candidate_id}?from=/matches`}
-                        onClick={() => setSelectedCandidate(null)}
-                      >
-                        <ArrowRight className="h-3.5 w-3.5" />
-                        View Full Detail
-                      </Link>
-                    </Button>
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
+                </div>
+
+                {/* Scrollable body */}
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-4">
+
+                  {/* Material pair summary */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-3 rounded-xl bg-background border border-border space-y-0.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Source</p>
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {selectedCandidate.source_title || selectedCandidate.source_material_code}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">{selectedCandidate.source_cpse}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-background border border-border space-y-0.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Candidate</p>
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {selectedCandidate.candidate_title || selectedCandidate.candidate_material_code}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">{selectedCandidate.candidate_cpse}</p>
+                    </div>
+                  </div>
+
+                  {/* Attribute Comparison Table */}
+                  <div className="border border-border/80 rounded-xl overflow-x-auto bg-card">
+                    <table className="w-full min-w-[360px] text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40 text-muted-foreground font-medium">
+                          <th className="p-2.5 text-left w-20 text-[11px]">Attribute</th>
+                          <th className="p-2.5 text-left text-[11px]">Source</th>
+                          <th className="p-2.5 text-left text-[11px]">Candidate</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {['Type', 'Grade', 'Size', 'Coating', 'Unit'].map((attr) => {
+                          const attrObj = selectedCandidate.attributes?.[attr];
+                          const sVal = attrObj?.source || '-';
+                          const cVal = attrObj?.candidate || '-';
+                          const isDiff = sVal !== '-' && cVal !== '-' && sVal.toLowerCase() !== cVal.toLowerCase();
+                          return (
+                            <tr key={attr} className="hover:bg-muted/20 transition-colors">
+                              <td className="p-2.5 font-semibold text-muted-foreground text-[11px]">{attr}</td>
+                              <td className={`p-2.5 font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
+                                {sVal}
+                              </td>
+                              <td className={`p-2.5 font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
+                                {cVal}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Evidence */}
+                  <div className="p-3 rounded-xl bg-muted/40 border border-border">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Evidence</p>
+                    <p className="text-xs text-foreground leading-relaxed font-mono">
+                      {selectedCandidate.explainable_summary || selectedCandidate.evidence_summary || 'Multi-attribute canonical evaluation completed.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Footer — sticky at bottom */}
+                <div className="shrink-0 border-t border-border px-4 sm:px-5 py-3 sm:py-4 bg-card space-y-2">
+                  {/* Row 1: Reject / Approve */}
                   <div className="flex items-center gap-2">
                     <Button
                       variant="destructive"
                       disabled={actionLoading[selectedCandidate.candidate_id] || decisions[selectedCandidate.candidate_id] === 'REJECT'}
                       onClick={() => handleDecision(selectedCandidate.candidate_id, 'REJECT')}
-                      className="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-xl text-xs h-10 sm:h-9 px-4 gap-1.5"
+                      className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl text-xs h-10 gap-1.5"
                     >
                       {actionLoading[selectedCandidate.candidate_id] ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <X className="h-3.5 w-3.5" />
                       )}
-                      &times; Reject
+                      {decisions[selectedCandidate.candidate_id] === 'REJECT' ? 'Rejected' : 'Reject'}
                     </Button>
                     <Button
                       disabled={actionLoading[selectedCandidate.candidate_id] || decisions[selectedCandidate.candidate_id] === 'ACCEPT'}
                       onClick={() => handleDecision(selectedCandidate.candidate_id, 'ACCEPT')}
-                      className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl text-xs h-10 sm:h-9 px-4 gap-1.5 shadow-xs"
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs h-10 gap-1.5"
                     >
                       {actionLoading[selectedCandidate.candidate_id] ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <Check className="h-3.5 w-3.5" />
                       )}
-                      &check; Approve
+                      {decisions[selectedCandidate.candidate_id] === 'ACCEPT' ? 'Approved' : 'Approve'}
                     </Button>
                   </div>
-                </DialogFooter>
-              </div>
+                  {/* Row 2: View Full Detail only */}
+                  <Button asChild variant="outline" size="sm" className="w-full rounded-xl text-xs h-9 gap-1.5">
+                    <Link
+                      to={`/matches/${selectedCandidate.candidate_id}?from=/matches`}
+                      onClick={() => setSelectedCandidate(null)}
+                    >
+                      <ArrowRight className="h-3.5 w-3.5" />
+                      View Full Detail
+                    </Link>
+                  </Button>
+                </div>
+              </>
             )}
           </DialogContent>
         </Dialog>
