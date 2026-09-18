@@ -94,18 +94,18 @@ export default function DatasetHistory() {
             title="Dataset Registry & History"
             description="Complete audit trail, persistent dataset scopes, and pipeline execution states"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="gap-1.5 text-xs h-9 bg-card hover:bg-muted border-border"
+              className="gap-1.5 text-xs h-9 bg-card hover:bg-muted border-border flex-1 sm:flex-initial"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button asChild size="sm" className="gap-1.5 text-xs h-9 font-medium shadow-sm">
+            <Button asChild size="sm" className="gap-1.5 text-xs h-9 font-medium shadow-sm flex-1 sm:flex-initial">
               <Link to="/ingest">
                 <Upload className="h-3.5 w-3.5" />
                 Upload New Dataset
@@ -302,18 +302,19 @@ export default function DatasetHistory() {
           </Card>
         ) : viewMode === 'table' ? (
           /* Table View */
-          <Card className="border-border bg-card overflow-hidden">
-            <div className="overflow-x-auto w-full">
-              <table className="w-full min-w-[720px] text-xs text-left border-collapse">
+          <Card className="border-border bg-card overflow-hidden w-full">
+            {/* Desktop/Laptop Fluid Table (>= 768px) - Zero Side Scroll */}
+            <div className="hidden md:block w-full overflow-hidden">
+              <table className="w-full table-fixed text-xs text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
-                    <th className="p-3 pl-4">Dataset ID</th>
-                    <th className="p-3">Source File</th>
-                    <th className="p-3">Records</th>
-                    <th className="p-3">CPSE Breakdown</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Uploaded</th>
-                    <th className="p-3 pr-4 text-right">Action</th>
+                    <th className="p-3 pl-4 w-[21%]">Dataset ID</th>
+                    <th className="p-3 w-[25%]">Source File</th>
+                    <th className="p-3 w-[10%]">Records</th>
+                    <th className="p-3 w-[18%]">CPSE Breakdown</th>
+                    <th className="p-3 w-[10%]">Status</th>
+                    <th className="p-3 w-[10%]">Uploaded</th>
+                    <th className="p-3 pr-4 w-[6%] text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -326,20 +327,20 @@ export default function DatasetHistory() {
                           isActive ? 'bg-primary/[0.03]' : ''
                         }`}
                       >
-                        <td className="p-3 pl-4 font-mono font-semibold text-foreground">
-                          <div className="flex items-center gap-2">
+                        <td className="p-3 pl-4 font-mono font-semibold text-foreground truncate">
+                          <div className="flex items-center gap-2 truncate">
                             {isActive && (
                               <span className="h-2 w-2 rounded-full bg-primary animate-pulse shrink-0" />
                             )}
-                            <span>{ds.dataset_id}</span>
+                            <span className="truncate">{ds.dataset_id}</span>
                             {ds.is_baseline && (
-                              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] py-0 px-1.5">
+                              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] py-0 px-1.5 shrink-0">
                                 BASELINE
                               </Badge>
                             )}
                           </div>
                         </td>
-                        <td className="p-3 text-muted-foreground font-medium">
+                        <td className="p-3 text-muted-foreground font-medium truncate" title={ds.file_name}>
                           {ds.file_name}
                         </td>
                         <td className="p-3 font-semibold text-foreground">
@@ -372,7 +373,7 @@ export default function DatasetHistory() {
                             {ds.status.toLowerCase()}
                           </Badge>
                         </td>
-                        <td className="p-3 text-muted-foreground">
+                        <td className="p-3 text-muted-foreground truncate">
                           {new Date(ds.uploaded_at).toLocaleDateString()}
                         </td>
                         <td className="p-3 pr-4 text-right">
@@ -384,7 +385,7 @@ export default function DatasetHistory() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs px-2.5"
+                              className="h-7 text-xs px-2"
                               onClick={() => {
                                 selectDataset(ds.dataset_id);
                                 toast.success(`Active dataset set to ${ds.dataset_id}`);
@@ -399,6 +400,78 @@ export default function DatasetHistory() {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards for Table View (< 768px) - Zero Side Scroll */}
+            <div className="block md:hidden divide-y divide-border">
+              {filteredDatasets.map((ds) => {
+                const isActive = ds.dataset_id === activeDatasetId;
+                return (
+                  <div key={ds.dataset_id} className="p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 truncate">
+                        {isActive && <span className="h-2 w-2 rounded-full bg-primary animate-pulse shrink-0" />}
+                        <span className="font-mono font-bold text-xs text-foreground truncate">{ds.dataset_id}</span>
+                        {ds.is_baseline && (
+                          <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] py-0 px-1 shrink-0">
+                            BASELINE
+                          </Badge>
+                        )}
+                      </div>
+                      <Badge
+                        variant={
+                          ds.status === 'COMPLETED'
+                            ? 'default'
+                            : ds.status === 'PROCESSING'
+                            ? 'secondary'
+                            : 'outline'
+                        }
+                        className="text-[10px] capitalize shrink-0"
+                      >
+                        {ds.status.toLowerCase()}
+                      </Badge>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground truncate font-medium">
+                      {ds.file_name}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground">{ds.row_count.toLocaleString()} items</span>
+                        <span className="text-muted-foreground/50">·</span>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {Object.entries(ds.cpse_summary || {}).map(([cpse, count]) => (
+                            <Badge key={cpse} variant="outline" className="text-[10px] py-0 px-1 font-mono">
+                              {cpse}:{count}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="shrink-0">
+                        {isActive ? (
+                          <Badge className="bg-primary/20 text-primary border-primary/30 text-xs">
+                            ACTIVE
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs px-2.5"
+                            onClick={() => {
+                              selectDataset(ds.dataset_id);
+                              toast.success(`Active dataset set to ${ds.dataset_id}`);
+                            }}
+                          >
+                            Activate
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Card>
         ) : (
@@ -415,34 +488,34 @@ export default function DatasetHistory() {
                       : 'border-border bg-card hover:border-border/80 shadow-xs'
                   }`}
                 >
-                  <CardHeader className="p-5 pb-3">
+                  <CardHeader className="p-4 sm:p-5 pb-3">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="flex items-start sm:items-center gap-3">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                         <div
-                          className={`p-2.5 rounded-xl border shrink-0 ${
+                          className={`p-2 sm:p-2.5 rounded-xl border shrink-0 ${
                             isActive
                               ? 'bg-primary/10 border-primary/30 text-primary'
                               : 'bg-muted/40 border-border text-muted-foreground'
                           }`}
                         >
                           {ds.is_baseline ? (
-                            <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                            <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
                           ) : (
-                            <Database className="h-5 w-5" />
+                            <Database className="h-4 w-4 sm:h-5 sm:w-5" />
                           )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono font-bold text-base text-foreground tracking-tight">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                            <span className="font-mono font-bold text-sm sm:text-base text-foreground tracking-tight truncate">
                               {ds.dataset_id}
                             </span>
                             {ds.is_baseline && (
-                              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[11px] font-semibold">
+                              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] sm:text-[11px] font-semibold">
                                 FROZEN BASELINE
                               </Badge>
                             )}
                             {isActive && (
-                              <Badge className="bg-primary text-primary-foreground text-[11px] font-semibold shadow-xs">
+                              <Badge className="bg-primary text-primary-foreground text-[10px] sm:text-[11px] font-semibold shadow-xs">
                                 CURRENT ACTIVE SCOPE
                               </Badge>
                             )}
@@ -456,13 +529,13 @@ export default function DatasetHistory() {
                                   ? 'destructive'
                                   : 'outline'
                               }
-                              className="text-[11px] capitalize"
+                              className="text-[10px] sm:text-[11px] capitalize"
                             >
                               {ds.status.toLowerCase()}
                             </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                            <span className="font-medium text-foreground">{ds.file_name}</span>
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                            <span className="font-medium text-foreground truncate max-w-[200px] sm:max-w-none">{ds.file_name}</span>
                             <span>·</span>
                             <span>{ds.row_count.toLocaleString()} materials</span>
                             <span>·</span>
@@ -471,7 +544,7 @@ export default function DatasetHistory() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap sm:flex-nowrap pt-1 sm:pt-0">
                         {!isActive && ds.status === 'COMPLETED' && (
                           <Button
                             size="sm"
@@ -500,13 +573,13 @@ export default function DatasetHistory() {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="p-5 pt-0 space-y-3">
+                  <CardContent className="p-4 sm:p-5 pt-0 space-y-3">
                     {/* Checksum & Time Metadata */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs bg-muted/25 p-3 rounded-lg border border-border/60">
-                      <div className="flex items-center gap-2 text-muted-foreground font-mono truncate">
+                      <div className="flex items-center gap-2 text-muted-foreground font-mono min-w-0 overflow-hidden">
                         <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
                         <span className="shrink-0 text-muted-foreground">SHA256:</span>
-                        <span className="truncate text-foreground font-semibold">
+                        <span className="truncate text-foreground font-semibold flex-1 min-w-0">
                           {ds.file_hash}
                         </span>
                         <button
@@ -521,9 +594,9 @@ export default function DatasetHistory() {
                           )}
                         </button>
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground md:justify-end">
+                      <div className="flex items-center gap-2 text-muted-foreground md:justify-end min-w-0">
                         <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
-                        <span>Registered: {new Date(ds.uploaded_at).toLocaleString()}</span>
+                        <span className="truncate">Registered: {new Date(ds.uploaded_at).toLocaleString()}</span>
                       </div>
                     </div>
 

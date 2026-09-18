@@ -57,9 +57,17 @@ export const materialService = {
   },
 
   async getMaterial(id: string, datasetId?: string): Promise<Material | null> {
-    if (!datasetId || datasetId === 'NONE') return null;
+    let effDataset = datasetId;
+    if (!effDataset || effDataset === 'NONE') {
+      if (id && id.includes(':')) {
+        effDataset = id.split(':')[0];
+      }
+      if (!effDataset || effDataset === 'NONE') {
+        effDataset = 'BASELINE';
+      }
+    }
     try {
-      const query = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      const query = `?dataset_id=${encodeURIComponent(effDataset)}`;
       const res = await fetch(`${API_BASE}/api/materials/${encodeURIComponent(id)}${query}`);
       if (res.ok) return await res.json();
     } catch {
