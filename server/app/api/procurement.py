@@ -530,8 +530,3 @@ async def list_procurement_facts(
     res["has_dataset"] = True
     res["data_available"] = res.get("total", 0) > 0
     return res
-    )
-    res["dataset_id"] = "BASELINE"
-    res["has_dataset"] = True
-    res["data_available"] = res.get("total", 0) > 0
-    return res
