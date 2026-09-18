@@ -53,22 +53,15 @@ async def get_procurement_kpis(
 
     if effective_id == "BASELINE":
         kpis = procurement_repository.get_kpis()
-        total_analyzed = kpis.get("total_materials_analyzed", 0)
-        multi_cpse_count = kpis.get("multi_cpse_cmms_count", 0)
-        total_opps = kpis.get("total_opportunities_count", 0)
-        # Guard: if total_materials >= 2000 AND multi_cpse > 0 AND total_opps > 0 then DB is fully seeded
-        if total_analyzed >= 2000 and multi_cpse_count > 0 and total_opps > 0:
+        if kpis.get("total_materials_analyzed", 0) >= 2000:
             kpis["dataset_id"] = "BASELINE"
             kpis["has_dataset"] = True
             kpis["data_available"] = True
             return kpis
-        # DB is stale (missing multi-cpse or opportunity data) – fall through to CSV baseline
 
     from services.dataset_resolver import load_dataset_dataframe
     df_facts = load_dataset_dataframe("procurement_facts.csv", dataset_id=effective_id)
     df_cmm = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
-    df_opps = load_dataset_dataframe("procurement_opportunities.csv", dataset_id=effective_id)
-    df_cmm_cons = load_dataset_dataframe("cmm_consumption_summary.csv", dataset_id=effective_id)
 
     volume_by_uom: Dict[str, float] = {}
     if not df_facts.empty and "unit_of_measure" in df_facts.columns and "annual_consumption" in df_facts.columns:
@@ -78,37 +71,24 @@ async def get_procurement_kpis(
 
     total_mats = len(df_facts)
     total_cmm = len(df_cmm)
-    multi_cmms = int(df_cmm["cpse_coverage"].str.contains(";", na=False).sum()) if not df_cmm.empty and "cpse_coverage" in df_cmm.columns else 0
-    standalone_cmms = total_cmm - multi_cmms
-
-    multi_cpse_volume_by_uom: Dict[str, float] = {}
-    if not df_cmm_cons.empty and "cpse_count" in df_cmm_cons.columns and "primary_uom" in df_cmm_cons.columns:
-        multi_cons = df_cmm_cons[pd.to_numeric(df_cmm_cons["cpse_count"], errors="coerce").fillna(0) >= 2]
-        for uom, grp in multi_cons.groupby("primary_uom"):
-            val = pd.to_numeric(grp["total_annual_consumption"], errors="coerce").fillna(0).sum()
-            multi_cpse_volume_by_uom[str(uom)] = round(float(val), 2)
-
     active_count = len(df_facts[df_facts["material_status"].str.lower() == "active"]) if not df_facts.empty and "material_status" in df_facts.columns else total_mats
     plants_count = df_facts["plant"].nunique() if not df_facts.empty and "plant" in df_facts.columns else (1 if total_mats > 0 else 0)
     mfg_count = df_facts["manufacturer"].nunique() if not df_facts.empty and "manufacturer" in df_facts.columns else 0
 
-    opps_by_type = {str(k): int(v) for k, v in df_opps["opportunity_type"].value_counts().to_dict().items()} if not df_opps.empty and "opportunity_type" in df_opps.columns else {}
-    total_opps = len(df_opps) if not df_opps.empty else 0
-
     return {
         "total_materials_analyzed": total_mats,
         "total_cmm_entities": total_cmm,
-        "multi_cpse_cmms_count": multi_cmms,
-        "standalone_cmms_count": standalone_cmms,
+        "multi_cpse_cmms_count": 0,
+        "standalone_cmms_count": total_cmm,
         "volume_by_uom": volume_by_uom,
-        "multi_cpse_volume_by_uom": multi_cpse_volume_by_uom,
+        "multi_cpse_volume_by_uom": {},
         "active_materials_count": active_count,
         "inactive_materials_count": total_mats - active_count,
         "active_materials_pct": round((active_count / total_mats) * 100, 1) if total_mats > 0 else 0,
         "distinct_plants_count": plants_count,
         "distinct_manufacturers_count": mfg_count,
-        "opportunities_by_type": opps_by_type,
-        "total_opportunities_count": total_opps,
+        "opportunities_by_type": {},
+        "total_opportunities_count": 0,
         "analysis_reference_date": "2026-03-31",
         "dataset_id": effective_id,
         "has_dataset": True,
@@ -237,14 +217,105 @@ async def get_cmm_summary_detail(
 ):
     """
     Get single CMM procurement summary with full drill-down to contributing legacy member facts.
+    Falls back to CSV when DB record is missing (production stale DB case).
     """
     detail = procurement_repository.get_cmm_summary_detail(cmm_code)
-    if not detail:
+    if detail:
+        return detail
+
+    # DB record not found — build response from CSVs (handles Render stale DB case)
+    from services.dataset_resolver import load_dataset_dataframe
+
+    df_summary = load_dataset_dataframe("cmm_consumption_summary.csv", dataset_id="BASELINE")
+    df_facts = load_dataset_dataframe("procurement_facts.csv", dataset_id="BASELINE")
+    df_opps = load_dataset_dataframe("procurement_opportunities.csv", dataset_id="BASELINE")
+
+    if df_summary.empty:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"CMM summary for '{cmm_code}' not found",
         )
-    return detail
+
+    row_df = df_summary[df_summary["cmm_code"] == cmm_code]
+    if row_df.empty:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CMM summary for '{cmm_code}' not found",
+        )
+
+    r = row_df.iloc[0]
+    cpse_count = int(r.get("cpse_count", 1))
+    governance = str(r.get("governance_status", "STANDALONE_CANDIDATE"))
+
+    # Build member facts from procurement_facts.csv
+    members = []
+    if not df_facts.empty:
+        cmm_facts = df_facts[df_facts["cmm_code"] == cmm_code].sort_values(
+            ["source_cpse", "material_code"]
+        )
+        for _, f in cmm_facts.iterrows():
+            members.append({
+                "fact_id": str(f.get("fact_id", "")),
+                "source_cpse": str(f.get("source_cpse", "")),
+                "material_code": str(f.get("material_code", "")),
+                "material_description": str(f.get("material_description", "")),
+                "cmm_code": cmm_code,
+                "material_category": str(f.get("material_category", "")),
+                "material_type": str(f.get("material_type", "")),
+                "unit_of_measure": str(f.get("unit_of_measure", "NOS")),
+                "plant": str(f.get("plant", "")),
+                "material_status": str(f.get("material_status", "Active")),
+                "annual_consumption": int(f.get("annual_consumption", 0)),
+                "last_purchase_date": str(f.get("last_purchase_date", "")) or None,
+                "manufacturer": str(f.get("manufacturer", "")) or None,
+                "manufacturer_part_no": str(f.get("manufacturer_part_no", "")) or None,
+            })
+
+    # Build opportunities from procurement_opportunities.csv
+    opportunities = []
+    if not df_opps.empty:
+        cmm_opps = df_opps[df_opps["cmm_code"] == cmm_code].sort_values("opportunity_type")
+        for _, o in cmm_opps.iterrows():
+            opportunities.append({
+                "opportunity_id": str(o.get("opportunity_id", "")),
+                "opportunity_type": str(o.get("opportunity_type", "")),
+                "cmm_code": cmm_code,
+                "source_cpses": str(o.get("source_cpses", "")),
+                "material_codes": str(o.get("material_codes", "")),
+                "trigger_metric": str(o.get("trigger_metric", "")),
+                "trigger_value": float(o.get("trigger_value", 0)) if o.get("trigger_value") else None,
+                "threshold": float(o.get("threshold", 0)) if o.get("threshold") else None,
+                "reason": str(o.get("reason", "")),
+                "evidence_reference": str(o.get("evidence_reference", "")) or None,
+            })
+
+    consuming_cpses = str(r.get("consuming_cpses", ""))
+    return {
+        "cmm_code": cmm_code,
+        "common_description": str(r.get("common_description", "")),
+        "material_family": str(r.get("material_family", "")),
+        "governance_status": governance,
+        "member_count": int(r.get("member_count", len(members))),
+        "cpse_count": cpse_count,
+        "consuming_cpses": consuming_cpses,
+        "primary_uom": str(r.get("primary_uom", "NOS")),
+        "total_annual_consumption": float(r.get("total_annual_consumption", 0)),
+        "avg_consumption_per_member": float(r.get("avg_consumption_per_member", 0)),
+        "plant_count": int(r.get("plant_count", 1)),
+        "dominant_plant": str(r.get("dominant_plant", "")),
+        "earliest_purchase_date": None,
+        "latest_purchase_date": None,
+        "purchase_recency_days": 180,
+        "active_member_count": len([m for m in members if m.get("material_status", "").lower() == "active"]),
+        "inactive_member_count": len([m for m in members if m.get("material_status", "").lower() != "active"]),
+        "distinct_manufacturers_count": len(set(m["manufacturer"] for m in members if m.get("manufacturer"))),
+        "manufacturers_list": ";".join(sorted(set(m["manufacturer"] for m in members if m.get("manufacturer")))),
+        "members": members,
+        "opportunities": opportunities,
+        "dataset_id": "BASELINE",
+        "has_dataset": True,
+        "data_available": True,
+    }
 
 
 @router.get("/cpse-summary", response_model=List[Dict[str, Any]])
@@ -326,7 +397,7 @@ async def list_procurement_opportunities(
             page=page,
             page_size=page_size,
         )
-        if res.get("total", 0) >= 500 or (opportunity_type or cmm_code or effective_cpse):
+        if res.get("total", 0) > 0:
             res["dataset_id"] = "BASELINE"
             res["has_dataset"] = True
             res["data_available"] = True
@@ -450,6 +521,11 @@ async def list_procurement_facts(
         search=search,
         page=page,
         page_size=page_size,
+    )
+    res["dataset_id"] = "BASELINE"
+    res["has_dataset"] = True
+    res["data_available"] = res.get("total", 0) > 0
+    return res
     )
     res["dataset_id"] = "BASELINE"
     res["has_dataset"] = True
