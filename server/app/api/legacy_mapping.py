@@ -43,93 +43,98 @@ async def list_legacy_mappings(
             "data_available": False,
         }
 
-    if effective_id != "BASELINE":
-        from services.dataset_resolver import load_dataset_dataframe
-        df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=effective_id)
-        if df.empty:
-            return {
-                "items": [],
-                "total": 0,
-                "page": page,
-                "page_size": page_size,
-                "total_pages": 0,
-                "dataset_id": effective_id,
-                "has_dataset": True,
-                "data_available": False,
-            }
-
+    if effective_id == "BASELINE":
         effective_cpse = cpse or source_cpse
         effective_status = status or mapping_status
-        if effective_cpse and effective_cpse != "all":
-            df = df[df["source_cpse"].str.upper() == effective_cpse.upper()]
-        if effective_status and effective_status != "all":
-            df = df[df["mapping_status"] == effective_status]
-        if cmm_code:
-            df = df[df["cmm_code"] == cmm_code]
-        if search:
-            s = search.strip().lower()
-            mask = (
-                df["material_code"].str.lower().str.contains(s, na=False)
-                | df["source_description"].str.lower().str.contains(s, na=False)
-                | df["cmm_code"].str.lower().str.contains(s, na=False)
-            )
-            df = df[mask]
+        res = legacy_mapping_repository.query_mappings(
+            search=search,
+            source_cpse=effective_cpse,
+            mapping_status=effective_status,
+            confidence_semantics=confidence_semantics,
+            cmm_code=cmm_code,
+            page=page,
+            page_size=page_size,
+        )
+        # Verify repository is serving the 2,200 baseline dataset, not stale 1,250
+        # If no filters applied and total < 2000, fallback to the 2,200 CSV directly
+        if res.get("total", 0) >= 2000 or (search or effective_cpse or effective_status or cmm_code or confidence_semantics):
+            res["dataset_id"] = "BASELINE"
+            res["has_dataset"] = True
+            res["data_available"] = res.get("total", 0) > 0
+            return res
 
-        total = len(df)
-        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-        start = (page - 1) * page_size
-        page_df = df.iloc[start : start + page_size]
+    # Fallback to direct CSV loading if DB is empty, stale (<2000 records), or custom upload dataset
+    from services.dataset_resolver import load_dataset_dataframe
 
-        items = []
-        for _, r in page_df.iterrows():
-            items.append({
-                "mapping_id": str(r.get("mapping_id", "")),
-                "source_cpse": str(r.get("source_cpse", "")),
-                "material_code": str(r.get("material_code", "")),
-                "source_description": str(r.get("source_description", "")),
-                "cmm_code": str(r.get("cmm_code", "")) or None,
-                "cmm_group_id": str(r.get("cmm_group_id", "")) or None,
-                "mapping_status": str(r.get("mapping_status", "MAPPED_STANDALONE")),
-                "membership_type": str(r.get("membership_type", "STANDALONE")),
-                "confidence_score": float(r.get("confidence_score", 1.0)),
-                "confidence_semantics": str(r.get("confidence_semantics", "STANDALONE_IDENTITY")),
-                "mapping_method": str(r.get("mapping_method", "STANDALONE_IDENTITY")),
-                "mapping_reason": str(r.get("mapping_reason", "")),
-                "accepted_candidate_id": str(r.get("accepted_candidate_id", "")) or None,
-                "phase6_validation_status": str(r.get("phase6_validation_status", "")) or None,
-                "phase7_review_decision": str(r.get("phase7_review_decision", "")) or None,
-                "evidence_hash": str(r.get("evidence_hash", "")) or None,
-                "canonical_material_key": str(r.get("canonical_material_key", "")),
-                "created_at": "2026-03-31T00:00:00Z",
-                "updated_at": "2026-03-31T00:00:00Z",
-            })
-
+    df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=effective_id)
+    if df.empty:
         return {
-            "items": items,
-            "total": total,
+            "items": [],
+            "total": 0,
             "page": page,
             "page_size": page_size,
-            "total_pages": total_pages,
+            "total_pages": 0,
             "dataset_id": effective_id,
             "has_dataset": True,
-            "data_available": total > 0,
+            "data_available": False,
         }
 
     effective_cpse = cpse or source_cpse
     effective_status = status or mapping_status
-    res = legacy_mapping_repository.query_mappings(
-        search=search,
-        source_cpse=effective_cpse,
-        mapping_status=effective_status,
-        confidence_semantics=confidence_semantics,
-        cmm_code=cmm_code,
-        page=page,
-        page_size=page_size,
-    )
-    res["dataset_id"] = "BASELINE"
-    res["has_dataset"] = True
-    res["data_available"] = res.get("total", 0) > 0
-    return res
+    if effective_cpse and effective_cpse != "all":
+        df = df[df["source_cpse"].str.upper() == effective_cpse.upper()]
+    if effective_status and effective_status != "all":
+        df = df[df["mapping_status"] == effective_status]
+    if cmm_code:
+        df = df[df["cmm_code"] == cmm_code]
+    if search:
+        s = search.strip().lower()
+        mask = (
+            df["material_code"].str.lower().str.contains(s, na=False)
+            | df["source_description"].str.lower().str.contains(s, na=False)
+            | df["cmm_code"].str.lower().str.contains(s, na=False)
+        )
+        df = df[mask]
+
+    total = len(df)
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    start = (page - 1) * page_size
+    page_df = df.iloc[start : start + page_size]
+
+    items = []
+    for _, r in page_df.iterrows():
+        items.append({
+            "mapping_id": str(r.get("mapping_id", "")),
+            "source_cpse": str(r.get("source_cpse", "")),
+            "material_code": str(r.get("material_code", "")),
+            "source_description": str(r.get("source_description", "")),
+            "cmm_code": str(r.get("cmm_code", "")) or None,
+            "cmm_group_id": str(r.get("cmm_group_id", "")) or None,
+            "mapping_status": str(r.get("mapping_status", "MAPPED_STANDALONE")),
+            "membership_type": str(r.get("membership_type", "STANDALONE")),
+            "confidence_score": float(r.get("confidence_score", 1.0)),
+            "confidence_semantics": str(r.get("confidence_semantics", "STANDALONE_IDENTITY")),
+            "mapping_method": str(r.get("mapping_method", "STANDALONE_IDENTITY")),
+            "mapping_reason": str(r.get("mapping_reason", "")),
+            "accepted_candidate_id": str(r.get("accepted_candidate_id", "")) or None,
+            "phase6_validation_status": str(r.get("phase6_validation_status", "")) or None,
+            "phase7_review_decision": str(r.get("phase7_review_decision", "")) or None,
+            "evidence_hash": str(r.get("evidence_hash", "")) or None,
+            "canonical_material_key": str(r.get("canonical_material_key", "")),
+            "created_at": "2026-03-31T00:00:00Z",
+            "updated_at": "2026-03-31T00:00:00Z",
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "dataset_id": effective_id,
+        "has_dataset": True,
+        "data_available": total > 0,
+    }
 
 
 @router.get("/stats", response_model=Dict[str, Any])
@@ -157,30 +162,32 @@ async def get_legacy_mapping_stats(
             "data_available": False,
         }
 
-    if effective_id != "BASELINE":
-        from services.dataset_resolver import load_dataset_dataframe
-        df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=effective_id)
-        total = len(df)
-        cpse_dist = df["source_cpse"].value_counts().to_dict() if "source_cpse" in df.columns else {}
-        return {
-            "total_source_materials": total,
-            "total_mappings": total,
-            "mapped_verified": 0,
-            "mapped_standalone": total,
-            "review_required": 0,
-            "conflict": 0,
-            "unmapped": 0,
-            "cpse_distribution": cpse_dist,
-            "mapping_coverage_pct": 100.0 if total > 0 else 0.0,
-            "dataset_id": effective_id,
-            "has_dataset": True,
-            "data_available": total > 0,
-        }
-    stats = legacy_mapping_repository.get_stats()
-    stats["dataset_id"] = "BASELINE"
-    stats["has_dataset"] = True
-    stats["data_available"] = stats.get("total_mappings", 0) > 0
-    return stats
+    if effective_id == "BASELINE":
+        stats = legacy_mapping_repository.get_stats()
+        if stats.get("total_mappings", 0) >= 2000:
+            stats["dataset_id"] = "BASELINE"
+            stats["has_dataset"] = True
+            stats["data_available"] = True
+            return stats
+
+    from services.dataset_resolver import load_dataset_dataframe
+    df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=effective_id)
+    total = len(df)
+    cpse_dist = df["source_cpse"].value_counts().to_dict() if "source_cpse" in df.columns else {}
+    return {
+        "total_source_materials": total,
+        "total_mappings": total,
+        "mapped_verified": int(len(df[df["mapping_status"] == "MAPPED_VERIFIED"])) if not df.empty and "mapping_status" in df.columns else 0,
+        "mapped_standalone": int(len(df[df["mapping_status"] == "MAPPED_STANDALONE"])) if not df.empty and "mapping_status" in df.columns else total,
+        "review_required": int(len(df[df["mapping_status"] == "AMBIGUOUS_REVIEW_REQUIRED"])) if not df.empty and "mapping_status" in df.columns else 0,
+        "conflict": int(len(df[df["mapping_status"] == "UNRESOLVABLE_CONFLICT"])) if not df.empty and "mapping_status" in df.columns else 0,
+        "unmapped": int(len(df[df["mapping_status"] == "UNMAPPED"])) if not df.empty and "mapping_status" in df.columns else 0,
+        "cpse_distribution": cpse_dist,
+        "mapping_coverage_pct": 100.0 if total > 0 else 0.0,
+        "dataset_id": effective_id,
+        "has_dataset": True,
+        "data_available": total > 0,
+    }
 
 
 @router.get("/by-cmm/{cmm_code}", response_model=List[Dict[str, Any]])

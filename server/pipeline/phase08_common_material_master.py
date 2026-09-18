@@ -9,9 +9,16 @@ Produces:
 """
 
 import os
+import sys
 import json
 import pandas as pd
 from typing import Dict, Any, Optional
+
+_server_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_root_dir = os.path.abspath(os.path.join(_server_dir, ".."))
+for _p in [_root_dir, _server_dir]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 try:
     from server.services.common_master_service import common_master_service

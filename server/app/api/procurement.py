@@ -53,7 +53,7 @@ async def get_procurement_kpis(
 
     if effective_id == "BASELINE":
         kpis = procurement_repository.get_kpis()
-        if kpis.get("total_materials_analyzed", 0) > 0:
+        if kpis.get("total_materials_analyzed", 0) >= 2000:
             kpis["dataset_id"] = "BASELINE"
             kpis["has_dataset"] = True
             kpis["data_available"] = True
@@ -241,7 +241,7 @@ async def get_cpse_summaries(
 
     if effective_id == "BASELINE":
         summaries = procurement_repository.get_cpse_summaries()
-        if summaries and len(summaries) > 0:
+        if summaries and len(summaries) >= 8:
             return summaries
 
     from services.dataset_resolver import load_dataset_dataframe

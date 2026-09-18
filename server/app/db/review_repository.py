@@ -14,7 +14,10 @@ from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from app.models.review import Base, ReviewDecision, ReviewEvent
+try:
+    from app.models.review import Base, ReviewDecision, ReviewEvent
+except ImportError:
+    from server.app.models.review import Base, ReviewDecision, ReviewEvent
 
 
 class StaleVersionError(Exception):
