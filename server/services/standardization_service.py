@@ -702,47 +702,46 @@ class StandardizationService:
         records_with_unique_key = sum(1 for k, c in key_freq.items() if c == 1)
         records_sharing_key = sum(c for k, c in key_freq.items() if c > 1)
 
-        # Generate 15 representative real examples for the report
-        sample_codes = [
-            ("IOCL-243053", "FLOATING BALL VALVE 1 in SS 316"),
-            ("IOCL-501828", "BEARING NO 6207"),
-            ("ONGC-521278", "HEX NUT M8 ZINC PLATED"),
-            ("IOCL-156968", "HORIZONTAL CENTRIFUGAL PUMP 80 mm"),
-            ("IOCL-770259", "WELD NECK FLANGE 1 in ASME B16.5"),
-            ("ONGC-437562", "GATE VALVE FLANGED 2 in ASTM A216 WCB"),
-            ("CPCL-442155", "HEXAGONAL BOLT M16X75 ZINC PLATED"),
-            ("HPCL-462251", "HRC CARTRIDGE 10 A"),
-            ("ONGC-870999", "SEAMLESS STEEL PIPE 6 in API 5L"),
-            ("HPCL-916217", "SPIRAL GASKET 3 in"),
-            ("CPCL-972914", "PRESSURE INDICATOR 0-25 bar"),
-            ("IOCL-780918", "XLPE CABLE 25 sq mm"),
-            ("CPCL-339867", "HYDRAULIC HOSE 3/4 in"),
-            ("HPCL-619092", "GEAR OIL ISO VG 320"),
-            ("HPCL-494516", "90 DEGREE ELBOW 2 in ASTM A234 WPB"),
-        ]
-
+        # Generate up to 15 representative real examples by sampling directly from the dataset
         examples = []
-        for code, name in sample_codes:
-            m = out_df[out_df["Material_Code"] == code]
-            if len(m) > 0:
-                r = m.iloc[0]
+        try:
+            # Mix: some with conflicts, some clean
+            conflict_rows = out_df[out_df["Standardization_Conflict_Preserved"] == True]
+            clean_rows = out_df[out_df["Standardization_Conflict_Preserved"] == False]
+            n_conflict = min(8, len(conflict_rows))
+            n_clean = min(7, len(clean_rows))
+            sample_df = pd.concat([
+                conflict_rows.sample(n=n_conflict, random_state=42) if n_conflict > 0 else pd.DataFrame(),
+                clean_rows.sample(n=n_clean, random_state=42) if n_clean > 0 else pd.DataFrame(),
+            ])
+            # Fall back if both empty
+            if sample_df.empty:
+                sample_df = out_df.sample(n=min(15, len(out_df)), random_state=42)
+
+            for _, r in sample_df.iterrows():
+                code = str(r.get("Material_Code", ""))
+                if not code or code == "nan":
+                    continue
                 examples.append({
                     "material_code": code,
-                    "original_description": r["Material_Description"],
+                    "original_description": str(r.get("Material_Description", "")),
                     "phase3_extracted": {
                         k.replace("EX_", ""): str(r[k]).strip()
-                        for k in df.columns
+                        for k in out_df.columns
                         if k.startswith("EX_")
                         and r.get(k) is not None
                         and not pd.isna(r.get(k))
                         and str(r.get(k)).strip()
                         and str(r.get(k)).strip().lower() != "nan"
                     },
-                    "standardized_description": r["Standardized_Description"],
-                    "canonical_material_key": r["Canonical_Material_Key"],
-                    "rules_applied": r["Standardization_Rules_Applied"],
-                    "conflict_preserved": bool(r["Standardization_Conflict_Preserved"]),
+                    "standardized_description": str(r.get("Standardized_Description", "")),
+                    "canonical_material_key": str(r.get("Canonical_Material_Key", "")),
+                    "rules_applied": str(r.get("Standardization_Rules_Applied", "")),
+                    "conflict_preserved": bool(r.get("Standardization_Conflict_Preserved", False)),
                 })
+        except Exception:
+            examples = []
+
 
         report = {
             "phase": "Phase 05: Material Standardization & Canonicalization",

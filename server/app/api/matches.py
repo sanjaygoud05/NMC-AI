@@ -43,7 +43,7 @@ async def get_matching_report(dataset_id: Optional[str] = None):
     Get Phase 5 matching KPI summary, reduction ratio, and candidate distribution.
     Scoped by dataset_id (BASELINE, UPLOAD-..., or ALL).
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
+    effective_id = (dataset_id or "BASELINE").strip().upper()
     if effective_id in ["", "NONE"]:
         return {
             "phase": "Phase 07: Candidate Generation & Matching",
@@ -175,6 +175,7 @@ async def get_matches(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=500),
     dataset_id: Optional[str] = None,
+    cpse: Optional[str] = None,
     source_cpse: Optional[str] = None,
     candidate_cpse: Optional[str] = None,
     confidence_level: Optional[str] = None,
@@ -188,7 +189,7 @@ async def get_matches(
     """
     Query candidate match pairs with multi-attribute filtering, search, and pagination.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
+    effective_id = (dataset_id or "BASELINE").strip().upper()
     if effective_id in ["", "NONE"]:
         return {
             "matches": [],
@@ -226,10 +227,20 @@ async def get_matches(
 
     filtered = df
 
-    if source_cpse and source_cpse != "all":
-        filtered = filtered[filtered["source_cpse"].str.upper() == source_cpse.upper()]
-
-    if candidate_cpse and candidate_cpse != "all":
+    # Filter matches related to the chosen CPSE (matches where CPSE is either source or candidate)
+    target_cpse = (cpse or source_cpse or "").strip()
+    if target_cpse and target_cpse.lower() != "all":
+        if candidate_cpse and candidate_cpse.lower() != "all":
+            filtered = filtered[
+                (filtered["source_cpse"].str.upper() == target_cpse.upper()) &
+                (filtered["candidate_cpse"].str.upper() == candidate_cpse.upper())
+            ]
+        else:
+            filtered = filtered[
+                (filtered["source_cpse"].str.upper() == target_cpse.upper()) |
+                (filtered["candidate_cpse"].str.upper() == target_cpse.upper())
+            ]
+    elif candidate_cpse and candidate_cpse.lower() != "all":
         filtered = filtered[filtered["candidate_cpse"].str.upper() == candidate_cpse.upper()]
 
     if confidence_level and confidence_level != "all":
@@ -343,7 +354,7 @@ async def get_match_detail(candidate_id: str, dataset_id: Optional[str] = None):
     """
     Get detailed evidence breakdown for a single candidate match pair.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
+    effective_id = (dataset_id or "BASELINE").strip().upper()
     from services.dataset_resolver import load_dataset_dataframe
     df = load_dataset_dataframe("match_candidates.csv", dataset_id=effective_id)
     if df.empty and effective_id == "BASELINE":

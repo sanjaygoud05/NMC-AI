@@ -28,14 +28,14 @@ async def list_common_materials(
     cpse: Optional[str] = Query(None, description="Filter by participating CPSE"),
     dataset_id: Optional[str] = Query(None, description="Scope by dataset_id (BASELINE, UPLOAD-..., ALL)"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=10000),
     user: dict = Depends(get_current_user),
 ):
     """
     List Common Material Master records with filtering, search, pagination, and dataset scoping.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "items": [],
             "total": 0,
@@ -159,8 +159,8 @@ async def get_common_master_stats(
     """
     Get summary statistics and KPI metrics for the Common Material Master catalog.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "total_common_materials": 0,
             "verified_harmonized_count": 0,
@@ -220,6 +220,33 @@ async def get_common_master_stats(
         "has_dataset": True,
         "data_available": total_records > 0,
     }
+
+
+@router.get("/pair-overlaps", response_model=List[Dict[str, Any]])
+async def get_cpse_pair_overlaps(
+    top_n: int = Query(10, ge=1, le=28, description="Number of top pairs to return"),
+    user: dict = Depends(get_current_user),
+):
+    """
+    Return top cross-CPSE pair harmonization overlap counts computed from
+    the common_material_members table. Used for the Enterprise Pair chart.
+    """
+    try:
+        pairs = common_master_repository.get_pair_overlaps(top_n=top_n)
+        return pairs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/family-distribution", response_model=List[Dict[str, Any]])
+async def get_family_distribution(
+    user: dict = Depends(get_current_user),
+):
+    """Return material family distribution for multi-CPSE CMM clusters."""
+    try:
+        return common_master_repository.get_family_distribution()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{common_id}", response_model=Dict[str, Any])

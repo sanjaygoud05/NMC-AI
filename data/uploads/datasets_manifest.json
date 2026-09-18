@@ -1,23 +1,28 @@
 {
   "version": "1.0",
-  "last_updated": "2026-09-17T19:07:26.327856+00:00",
+  "last_updated": "2026-09-18T18:44:17.419831+00:00",
   "sequence_counters": {
     "20260915": 2,
     "20260916": 9,
-    "20260917": 5
+    "20260917": 5,
+    "20260918": 1
   },
   "datasets": {
     "BASELINE": {
       "dataset_id": "BASELINE",
-      "file_name": "data.csv",
-      "file_hash": "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",
-      "row_count": 1250,
-      "column_count": 18,
+      "file_name": "CPSE_Material_Master_cleaned.csv",
+      "file_hash": "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18",
+      "row_count": 2200,
+      "column_count": 20,
       "cpse_summary": {
-        "ONGC": 332,
-        "IOCL": 319,
-        "HPCL": 301,
-        "CPCL": 298
+        "Coal India": 275,
+        "SAIL": 275,
+        "BHEL": 275,
+        "ONGC": 275,
+        "HPCL": 275,
+        "NTPC": 275,
+        "IOCL": 275,
+        "NMDC": 275
       },
       "status": "COMPLETED",
       "is_baseline": true,
@@ -27,13 +32,13 @@
       "processing_completed_at": "2026-03-31T00:00:00Z",
       "error_message": null,
       "data_dir": "data/processed",
-      "source_file": "data/raw/data.csv",
+      "source_file": "data/raw/CPSE_Material_Master_cleaned.csv",
       "current_phase": "COMPLETED",
       "progress": 100,
       "created_at": "2026-03-31T00:00:00Z",
       "started_at": "2026-03-31T00:00:00Z",
       "completed_at": "2026-03-31T00:00:00Z",
-      "cpse_count": 4
+      "cpse_count": 8
     },
     "UPLOAD-20260915-001": {
       "dataset_id": "UPLOAD-20260915-001",
@@ -485,6 +490,39 @@
       "started_at": "2026-09-17T19:06:30.022733+00:00",
       "completed_at": "2026-09-17T19:07:26.327840+00:00",
       "cpse_count": 4
+    },
+    "UPLOAD-20260918-001": {
+      "dataset_id": "UPLOAD-20260918-001",
+      "user_id": "1f3872e9-0d76-4699-93ba-6eb9303cc60a",
+      "file_name": "CPSE_Material_Master_cleaned (1).csv",
+      "file_hash": "84e05eab39dd2eaf1f5f779a830fa714dab70182d9a1f0d573a0b047237da482",
+      "row_count": 2200,
+      "column_count": 20,
+      "cpse_summary": {
+        "Coal India": 275,
+        "SAIL": 275,
+        "BHEL": 275,
+        "ONGC": 275,
+        "HPCL": 275,
+        "NTPC": 275,
+        "IOCL": 275,
+        "NMDC": 275
+      },
+      "status": "PROCESSING",
+      "is_baseline": false,
+      "schema_version": "1.0",
+      "uploaded_at": "2026-09-18T18:40:53.071025+00:00",
+      "processing_started_at": "2026-09-18T18:40:53.192794+00:00",
+      "processing_completed_at": null,
+      "error_message": null,
+      "data_dir": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\uploads\\UPLOAD-20260918-001\\processed",
+      "source_file": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\uploads\\UPLOAD-20260918-001\\source.csv",
+      "current_phase": "Phase 6: Technical Validation",
+      "progress": 75,
+      "created_at": "2026-09-18T18:40:53.071093+00:00",
+      "started_at": "2026-09-18T18:40:53.192794+00:00",
+      "completed_at": null,
+      "cpse_count": 8
     }
   }
 }

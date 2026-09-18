@@ -10,6 +10,7 @@ Endpoints:
 """
 
 import json
+import math
 from pathlib import Path
 from typing import Optional
 
@@ -36,6 +37,19 @@ def _load_extracted_df() -> Optional[pd.DataFrame]:
     return _extracted_df
 
 
+def _clean_val(v):
+    if v is None:
+        return None
+    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+        return None
+    if pd.isna(v):
+        return None
+    s = str(v).strip()
+    if s.lower() in ("nan", "none", "<na>"):
+        return None
+    return v
+
+
 def _invalidate_cache():
     global _extracted_df
     _extracted_df = None
@@ -47,7 +61,7 @@ async def get_attributes_summary(dataset_id: Optional[str] = None):
     Get Phase 3 attribute extraction summary, scoped by dataset_id.
     Returns persisted extraction report if available.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
+    effective_id = (dataset_id or "BASELINE").strip().upper()
     if effective_id in ["", "NONE"]:
         return {
             "status": "not_run",
@@ -151,13 +165,21 @@ async def get_material_attributes(material_code: str):
     row_dict = row.where(pd.notna(row), None).to_dict()
 
     # Separate original fields from extracted attributes
-    original_fields = {k: v for k, v in row_dict.items() if not k.startswith("EX_") and not k.startswith("extraction_")}
-    extracted_attrs = {
-        k.replace("EX_", ""): v
+    original_fields = {
+        k: _clean_val(v)
         for k, v in row_dict.items()
-        if k.startswith("EX_") and v is not None
+        if not k.startswith("EX_") and not k.startswith("extraction_")
     }
-    audit = {k: v for k, v in row_dict.items() if k.startswith("extraction_")}
+    extracted_attrs = {
+        k.replace("EX_", ""): _clean_val(v)
+        for k, v in row_dict.items()
+        if k.startswith("EX_") and _clean_val(v) is not None
+    }
+    audit = {
+        k: _clean_val(v)
+        for k, v in row_dict.items()
+        if k.startswith("extraction_")
+    }
 
     return {
         "material_code": material_code,
@@ -226,7 +248,7 @@ async def get_standardization_report(dataset_id: Optional[str] = None):
     """
     from services.dataset_resolver import resolve_artifact_path
 
-    effective_id = dataset_id.strip().upper() if dataset_id else "NONE"
+    effective_id = dataset_id.strip().upper() if dataset_id else "BASELINE"
     if effective_id == "NONE":
         return {
             "dataset_id": "NONE",
@@ -278,6 +300,47 @@ async def get_standardization_report(dataset_id: Optional[str] = None):
         data["dataset_id"] = effective_id
         data["has_dataset"] = True
         data["data_available"] = True
+
+        # If cached report has no examples, sample them live from the CSV
+        if not data.get("examples"):
+            try:
+                df_std = _load_standardized_df()
+                if df_std is not None and not df_std.empty:
+                    conflict_rows = df_std[df_std.get("Standardization_Conflict_Preserved", pd.Series(dtype=str)) == "True"]
+                    clean_rows = df_std[df_std.get("Standardization_Conflict_Preserved", pd.Series(dtype=str)) != "True"]
+                    n_c = min(8, len(conflict_rows))
+                    n_clean = min(7, len(clean_rows))
+                    parts = []
+                    if n_c > 0:
+                        parts.append(conflict_rows.sample(n=n_c, random_state=42))
+                    if n_clean > 0:
+                        parts.append(clean_rows.sample(n=n_clean, random_state=42))
+                    sample_df = pd.concat(parts) if parts else df_std.sample(n=min(15, len(df_std)), random_state=42)
+
+                    examples_live = []
+                    for _, r in sample_df.iterrows():
+                        code = str(r.get("Material_Code", "") or "")
+                        if not code or code == "nan":
+                            continue
+                        examples_live.append({
+                            "material_code": code,
+                            "original_description": str(r.get("Material_Description", "") or ""),
+                            "phase3_extracted": {
+                                k.replace("EX_", ""): str(r[k]).strip()
+                                for k in df_std.columns
+                                if k.startswith("EX_")
+                                and r.get(k) is not None
+                                and str(r.get(k, "")).strip() not in ("", "nan", "None")
+                            },
+                            "standardized_description": str(r.get("Standardized_Description", "") or ""),
+                            "canonical_material_key": str(r.get("Canonical_Material_Key", "") or ""),
+                            "rules_applied": str(r.get("Standardization_Rules_Applied", "") or ""),
+                            "conflict_preserved": str(r.get("Standardization_Conflict_Preserved", "")) == "True",
+                        })
+                    data["examples"] = examples_live
+            except Exception:
+                pass  # Leave examples empty on any error
+
         return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read standardization report: {str(e)}")
@@ -294,7 +357,7 @@ async def get_standardized_material(
     """
     from services.dataset_resolver import load_dataset_dataframe
 
-    effective_id = dataset_id.strip().upper() if dataset_id else "NONE"
+    effective_id = dataset_id.strip().upper() if dataset_id else "BASELINE"
     if effective_id == "NONE":
         raise HTTPException(
             status_code=404,
@@ -322,29 +385,30 @@ async def get_standardized_material(
     row_dict = row.where(pd.notna(row), None).to_dict()
 
     canonical_attrs = {
-        k.replace("Canonical_", ""): v
+        k.replace("Canonical_", ""): _clean_val(v)
         for k, v in row_dict.items()
-        if k.startswith("Canonical_") and k != "Canonical_Material_Key"
+        if k.startswith("Canonical_") and k != "Canonical_Material_Key" and _clean_val(v) is not None
     }
 
     extracted_attrs = {
-        k.replace("EX_", ""): v
+        k.replace("EX_", ""): _clean_val(v)
         for k, v in row_dict.items()
-        if k.startswith("EX_") and v is not None
+        if k.startswith("EX_") and _clean_val(v) is not None
     }
 
     standardization_meta = {
-        "standardized_description": row_dict.get("Standardized_Description"),
-        "canonical_material_key": row_dict.get("Canonical_Material_Key"),
-        "standardization_changed": row_dict.get("Standardization_Changed"),
-        "standardization_rule_count": row_dict.get("Standardization_Rule_Count"),
-        "standardization_rules_applied": row_dict.get("Standardization_Rules_Applied"),
-        "conflict_preserved": row_dict.get("Standardization_Conflict_Preserved"),
-        "conflict_detail": row_dict.get("extraction_conflicts_detail"),
+        "standardized_description": _clean_val(row_dict.get("Standardized_Description")),
+        "canonical_material_key": _clean_val(row_dict.get("Canonical_Material_Key")),
+        "standardization_changed": _clean_val(row_dict.get("Standardization_Changed")),
+        "standardization_rule_count": _clean_val(row_dict.get("Standardization_Rule_Count")),
+        "standardization_rules_applied": _clean_val(row_dict.get("Standardization_Rules_Applied")),
+        "conflict_preserved": _clean_val(row_dict.get("Standardization_Conflict_Preserved")),
+        "conflict_detail": _clean_val(row_dict.get("extraction_conflicts_detail")),
     }
 
     original_fields = {
-        k: v for k, v in row_dict.items()
+        k: _clean_val(v)
+        for k, v in row_dict.items()
         if not k.startswith("EX_")
         and not k.startswith("Canonical_")
         and not k.startswith("Standardization_")

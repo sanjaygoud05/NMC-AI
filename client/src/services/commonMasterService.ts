@@ -178,4 +178,36 @@ export const commonMasterService = {
     }
     return res.json();
   },
+
+  /**
+   * Fetch top cross-CPSE pair harmonization overlap counts from DB members table
+   */
+  async getPairOverlaps(topN: number = 10): Promise<{ c1: string; c2: string; pair: string; count: number }[]> {
+    const token = localStorage.getItem('supabase.auth.token') || '';
+    const res = await fetch(`${API_BASE}/api/common-master/pair-overlaps?top_n=${topN}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  /**
+   * Fetch top verified multi-CPSE clusters for the cluster table
+   */
+  async getVerifiedClusters(pageSize: number = 8): Promise<CommonMaterialRecord[]> {
+    try {
+      const res = await this.getCatalog({
+        governance_status: 'VERIFIED_HARMONIZED',
+        page: 1,
+        page_size: pageSize,
+        dataset_id: 'BASELINE',
+      });
+      return res.items || [];
+    } catch {
+      return [];
+    }
+  },
 };

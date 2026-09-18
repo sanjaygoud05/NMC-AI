@@ -3,8 +3,8 @@
   "embedding_model": "all-MiniLM-L6-v2",
   "embedding_dimension": 384,
   "fallback_used": false,
-  "input_sha256": "5e93c66468d2813afd147234c53089f17b4400b07ca6ea168f3445a255fc72d6",
-  "record_count": 1250,
-  "generation_timestamp": "2026-09-11T14:07:09.552891+00:00",
+  "input_sha256": "7c268c7eda077c32f2250a0252a2f77aaaa055d2095047523972f8919fdd5d50",
+  "record_count": 2200,
+  "generation_timestamp": "2026-09-18T13:14:11.931161+00:00",
   "normalization": "l2_unit_norm"
 }

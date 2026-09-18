@@ -7,45 +7,50 @@
     "financial_inventions_prohibited": true
   },
   "metrics": {
-    "total_source_materials": 1250,
-    "total_cmm_entities": 1249,
-    "multi_cpse_cmms_count": 1,
-    "standalone_cmms_count": 1248,
+    "total_source_materials": 2200,
+    "total_cmm_entities": 1228,
+    "multi_cpse_cmms_count": 352,
+    "standalone_cmms_count": 876,
     "volume_by_uom": {
-      "MTR": 5858592,
-      "NOS": 9144354,
-      "LTR": 764341
+      "NOS": 9113929,
+      "MTR": 4634680,
+      "SET": 2418851,
+      "KG": 700780
     },
     "cpse_material_distribution": {
-      "CPCL": 298,
-      "HPCL": 301,
-      "IOCL": 319,
-      "ONGC": 332
+      "BHEL": 275,
+      "Coal India": 275,
+      "HPCL": 275,
+      "IOCL": 275,
+      "NMDC": 275,
+      "NTPC": 275,
+      "ONGC": 275,
+      "SAIL": 275
     },
-    "total_opportunities_identified": 71,
+    "total_opportunities_identified": 553,
     "opportunities_by_type": {
-      "MULTI_CPSE_DEMAND_AGGREGATION": 1,
-      "HIGH_VOLUME_CONCENTRATION": 69,
-      "PURCHASE_DORMANCY_SIGNAL": 0,
-      "MANUFACTURER_DIVERSITY_SIGNAL": 1
+      "MULTI_CPSE_DEMAND_AGGREGATION": 352,
+      "HIGH_VOLUME_CONCENTRATION": 66,
+      "PURCHASE_DORMANCY_SIGNAL": 91,
+      "MANUFACTURER_DIVERSITY_SIGNAL": 44
     }
   },
   "database_persistence": {
-    "facts_count": 1250,
-    "cmm_summaries_count": 1249,
-    "opportunities_count": 71
+    "facts_count": 2200,
+    "cmm_summaries_count": 1228,
+    "opportunities_count": 553
   },
   "files_generated": {
     "procurement_facts_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\procurement_facts.csv",
-    "procurement_facts_sha256": "c5fa34b727d3da81197bce0d947cb634d466f971163f5c3a7f91584d866e8a36",
+    "procurement_facts_sha256": "e2cc478024805a543f52d3c2eb3ea303d5fb2e1102b76d23099f42dbbfd116ea",
     "cmm_consumption_summary_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\cmm_consumption_summary.csv",
-    "cmm_consumption_summary_sha256": "adb1f5e2653e644d4e36617c3d842e3f20c55d34660095f32ee204eb26a51ed5",
+    "cmm_consumption_summary_sha256": "f01a5fbbacd0bc2aa78e1daf17309c608067c037b33c1a366b1a55b263b2a1b0",
     "cmm_purchase_summary_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\cmm_purchase_summary.csv",
-    "cmm_purchase_summary_sha256": "b768d579570c43cb48d63f6127f0e15dda3b8a0cddf1d8e6428e5bfe1a14cd19",
+    "cmm_purchase_summary_sha256": "2c7493da0c58efef837d8c7b6b404aecdc36227d8fd0e976c43d3492cf133dad",
     "cpse_procurement_summary_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\cpse_procurement_summary.csv",
-    "cpse_procurement_summary_sha256": "def508da033756b1ced3215da332c754026ba27fe809e8b214ac9a8746ebbde8",
+    "cpse_procurement_summary_sha256": "75ed8464a74dd62ae2749d1b4e82aa7b22ac066cb851be500cb904e4505812e8",
     "procurement_opportunities_csv": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\procurement_opportunities.csv",
-    "procurement_opportunities_sha256": "7e83afdb74f95b73b77effd6f5d2ce02b4fe9f2599759c2f7851754e55b9445b",
+    "procurement_opportunities_sha256": "033cab583503663b82829868eef5fcb03773493bf71bb7e43206acf5c85476e0",
     "phase10_analytics_report_json": "C:\\Users\\uyyal\\wisdom-garden-bed\\data\\processed\\phase10_analytics_report.json"
   }
 }

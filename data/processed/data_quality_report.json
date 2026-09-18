@@ -1,22 +1,22 @@
 {
   "phase": "Phase 01 & 02: Ingestion & Data Profiling",
   "dataset_summary": {
-    "total_rows": 1250,
-    "total_columns": 18,
+    "total_rows": 2200,
+    "total_columns": 20,
     "exact_duplicate_rows": 0,
     "duplicate_row_percentage": 0.0,
     "empty_rows": 0,
-    "unique_material_codes": 1250,
+    "unique_material_codes": 2200,
     "duplicate_material_codes": 0,
-    "unique_descriptions": 357,
-    "duplicate_descriptions": 893
+    "unique_descriptions": 1829,
+    "duplicate_descriptions": 371
   },
   "quality_score": {
-    "overall_score": 93.1,
+    "overall_score": 92.8,
     "max_score": 100.0,
     "dimensions": {
       "completeness": {
-        "score": 90.1,
+        "score": 89.2,
         "weight": 0.4,
         "description": "Average field population rate"
       },
@@ -42,207 +42,231 @@
     {
       "column_name": "CPSE",
       "data_type": "categorical",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 4,
-      "unique_percentage": 0.32
+      "unique_count": 8,
+      "unique_percentage": 0.36
+    },
+    {
+      "column_name": "Sector",
+      "data_type": "string",
+      "total_count": 2200,
+      "non_null_count": 2200,
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 5,
+      "unique_percentage": 0.23
     },
     {
       "column_name": "Material_Code",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 1250,
+      "unique_count": 2200,
       "unique_percentage": 100.0
     },
     {
       "column_name": "Material_Description",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 357,
-      "unique_percentage": 28.56
+      "unique_count": 1829,
+      "unique_percentage": 83.14
     },
     {
       "column_name": "Material_Category",
       "data_type": "categorical",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 11,
-      "unique_percentage": 0.88
+      "unique_count": 8,
+      "unique_percentage": 0.36
     },
     {
       "column_name": "Material_Type",
       "data_type": "categorical",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 19,
-      "unique_percentage": 1.52
+      "unique_count": 60,
+      "unique_percentage": 2.73
     },
     {
       "column_name": "Specification",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 157,
-      "unique_percentage": 12.56
+      "unique_count": 42,
+      "unique_percentage": 1.91
     },
     {
       "column_name": "Material_Grade",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 15,
-      "unique_percentage": 1.2
+      "unique_count": 35,
+      "unique_percentage": 1.59
     },
     {
       "column_name": "Size",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 52,
-      "unique_percentage": 4.16
+      "unique_count": 39,
+      "unique_percentage": 1.77
     },
     {
       "column_name": "Length",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 374,
-      "null_count": 876,
-      "null_percentage": 70.08,
-      "unique_count": 13,
-      "unique_percentage": 1.04
+      "total_count": 2200,
+      "non_null_count": 678,
+      "null_count": 1522,
+      "null_percentage": 69.18,
+      "unique_count": 12,
+      "unique_percentage": 0.55
     },
     {
       "column_name": "Diameter",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 127,
-      "null_count": 1123,
-      "null_percentage": 89.84,
-      "unique_count": 6,
-      "unique_percentage": 0.48
+      "total_count": 2200,
+      "non_null_count": 679,
+      "null_count": 1521,
+      "null_percentage": 69.14,
+      "unique_count": 19,
+      "unique_percentage": 0.86
     },
     {
       "column_name": "Coating",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 1029,
-      "null_count": 221,
-      "null_percentage": 17.68,
-      "unique_count": 8,
-      "unique_percentage": 0.64
+      "total_count": 2200,
+      "non_null_count": 512,
+      "null_count": 1688,
+      "null_percentage": 76.73,
+      "unique_count": 4,
+      "unique_percentage": 0.18
     },
     {
       "column_name": "Unit",
       "data_type": "categorical",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 3,
-      "unique_percentage": 0.24
+      "unique_count": 4,
+      "unique_percentage": 0.18
     },
     {
       "column_name": "Manufacturer",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 12,
-      "unique_percentage": 0.96
+      "unique_count": 31,
+      "unique_percentage": 1.41
     },
     {
       "column_name": "Manufacturer_Part_No",
       "data_type": "string",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 1250,
-      "unique_percentage": 100.0
+      "unique_count": 2141,
+      "unique_percentage": 97.32
     },
     {
       "column_name": "Plant",
       "data_type": "categorical",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 11,
-      "unique_percentage": 0.88
+      "unique_count": 33,
+      "unique_percentage": 1.5
     },
     {
       "column_name": "Material_Status",
       "data_type": "categorical",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
       "unique_count": 3,
-      "unique_percentage": 0.24
+      "unique_percentage": 0.14
     },
     {
       "column_name": "Annual_Consumption",
       "data_type": "numeric",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 1221,
-      "unique_percentage": 97.68
+      "unique_count": 2048,
+      "unique_percentage": 93.09
     },
     {
       "column_name": "Last_Purchase_Date",
       "data_type": "date",
-      "total_count": 1250,
-      "non_null_count": 1250,
+      "total_count": 2200,
+      "non_null_count": 2200,
       "null_count": 0,
       "null_percentage": 0.0,
-      "unique_count": 710,
-      "unique_percentage": 56.8
+      "unique_count": 697,
+      "unique_percentage": 31.68
+    },
+    {
+      "column_name": "Unit_Price_INR",
+      "data_type": "string",
+      "total_count": 2200,
+      "non_null_count": 2200,
+      "null_count": 0,
+      "null_percentage": 0.0,
+      "unique_count": 2104,
+      "unique_percentage": 95.64
     }
   ],
   "missingness_analysis": {
     "high_missingness_columns": [
       {
         "column": "Length",
-        "null_count": 876,
-        "null_percentage": 70.08
+        "null_count": 1522,
+        "null_percentage": 69.18
       },
       {
         "column": "Diameter",
-        "null_count": 1123,
-        "null_percentage": 89.84
-      }
-    ],
-    "moderate_missingness_columns": [
+        "null_count": 1521,
+        "null_percentage": 69.14
+      },
       {
         "column": "Coating",
-        "null_count": 221,
-        "null_percentage": 17.68
+        "null_count": 1688,
+        "null_percentage": 76.73
       }
     ],
+    "moderate_missingness_columns": [],
     "low_missingness_columns": [
       {
         "column": "CPSE",
+        "null_count": 0,
+        "null_percentage": 0.0
+      },
+      {
+        "column": "Sector",
         "null_count": 0,
         "null_percentage": 0.0
       },
@@ -315,6 +339,11 @@
         "column": "Last_Purchase_Date",
         "null_count": 0,
         "null_percentage": 0.0
+      },
+      {
+        "column": "Unit_Price_INR",
+        "null_count": 0,
+        "null_percentage": 0.0
       }
     ],
     "thresholds": {
@@ -324,294 +353,322 @@
     }
   },
   "cpse_distribution": {
-    "ONGC": {
-      "record_count": 332,
-      "percentage": 26.56,
-      "unique_material_codes": 332,
-      "unique_descriptions": 210
+    "Coal India": {
+      "record_count": 275,
+      "percentage": 12.5,
+      "unique_material_codes": 275,
+      "unique_descriptions": 235
     },
-    "IOCL": {
-      "record_count": 319,
-      "percentage": 25.52,
-      "unique_material_codes": 319,
-      "unique_descriptions": 200
+    "SAIL": {
+      "record_count": 275,
+      "percentage": 12.5,
+      "unique_material_codes": 275,
+      "unique_descriptions": 244
+    },
+    "BHEL": {
+      "record_count": 275,
+      "percentage": 12.5,
+      "unique_material_codes": 275,
+      "unique_descriptions": 236
+    },
+    "ONGC": {
+      "record_count": 275,
+      "percentage": 12.5,
+      "unique_material_codes": 275,
+      "unique_descriptions": 250
     },
     "HPCL": {
-      "record_count": 301,
-      "percentage": 24.08,
-      "unique_material_codes": 301,
-      "unique_descriptions": 207
+      "record_count": 275,
+      "percentage": 12.5,
+      "unique_material_codes": 275,
+      "unique_descriptions": 233
     },
-    "CPCL": {
-      "record_count": 298,
-      "percentage": 23.84,
-      "unique_material_codes": 298,
-      "unique_descriptions": 203
+    "NTPC": {
+      "record_count": 275,
+      "percentage": 12.5,
+      "unique_material_codes": 275,
+      "unique_descriptions": 236
+    },
+    "IOCL": {
+      "record_count": 275,
+      "percentage": 12.5,
+      "unique_material_codes": 275,
+      "unique_descriptions": 226
+    },
+    "NMDC": {
+      "record_count": 275,
+      "percentage": 12.5,
+      "unique_material_codes": 275,
+      "unique_descriptions": 239
     }
   },
   "categorical_distributions": {
     "categories": {
-      "Electrical": {
-        "count": 210,
-        "percentage": 16.8
-      },
-      "Fasteners": {
-        "count": 191,
-        "percentage": 15.28
-      },
-      "Valves": {
-        "count": 186,
-        "percentage": 14.88
-      },
-      "Pipes & Fittings": {
-        "count": 185,
-        "percentage": 14.8
-      },
       "Instrumentation": {
-        "count": 123,
-        "percentage": 9.84
-      },
-      "Bearings": {
-        "count": 71,
-        "percentage": 5.68
-      },
-      "Hoses": {
-        "count": 68,
-        "percentage": 5.44
-      },
-      "Safety": {
-        "count": 62,
-        "percentage": 4.96
-      },
-      "Lubricants": {
-        "count": 57,
-        "percentage": 4.56
+        "count": 355,
+        "percentage": 16.14
       },
       "Pumps": {
-        "count": 52,
-        "percentage": 4.16
+        "count": 318,
+        "percentage": 14.45
+      },
+      "Electrical": {
+        "count": 314,
+        "percentage": 14.27
+      },
+      "Pipes & Fittings": {
+        "count": 287,
+        "percentage": 13.05
+      },
+      "Valves": {
+        "count": 277,
+        "percentage": 12.59
+      },
+      "Fasteners": {
+        "count": 265,
+        "percentage": 12.05
       },
       "Seals": {
-        "count": 45,
-        "percentage": 3.6
+        "count": 202,
+        "percentage": 9.18
+      },
+      "Bearings": {
+        "count": 182,
+        "percentage": 8.27
       }
     },
     "material_types": {
-      "Cable": {
-        "count": 117,
-        "percentage": 9.36
+      "Centrifugal Pump": {
+        "count": 61,
+        "percentage": 2.77
       },
-      "Fuse": {
-        "count": 93,
-        "percentage": 7.44
+      "Hex Nut": {
+        "count": 59,
+        "percentage": 2.68
       },
-      "Flange": {
-        "count": 74,
-        "percentage": 5.92
+      "Reducer": {
+        "count": 57,
+        "percentage": 2.59
       },
-      "Nut": {
-        "count": 73,
-        "percentage": 5.84
+      "Refinery Flare Sensor": {
+        "count": 56,
+        "percentage": 2.55
+      },
+      "Oil Seal": {
+        "count": 52,
+        "percentage": 2.36
+      },
+      "Thrust Bearing": {
+        "count": 50,
+        "percentage": 2.27
+      },
+      "Induction Motor": {
+        "count": 49,
+        "percentage": 2.23
       },
       "Ball Bearing": {
-        "count": 71,
-        "percentage": 5.68
+        "count": 48,
+        "percentage": 2.18
       },
-      "Temperature Sensor": {
-        "count": 69,
-        "percentage": 5.52
+      "Level Transmitter": {
+        "count": 48,
+        "percentage": 2.18
       },
-      "Hydraulic Hose": {
-        "count": 68,
-        "percentage": 5.44
+      "Conveyor Idler Roller": {
+        "count": 47,
+        "percentage": 2.14
       },
-      "Gate Valve": {
-        "count": 67,
-        "percentage": 5.36
+      "Distribution Transformer": {
+        "count": 46,
+        "percentage": 2.09
       },
-      "Ball Valve": {
-        "count": 62,
-        "percentage": 4.96
+      "Steam Turbine Control Valve": {
+        "count": 46,
+        "percentage": 2.09
       },
-      "Safety Valve": {
-        "count": 62,
-        "percentage": 4.96
+      "Vertical Turbine Pump": {
+        "count": 45,
+        "percentage": 2.05
       },
-      "Pipe": {
-        "count": 62,
-        "percentage": 4.96
+      "Boiler Feed Pump Motor": {
+        "count": 45,
+        "percentage": 2.05
       },
-      "Washer": {
-        "count": 60,
-        "percentage": 4.8
-      },
-      "Bolt": {
-        "count": 58,
-        "percentage": 4.64
-      },
-      "Lubricant": {
-        "count": 57,
-        "percentage": 4.56
-      },
-      "Globe Valve": {
-        "count": 57,
-        "percentage": 4.56
+      "Mine Dewatering Pump": {
+        "count": 45,
+        "percentage": 2.05
       }
     },
     "material_statuses": {
       "Active": {
-        "count": 1106,
-        "percentage": 88.48
+        "count": 1564,
+        "percentage": 71.09
       },
-      "Inactive": {
-        "count": 94,
-        "percentage": 7.52
+      "Slow-Moving": {
+        "count": 446,
+        "percentage": 20.27
       },
-      "Blocked": {
-        "count": 50,
-        "percentage": 4.0
+      "Obsolete": {
+        "count": 190,
+        "percentage": 8.64
       }
     },
     "units_of_measure": {
       "NOS": {
-        "count": 730,
-        "percentage": 58.4
+        "count": 1180,
+        "percentage": 53.64
       },
       "MTR": {
-        "count": 463,
-        "percentage": 37.04
+        "count": 601,
+        "percentage": 27.32
       },
-      "LTR": {
-        "count": 57,
-        "percentage": 4.56
+      "SET": {
+        "count": 318,
+        "percentage": 14.45
+      },
+      "KG": {
+        "count": 101,
+        "percentage": 4.59
       }
     },
     "manufacturers": {
-      "Hindustan Mechanical": {
-        "count": 117,
-        "percentage": 9.36
+      "ABB": {
+        "count": 148,
+        "percentage": 6.73
       },
-      "National Bearing Works": {
-        "count": 116,
-        "percentage": 9.28
+      "KSB": {
+        "count": 126,
+        "percentage": 5.73
       },
-      "Larsen Engineering": {
-        "count": 113,
-        "percentage": 9.04
+      "WPIL": {
+        "count": 97,
+        "percentage": 4.41
       },
-      "Eastern Cables": {
-        "count": 111,
-        "percentage": 8.88
+      "Yokogawa": {
+        "count": 97,
+        "percentage": 4.41
       },
-      "Prime Electricals": {
-        "count": 110,
-        "percentage": 8.8
+      "Kirloskar": {
+        "count": 93,
+        "percentage": 4.23
       },
-      "ABC Industrial Products": {
-        "count": 109,
-        "percentage": 8.72
+      "Emerson": {
+        "count": 83,
+        "percentage": 3.77
       },
-      "Apex Industrial Systems": {
-        "count": 104,
-        "percentage": 8.32
+      "ISMT": {
+        "count": 82,
+        "percentage": 3.73
       },
-      "Bharat Industrial Works": {
-        "count": 100,
-        "percentage": 8.0
+      "Honeywell": {
+        "count": 80,
+        "percentage": 3.64
       },
-      "Metro Pumps & Valves": {
-        "count": 98,
-        "percentage": 7.84
-      },
-      "Shree Valves & Fittings": {
-        "count": 94,
-        "percentage": 7.52
+      "Jindal Pipes": {
+        "count": 78,
+        "percentage": 3.55
       },
       "Precision Fasteners": {
-        "count": 94,
-        "percentage": 7.52
+        "count": 75,
+        "percentage": 3.41
       },
-      "Supreme Engineering": {
-        "count": 84,
-        "percentage": 6.72
+      "Sealol": {
+        "count": 72,
+        "percentage": 3.27
+      },
+      "Tata Steel": {
+        "count": 71,
+        "percentage": 3.23
+      },
+      "BHEL": {
+        "count": 71,
+        "percentage": 3.23
+      },
+      "Flowserve": {
+        "count": 70,
+        "percentage": 3.18
+      },
+      "Siemens": {
+        "count": 66,
+        "percentage": 3.0
       }
     }
   },
   "attribute_coverage": {
     "Specification": {
-      "populated_count": 1250,
+      "populated_count": 2200,
       "missing_count": 0,
       "coverage_percentage": 100.0,
-      "unique_values": 157
+      "unique_values": 42
     },
     "Material_Grade": {
-      "populated_count": 1250,
+      "populated_count": 2200,
       "missing_count": 0,
       "coverage_percentage": 100.0,
-      "unique_values": 15
+      "unique_values": 35
     },
     "Size": {
-      "populated_count": 1250,
+      "populated_count": 2200,
       "missing_count": 0,
       "coverage_percentage": 100.0,
-      "unique_values": 52
+      "unique_values": 39
     },
     "Length": {
-      "populated_count": 374,
-      "missing_count": 876,
-      "coverage_percentage": 29.92,
-      "unique_values": 13
-    },
-    "Diameter": {
-      "populated_count": 127,
-      "missing_count": 1123,
-      "coverage_percentage": 10.16,
-      "unique_values": 6
-    },
-    "Coating": {
-      "populated_count": 1029,
-      "missing_count": 221,
-      "coverage_percentage": 82.32,
-      "unique_values": 8
-    },
-    "Manufacturer": {
-      "populated_count": 1250,
-      "missing_count": 0,
-      "coverage_percentage": 100.0,
+      "populated_count": 678,
+      "missing_count": 1522,
+      "coverage_percentage": 30.82,
       "unique_values": 12
     },
-    "Manufacturer_Part_No": {
-      "populated_count": 1250,
+    "Diameter": {
+      "populated_count": 679,
+      "missing_count": 1521,
+      "coverage_percentage": 30.86,
+      "unique_values": 19
+    },
+    "Coating": {
+      "populated_count": 512,
+      "missing_count": 1688,
+      "coverage_percentage": 23.27,
+      "unique_values": 4
+    },
+    "Manufacturer": {
+      "populated_count": 2200,
       "missing_count": 0,
       "coverage_percentage": 100.0,
-      "unique_values": 1250
+      "unique_values": 31
+    },
+    "Manufacturer_Part_No": {
+      "populated_count": 2200,
+      "missing_count": 0,
+      "coverage_percentage": 100.0,
+      "unique_values": 2141
     },
     "Plant": {
-      "populated_count": 1250,
+      "populated_count": 2200,
       "missing_count": 0,
       "coverage_percentage": 100.0,
-      "unique_values": 11
+      "unique_values": 33
     }
   },
   "text_profiling": {
     "description_statistics": {
-      "min_char_length": 8,
-      "max_char_length": 41,
-      "avg_char_length": 24.66,
-      "median_char_length": 24.0,
-      "min_word_count": 3,
-      "max_word_count": 9,
-      "avg_word_count": 5.29,
+      "min_char_length": 13,
+      "max_char_length": 73,
+      "avg_char_length": 41.14,
+      "median_char_length": 41.0,
+      "min_word_count": 4,
+      "max_word_count": 14,
+      "avg_word_count": 7.66,
       "single_word_descriptions": 0,
-      "multi_word_descriptions": 1250,
+      "multi_word_descriptions": 2200,
       "empty_descriptions": 0
     },
     "material_code_statistics": {
-      "min_code_length": 11,
+      "min_code_length": 10,
       "max_code_length": 11,
-      "avg_code_length": 11.0,
+      "avg_code_length": 10.88,
       "pattern_breakdown": {
-        "hyphenated": 1250,
+        "hyphenated": 2200,
         "slash_separated": 0,
         "pure_numeric": 0,
         "alphanumeric": 0
@@ -620,35 +677,35 @@
   },
   "numeric_profiling": {
     "Annual_Consumption": {
-      "valid_count": 1250,
+      "valid_count": 2200,
       "missing_count": 0,
       "zero_count": 0,
       "negative_count": 0,
-      "min": 39.0,
-      "max": 24987.0,
-      "mean": 12613.83,
-      "median": 12551.0,
-      "std": 7278.0
+      "min": 50.0,
+      "max": 14994.0,
+      "mean": 7667.38,
+      "median": 7847.0,
+      "std": 4300.72
     },
     "Length": {
       "valid_count": 0,
-      "missing_count": 1250,
+      "missing_count": 2200,
       "zero_count": 0,
       "negative_count": 0
     },
     "Diameter": {
       "valid_count": 0,
-      "missing_count": 1250,
+      "missing_count": 2200,
       "zero_count": 0,
       "negative_count": 0
     }
   },
   "date_profiling": {
     "Last_Purchase_Date": {
-      "valid_date_count": 1250,
+      "valid_date_count": 2200,
       "missing_date_count": 0,
-      "earliest_date": "2023-12-16",
-      "latest_date": "2026-09-09"
+      "earliest_date": "2024-01-01",
+      "latest_date": "2025-12-31"
     }
   },
   "quality_flags": [
@@ -656,19 +713,25 @@
       "flag": "HIGH_MISSINGNESS",
       "severity": "HIGH",
       "target": "Length",
-      "detail": "Column 'Length' has 70.08% missing values (876 records)."
+      "detail": "Column 'Length' has 69.18% missing values (1522 records)."
     },
     {
       "flag": "HIGH_MISSINGNESS",
       "severity": "HIGH",
       "target": "Diameter",
-      "detail": "Column 'Diameter' has 89.84% missing values (1123 records)."
+      "detail": "Column 'Diameter' has 69.14% missing values (1521 records)."
+    },
+    {
+      "flag": "HIGH_MISSINGNESS",
+      "severity": "HIGH",
+      "target": "Coating",
+      "detail": "Column 'Coating' has 76.73% missing values (1688 records)."
     },
     {
       "flag": "DUPLICATE_DESCRIPTION",
       "severity": "INFORMATIONAL",
       "target": "Material_Description",
-      "detail": "Detected 893 exact duplicate descriptions (potential harmonization targets)."
+      "detail": "Detected 371 exact duplicate descriptions (potential harmonization targets)."
     }
   ]
 }

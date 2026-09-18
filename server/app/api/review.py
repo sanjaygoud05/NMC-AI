@@ -109,7 +109,7 @@ async def get_review_queue(
     search: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
-    effective_id = (dataset_id or "NONE").strip().upper()
+    effective_id = (dataset_id or "BASELINE").strip().upper()
     if effective_id in ["", "NONE"]:
         return {
             "items": [],
@@ -325,7 +325,7 @@ async def get_review_stats(dataset_id: Optional[str] = Query(None)):
     Get comprehensive review statistics including queue partitions,
     current human review decisions, and progress tracking.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
+    effective_id = (dataset_id or "BASELINE").strip().upper()
     if effective_id in ["", "NONE"]:
         return {
             "total_candidates": 0,

@@ -11,6 +11,12 @@ import {
   Activity,
   History,
   Layers,
+  FlaskConical,
+  Map,
+  ShoppingCart,
+  Sliders,
+  Plug,
+  FileBarChart,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Link } from 'react-router-dom';
@@ -35,59 +41,118 @@ interface NavItem {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
-  roles?: ('admin' | 'manager' | 'employee')[];
 }
 
-const navItems: NavItem[] = [
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
   {
-    title: 'Dashboard',
-    url: '/dashboard',
-    icon: LayoutDashboard,
+    label: 'OVERVIEW',
+    items: [
+      {
+        title: 'Dashboard',
+        url: '/dashboard',
+        icon: LayoutDashboard,
+      },
+    ],
   },
   {
-    title: 'Data Ingestion',
-    url: '/ingest',
-    icon: Upload,
+    label: 'DATA PIPELINE',
+    items: [
+      {
+        title: 'Data Ingestion',
+        url: '/ingest',
+        icon: Upload,
+      },
+      {
+        title: 'Dataset History',
+        url: '/dataset-history',
+        icon: History,
+      },
+      {
+        title: 'Material Explorer',
+        url: '/materials',
+        icon: Search,
+      },
+      {
+        title: 'Standardization',
+        url: '/standardization',
+        icon: Sliders,
+      },
+      {
+        title: 'Data Quality',
+        url: '/data-quality',
+        icon: BarChart3,
+      },
+    ],
   },
   {
-    title: 'Dataset History',
-    url: '/dataset-history',
-    icon: History,
+    label: 'AI INTELLIGENCE',
+    items: [
+      {
+        title: 'AI Matching',
+        url: '/matches',
+        icon: GitMerge,
+      },
+      {
+        title: 'Review Queue',
+        url: '/review',
+        icon: CheckSquare,
+      },
+    ],
   },
   {
-    title: 'Material Explorer',
-    url: '/materials',
-    icon: Search,
+    label: 'MASTER DATA',
+    items: [
+      {
+        title: 'Common Material Master',
+        url: '/common-master',
+        icon: Database,
+      },
+      {
+        title: 'Legacy Mapping',
+        url: '/legacy-mapping',
+        icon: Map,
+      },
+    ],
   },
   {
-    title: 'Matching & Harmonization',
-    url: '/matches',
-    icon: GitMerge,
+    label: 'ANALYTICS & INSIGHTS',
+    items: [
+      {
+        title: 'Procurement Intelligence',
+        url: '/procurement',
+        icon: ShoppingCart,
+      },
+      {
+        title: 'CPSE Analytics',
+        url: '/cpse-analytics',
+        icon: Activity,
+      },
+      {
+        title: 'Evaluation',
+        url: '/evaluation',
+        icon: FlaskConical,
+      },
+    ],
   },
   {
-    title: 'Review Queue',
-    url: '/review',
-    icon: CheckSquare,
-  },
-  {
-    title: 'Common Material Master',
-    url: '/common-master',
-    icon: Database,
-  },
-  {
-    title: 'Data Quality',
-    url: '/data-quality',
-    icon: BarChart3,
-  },
-  {
-    title: 'CPSE Analytics',
-    url: '/cpse-analytics',
-    icon: Activity,
-  },
-  {
-    title: 'Settings',
-    url: '/settings',
-    icon: Settings,
+    label: 'SYSTEM',
+    items: [
+      {
+        title: 'SAP / ERP Integration',
+        url: '/settings',
+        icon: Plug,
+      },
+      {
+        title: 'Settings',
+        url: '/settings',
+        icon: Settings,
+      },
+    ],
   },
 ];
 
@@ -143,35 +208,38 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-0">
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground px-5">
-            NAVIGATION
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0">
-              {navItems.map((item, index) => (
-                <SidebarMenuItem
-                  key={item.title}
-                  className="animate-slide-in-left opacity-0 [animation-fill-mode:forwards] border-b border-sidebar-border m-0 p-0"
-                  style={{ animationDelay: `${index * 40}ms` }}
-                >
-                  <SidebarMenuButton asChild className="h-11 sm:h-10 m-0 p-0">
-                    <NavLink
-                      to={item.url}
-                      onClick={handleNavClick}
-                      className="flex items-center justify-start gap-3 px-5 h-11 sm:h-10 w-full rounded-none text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200"
-                      activeClassName="bg-sidebar-accent text-primary font-medium"
-                    >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-sm">{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="px-0 overflow-y-auto">
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.label} className="py-0">
+            <SidebarGroupLabel className="text-[10px] font-semibold tracking-widest text-muted-foreground px-5 pt-4 pb-1">
+              {group.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-0">
+                {group.items.map((item, index) => (
+                  <SidebarMenuItem
+                    key={item.title}
+                    className="animate-slide-in-left opacity-0 [animation-fill-mode:forwards] m-0 p-0"
+                    style={{ animationDelay: `${index * 40}ms` }}
+                  >
+                    <SidebarMenuButton asChild className="h-9 m-0 p-0">
+                      <NavLink
+                        to={item.url}
+                        onClick={handleNavClick}
+                        className="flex items-center justify-start gap-3 px-5 h-9 w-full rounded-none text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200"
+                        activeClassName="bg-sidebar-accent text-primary font-medium border-l-2 border-primary"
+                      >
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        <span className="text-sm">{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+            <div className="mx-5 border-b border-sidebar-border mt-2" />
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-0">
@@ -208,3 +276,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+

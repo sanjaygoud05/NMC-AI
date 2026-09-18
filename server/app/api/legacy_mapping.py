@@ -24,14 +24,14 @@ async def list_legacy_mappings(
     cmm_code: Optional[str] = Query(None, description="Filter by CMM code"),
     dataset_id: Optional[str] = Query(None, description="Scope by dataset_id"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=1000),
+    page_size: int = Query(20, ge=1, le=10000),
     user: dict = Depends(get_current_user),
 ):
     """
     List legacy material mappings with filtering, search, and pagination scoped by dataset_id.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "items": [],
             "total": 0,
@@ -140,8 +140,8 @@ async def get_legacy_mapping_stats(
     """
     Get summary statistics and KPI metrics for Legacy Material Mappings.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "total_source_materials": 0,
             "total_mappings": 0,

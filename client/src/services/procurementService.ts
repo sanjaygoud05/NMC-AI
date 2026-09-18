@@ -63,6 +63,7 @@ export interface CMMProcurementSummaryRecord {
   unique_part_numbers_count?: number;
   manufacturer_diversity_flag?: boolean;
   members?: ProcurementFactRecord[];
+  opportunities?: ProcurementOpportunityRecord[];
 }
 
 export interface CMMCatalogResponse {

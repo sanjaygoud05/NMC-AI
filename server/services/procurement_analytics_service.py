@@ -261,10 +261,11 @@ class ProcurementAnalyticsService:
         cmm_purchase_summaries = sorted(cmm_purchase_summaries, key=lambda x: x["cmm_code"])
 
         # -------------------------------------------------------------
-        # 3. Build Enterprise CPSE Summaries (4 rows)
+        # 3. Build Enterprise CPSE Summaries
         # -------------------------------------------------------------
         cpse_summaries: List[Dict[str, Any]] = []
-        for cpse in sorted(["CPCL", "HPCL", "IOCL", "ONGC"]):
+        unique_cpses = sorted(list(set(f["source_cpse"] for f in facts if f.get("source_cpse"))))
+        for cpse in unique_cpses:
             cpse_facts = [f for f in facts if f["source_cpse"] == cpse]
             tot_materials = len(cpse_facts)
             act_count = sum(1 for f in cpse_facts if f["material_status"].lower() == "active")

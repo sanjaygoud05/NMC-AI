@@ -238,9 +238,14 @@ class ProcurementRepository:
         """Returns enterprise CPSE procurement summaries partitioned by UOM"""
         with self.get_session() as session:
             results = []
-            for cpse in sorted(["CPCL", "HPCL", "IOCL", "ONGC"]):
+            distinct_cpses = session.execute(
+                select(func.distinct(ProcurementFact.source_cpse)).where(ProcurementFact.source_cpse != "").order_by(ProcurementFact.source_cpse)
+            ).scalars().all()
+            for cpse in distinct_cpses:
                 total_mats = session.execute(
-                    select(func.count(ProcurementFact.fact_id)).where(ProcurementFact.source_cpse == cpse)
+                    select(func.count(ProcurementFact.fact_id)).where(
+                        ProcurementFact.source_cpse == cpse
+                    )
                 ).scalar() or 0
 
                 active_count = session.execute(

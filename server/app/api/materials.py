@@ -25,7 +25,7 @@ async def get_materials(
     """
     from services.dataset_resolver import load_dataset_dataframe
 
-    effective_id = (dataset_id or "NONE").strip().upper()
+    effective_id = (dataset_id or "BASELINE").strip().upper()
     has_dataset = effective_id not in ["", "NONE"]
 
     if not has_dataset:

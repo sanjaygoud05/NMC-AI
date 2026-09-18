@@ -138,7 +138,10 @@ export const matchingService = {
     const query = new URLSearchParams();
     if (params?.skip !== undefined) query.set('skip', params.skip.toString());
     if (params?.limit !== undefined) query.set('limit', params.limit.toString());
-    if (params?.source_cpse && params.source_cpse !== 'all') query.set('source_cpse', params.source_cpse);
+    if (params?.source_cpse && params.source_cpse !== 'all') {
+      query.set('source_cpse', params.source_cpse);
+      query.set('cpse', params.source_cpse);
+    }
     if (params?.candidate_cpse && params.candidate_cpse !== 'all') query.set('candidate_cpse', params.candidate_cpse);
     if (params?.confidence_level && params.confidence_level !== 'all') query.set('confidence_level', params.confidence_level);
     if (params?.category && params.category !== 'all') query.set('category', params.category);

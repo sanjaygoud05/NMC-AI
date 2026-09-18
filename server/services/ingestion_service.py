@@ -96,7 +96,7 @@ class IngestionService:
         missing_columns = [col for col in EXPECTED_SCHEMA if col not in actual_columns]
         extra_columns = [col for col in actual_columns if col not in EXPECTED_SCHEMA]
         
-        is_valid = len(missing_columns) == 0 and len(actual_columns) == len(EXPECTED_SCHEMA)
+        is_valid = len(missing_columns) == 0
 
         return {
             "is_valid": is_valid,
