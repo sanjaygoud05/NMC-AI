@@ -25,7 +25,7 @@ if not UPLOADS_DIR.exists():
     UPLOADS_DIR = Path("data/uploads")
 MANIFEST_PATH = UPLOADS_DIR / "datasets_manifest.json"
 
-BASELINE_HASH = "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1"
+BASELINE_HASH = "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18"
 
 
 class DatasetRegistryService:
@@ -49,13 +49,17 @@ class DatasetRegistryService:
                         "dataset_id": "BASELINE",
                         "file_name": "CPSE_Material_Master_cleaned.csv",
                         "file_hash": BASELINE_HASH,
-                        "row_count": 1250,
-                        "column_count": 18,
+                        "row_count": 2200,
+                        "column_count": 20,
                         "cpse_summary": {
-                            "ONGC": 332,
-                            "IOCL": 319,
-                            "HPCL": 301,
-                            "CPCL": 298,
+                            "ONGC": 275,
+                            "IOCL": 275,
+                            "HPCL": 275,
+                            "NTPC": 275,
+                            "SAIL": 275,
+                            "Coal India": 275,
+                            "NMDC": 275,
+                            "BHEL": 275,
                         },
                         "status": "COMPLETED",
                         "is_baseline": True,
@@ -71,7 +75,7 @@ class DatasetRegistryService:
                         "created_at": "2026-03-31T00:00:00Z",
                         "started_at": "2026-03-31T00:00:00Z",
                         "completed_at": "2026-03-31T00:00:00Z",
-                        "cpse_count": 4,
+                        "cpse_count": 8,
                     }
                 },
             }

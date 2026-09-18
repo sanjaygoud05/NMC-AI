@@ -30,7 +30,11 @@ if str(server_root) not in sys.path:
 from services.ingestion_service import IngestionService, EXPECTED_SCHEMA
 from services.normalization_service import NormalizationService
 
-EXPECTED_RAW_HASH = "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1"
+VALID_RAW_HASHES = {
+    "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",  # 1250-row baseline
+    "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18",  # 2200-row 8-CPSE 5-sector dataset
+}
+EXPECTED_RAW_HASH = "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18"
 OUTPUT_DIR = Path("data/processed")
 
 
@@ -75,21 +79,17 @@ def run_cleaning(config: dict = None) -> dict:
     # Step 2: Verify SHA256 hash before processing
     # ------------------------------------------------------------------
     hash_before = ingestion.get_file_hash()
-    hash_expected = EXPECTED_RAW_HASH
-    if hash_before != hash_expected:
-        # Raw dataset has been modified — this is a critical error.
-        # Phase 2 cannot proceed.
+    if hash_before not in VALID_RAW_HASHES:
         return {
             "status": "failed",
             "stage": "raw_integrity_check",
             "message": (
                 f"CRITICAL: Raw dataset SHA256 hash mismatch!\n"
-                f"Expected: {hash_expected}\n"
                 f"Actual:   {hash_before}\n"
                 "Raw dataset may have been modified. Phase 2 BLOCKED."
             ),
             "hash_before": hash_before,
-            "hash_expected": hash_expected,
+            "hash_expected": list(VALID_RAW_HASHES),
         }
 
     # ------------------------------------------------------------------

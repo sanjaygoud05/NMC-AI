@@ -36,8 +36,8 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
     """
     Get real dashboard metrics computed from active dataset scope (BASELINE, UPLOAD-..., or ALL)
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "total_materials": 0,
             "total_cpse": 0,
@@ -139,8 +139,8 @@ async def get_cpse_analytics(dataset_id: Optional[str] = Query(None)):
     """
     Get CPSE analytics computed from active dataset scope distribution
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "cpse_data": {},
             "dataset_id": "NONE",
@@ -183,8 +183,8 @@ async def get_data_quality_metrics(dataset_id: Optional[str] = Query(None)):
     For BASELINE (default): runs Phase 1 profiling on frozen raw dataset.
     For UPLOAD datasets: profiles the uploaded source CSV.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "data_quality_score": 0,
             "dataset_id": "NONE",

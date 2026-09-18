@@ -1,58 +1,55 @@
 {
   "phase": "Phase 6 \u2014 Technical Validation, Confidence Refinement & Review Preparation",
-  "timestamp": "2026-09-11T14:07:54Z",
+  "timestamp": "2026-09-18T13:14:49Z",
   "dataset_integrity": {
-    "input_candidates": 37500,
-    "output_candidates": 37500,
+    "input_candidates": 66000,
+    "output_candidates": 66000,
     "rows_preserved": true,
-    "standardized_materials_count": 1250
+    "standardized_materials_count": 2200
   },
   "immutability": {
-    "raw_dataset_hash": "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",
+    "raw_dataset_hash": "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18",
     "raw_unchanged": true,
-    "phase2_hash": "34891ddaffba57cb3956d4a1172b554077e87dfe36e513e641022bc5634abffc",
+    "phase2_hash": "ac85003eeeab8cef6a9268043d43311543cd2be56875af2066f2a0bdf562f5b6",
     "phase2_unchanged": true,
-    "phase3_hash": "8fc02888a909679f24346982ebde84a21ee756e80d4d0e9a3d94023580633f4e",
+    "phase3_hash": "49b8bf272f001108376bb8051d760104f2c6d29cd316db1c12476be40454e109",
     "phase3_unchanged": true,
-    "phase4_hash": "5e93c66468d2813afd147234c53089f17b4400b07ca6ea168f3445a255fc72d6",
+    "phase4_hash": "7c268c7eda077c32f2250a0252a2f77aaaa055d2095047523972f8919fdd5d50",
     "phase4_unchanged": true,
-    "phase5_hash": "0337a33c1170b64c7f40edb6c82419269f847e06c0b35a174a1434ce77407ca3",
+    "phase5_hash": "137812878874efcbd3e8cec7ed686fd7bbf73636f8ee63808a6e8c164ee64e35",
     "phase5_unchanged": true,
-    "output_validated_candidates_sha256": "bc434f434a25aff84a30f3acb4750a0982e19ad125b23cbd5d2c8a84aab89cbc"
+    "output_validated_candidates_sha256": "0d7721808cf7598ee80417a9002d63f9f278eb0403fe021987b0dbb85fe7d7cc"
   },
   "validation_status_distribution": {
-    "VALIDATED_COMPATIBLE": 8608,
-    "REVIEW_REQUIRED": 7088,
-    "ENGINEERING_INCOMPATIBLE": 21276,
-    "PROBABLE_COMPATIBLE": 528
+    "VALIDATED_COMPATIBLE": 15374,
+    "REVIEW_REQUIRED": 14820,
+    "ENGINEERING_INCOMPATIBLE": 35806
   },
   "review_priority_distribution": {
-    "HIGH": 4854,
-    "MEDIUM": 3917,
-    "CRITICAL": 7337,
-    "LOW": 21392
+    "HIGH": 2642,
+    "CRITICAL": 8226,
+    "MEDIUM": 19326,
+    "LOW": 35806
   },
   "refined_confidence_distribution": {
-    "HIGH": 9136,
-    "MEDIUM": 7088,
-    "LOW": 21276
+    "HIGH": 15374,
+    "MEDIUM": 14820,
+    "LOW": 35806
   },
   "engineering_conflict_distribution": {
-    "NO_CONFLICT": 10666,
-    "HARD_INCOMPATIBLE": 21276,
-    "REPRESENTATION_DIFFERENCE": 528,
-    "SOFT_ENGINEERING_DIFFERENCE": 5030
+    "NO_CONFLICT": 27100,
+    "HARD_INCOMPATIBLE": 35806,
+    "SOFT_ENGINEERING_DIFFERENCE": 3094
   },
   "reason_code_distribution": {
-    "EXACT_CANONICAL_KEY": 9136,
-    "CORE_ATTR_MATCH": 10666,
-    "SIZE_MISMATCH": 20755,
-    "UPSTREAM_CONFLICT_PRESERVED": 28604,
-    "REPRESENTATION_COMPATIBLE": 528,
-    "SECONDARY_ATTR_DIFFERENCE": 7645,
-    "STANDARD_MISMATCH": 866,
-    "GRADE_MISMATCH": 552,
-    "FAMILY_MISMATCH": 232
+    "EXACT_CANONICAL_KEY": 15374,
+    "CORE_ATTR_MATCH": 27100,
+    "GRADE_MISMATCH": 27298,
+    "UPSTREAM_CONFLICT_PRESERVED": 46844,
+    "STANDARD_MISMATCH": 20479,
+    "SECONDARY_ATTR_DIFFERENCE": 12247,
+    "SIZE_MISMATCH": 3975,
+    "FAMILY_MISMATCH": 1124
   },
   "benchmark_validation_results": [
     {
@@ -92,5 +89,5 @@
       "status": "PASS"
     }
   ],
-  "runtime_seconds": 11.18
+  "runtime_seconds": 11.38
 }

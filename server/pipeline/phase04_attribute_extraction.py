@@ -24,7 +24,11 @@ if str(server_root) not in sys.path:
 from services.ingestion_service import IngestionService
 from services.attribute_extraction_service import AttributeExtractionService
 
-EXPECTED_RAW_HASH = "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1"
+VALID_RAW_HASHES = {
+    "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",
+    "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18",
+}
+EXPECTED_RAW_HASH = "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18"
 NORMALIZED_CSV = Path("data/processed/normalized_materials.csv")
 OUTPUT_DIR = Path("data/processed")
 
@@ -52,13 +56,13 @@ def run_attribute_extraction(config: dict = None) -> dict:
     # ── Step 1: Raw dataset integrity ──────────────────────
     ingestion = IngestionService()
     hash_before = ingestion.get_file_hash()
-    if hash_before != EXPECTED_RAW_HASH:
+    if hash_before not in VALID_RAW_HASHES:
         return {
             "status": "failed",
             "stage": "raw_integrity_check",
             "message": (
                 f"CRITICAL: Raw dataset hash mismatch before Phase 4.\n"
-                f"Expected: {EXPECTED_RAW_HASH}\n"
+                f"Expected one of: {list(VALID_RAW_HASHES)}\n"
                 f"Actual:   {hash_before}"
             ),
         }

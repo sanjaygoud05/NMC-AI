@@ -1,7 +1,7 @@
 {
   "phase": "Phase 03: Data Cleaning & Normalization",
-  "dataset_rows": 1250,
-  "records_changed": 1250,
+  "dataset_rows": 2200,
+  "records_changed": 2200,
   "records_unchanged": 0,
   "percentage_changed": 100.0,
   "columns_processed": [
@@ -15,36 +15,37 @@
     "Unit"
   ],
   "rule_application_counts": {
-    "LOWERCASE_TEXT": 5120,
-    "ABBREVIATION_EXPANSION": 247
+    "LOWERCASE_TEXT": 8340,
+    "ABBREVIATION_EXPANSION": 130
   },
   "field_change_counts": {
-    "Material_Description": 1250,
-    "Specification": 1250,
-    "Material_Grade": 1250,
-    "Coating": 1029,
-    "Size": 341
+    "Material_Description": 2200,
+    "Specification": 2200,
+    "Material_Grade": 2200,
+    "Size": 1228,
+    "Coating": 512
   },
   "uom_mapping_counts": {
-    "NOS -> NOS": 730,
-    "MTR -> MTR": 463,
-    "LTR -> LTR": 57
+    "NOS -> NOS": 1180,
+    "SET -> SET": 318,
+    "MTR -> MTR": 601,
+    "KG -> KG": 101
   },
   "unique_descriptions": {
-    "before_normalization": 357,
-    "after_normalization": 349
+    "before_normalization": 1829,
+    "after_normalization": 1637
   },
   "uom_variants": {
-    "before_normalization": 3,
-    "after_normalization": 3
+    "before_normalization": 4,
+    "after_normalization": 4
   },
-  "missing_values_preserved": 221,
+  "missing_values_preserved": 1688,
   "values_artificially_filled": 0,
   "material_codes_changed": 0,
-  "raw_dataset_hash_before": "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",
-  "raw_dataset_hash_after": "1a45fccad5203de25f64bfda42e2f56667752bca4338a55913ae4a7babeafef1",
+  "raw_dataset_hash_before": "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18",
+  "raw_dataset_hash_after": "054163772d5ae37b8f032adb35986f3330a53b8119c1963b43606ec916febb18",
   "raw_dataset_unchanged": true,
-  "output_row_count": 1250,
-  "input_row_count": 1250,
+  "output_row_count": 2200,
+  "input_row_count": 2200,
   "normalized_csv_path": "data\\processed\\normalized_materials.csv"
 }

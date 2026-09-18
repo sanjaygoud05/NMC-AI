@@ -254,6 +254,43 @@ class CommonMasterRepository:
                 session.rollback()
                 raise e
 
+    def get_pair_overlaps(self, top_n: int = 10) -> list:
+        """
+        Compute cross-CPSE pair harmonization overlap counts from member table.
+        Returns list of {pair, c1, c2, count} dicts sorted by count desc.
+        """
+        sql = """
+            SELECT a.source_cpse as c1, b.source_cpse as c2, COUNT(*) as cnt
+            FROM common_material_members a
+            JOIN common_material_members b
+              ON a.common_material_id = b.common_material_id
+              AND a.source_cpse < b.source_cpse
+            GROUP BY a.source_cpse, b.source_cpse
+            ORDER BY cnt DESC
+            LIMIT :top_n
+        """
+        from sqlalchemy import text
+        with self.get_session() as session:
+            rows = session.execute(text(sql), {"top_n": top_n}).fetchall()
+            return [
+                {"c1": r[0], "c2": r[1], "pair": f"{r[0]} & {r[1]}", "count": r[2]}
+                for r in rows
+            ]
+
+    def get_family_distribution(self) -> list:
+        """Return multi-CPSE CMM counts by material_family."""
+        from sqlalchemy import text
+        sql = """
+            SELECT material_family, COUNT(*) as cnt
+            FROM common_material_master
+            WHERE member_count > 1
+            GROUP BY material_family
+            ORDER BY cnt DESC
+        """
+        with self.get_session() as session:
+            rows = session.execute(text(sql)).fetchall()
+            return [{"family": r[0], "count": r[1]} for r in rows]
+
 
 # Global repository instance
 common_master_repository = CommonMasterRepository()

@@ -29,8 +29,8 @@ async def get_procurement_kpis(
     Get enterprise procurement KPIs partitioned strictly by UOM scoped by dataset_id.
     Never aggregates mixed physical units into a single sum.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "total_materials_analyzed": 0,
             "total_cmm_entities": 0,
@@ -105,14 +105,14 @@ async def list_cmm_summaries(
     min_consumption: Optional[int] = Query(None, ge=0, description="Filter by minimum total annual consumption"),
     dataset_id: Optional[str] = Query(None, description="Scope by dataset_id"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=1000),
+    page_size: int = Query(20, ge=1, le=10000),
     user: dict = Depends(get_current_user),
 ):
     """
     List Common Material Master procurement summaries with filtering, pagination, and dataset scoping.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "items": [],
             "total": 0,
@@ -235,8 +235,8 @@ async def get_cpse_summaries(
     """
     Get enterprise summaries across participating CPSEs partitioned by UOM.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return []
 
     if effective_id == "BASELINE":
@@ -278,14 +278,14 @@ async def list_procurement_opportunities(
     source_cpse: Optional[str] = Query(None, description="Filter by source CPSE"),
     cpse: Optional[str] = Query(None, description="Alias for source_cpse"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=1000),
+    page_size: int = Query(20, ge=1, le=10000),
     user: dict = Depends(get_current_user),
 ):
     """
     List auditable procurement opportunities with complete provenance fields.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "items": [],
             "total": 0,
@@ -345,8 +345,8 @@ async def get_plant_distribution(
     """
     Get consumption volume breakdown strictly per plant and UOM.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return []
 
     if effective_id == "BASELINE":
@@ -378,14 +378,14 @@ async def list_procurement_facts(
     cmm_code: Optional[str] = Query(None, description="Filter by CMM code"),
     search: Optional[str] = Query(None, description="Search material code, description, or plant"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=1000),
+    page_size: int = Query(20, ge=1, le=10000),
     user: dict = Depends(get_current_user),
 ):
     """
     List line-level procurement facts with filtering and pagination.
     """
-    effective_id = (dataset_id or "NONE").strip().upper()
-    if effective_id in ["", "NONE"]:
+    effective_id = (dataset_id or "BASELINE").strip().upper()
+    if effective_id == "NONE":
         return {
             "items": [],
             "total": 0,

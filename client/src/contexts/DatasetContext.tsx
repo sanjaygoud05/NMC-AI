@@ -67,20 +67,24 @@ import { useAuth } from '@/hooks/useAuth';
 export const BASELINE_DATASET: DatasetItem = {
   dataset_id: 'BASELINE',
   file_name: 'CPSE_Material_Master_cleaned.csv',
-  row_count: 1250,
-  column_count: 18,
+  row_count: 2200,
+  column_count: 20,
   cpse_summary: {
-    ONGC: 332,
-    IOCL: 319,
-    HPCL: 301,
-    CPCL: 298,
+    'ONGC': 275,
+    'IOCL': 275,
+    'HPCL': 275,
+    'NTPC': 275,
+    'SAIL': 275,
+    'Coal India': 275,
+    'NMDC': 275,
+    'BHEL': 275,
   },
   status: 'COMPLETED',
   is_baseline: true,
   uploaded_at: '2026-03-31T00:00:00Z',
   current_phase: 'COMPLETED',
   progress: 100,
-  cpse_count: 4,
+  cpse_count: 8,
 };
 
 export function DatasetProvider({ children }: { children: ReactNode }) {
@@ -93,7 +97,11 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
 
   const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
     const stored = localStorage.getItem(storageKey);
-    return stored !== null ? stored : 'BASELINE';
+    // When a new user logs in for the first time with no prior selection, start with 'NONE'
+    if (stored === null || stored === undefined || stored === '') {
+      return 'NONE';
+    }
+    return stored;
   });
 
   const [datasets, setDatasets] = useState<DatasetItem[]>(() => {
@@ -204,11 +212,11 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
           return curr;
         });
 
-        // If persisted selection is a specific upload that no longer exists in merged, reset to BASELINE
+        // If persisted selection is an upload that no longer exists, reset to NONE
         const saved = localStorage.getItem(storageKey);
         if (saved && saved.startsWith('UPLOAD-') && !merged.some((d) => d.dataset_id === saved)) {
-          setActiveDatasetId('BASELINE');
-          localStorage.setItem(storageKey, 'BASELINE');
+          setActiveDatasetId('NONE');
+          localStorage.setItem(storageKey, 'NONE');
         }
         return merged;
       }

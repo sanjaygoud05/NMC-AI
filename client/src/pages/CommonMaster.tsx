@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ArrowRight,
 } from 'lucide-react';
 import { EmptyState } from '@/components/shared/EmptyState';
 import {
@@ -95,14 +97,7 @@ export default function CommonMaster() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailRecord, setDetailRecord] = useState<CommonMaterialRecord | null>(null);
 
-  // If no dataset selected, automatically default to BASELINE so user never lands on a blank view
-  useEffect(() => {
-    if (!activeDatasetId || activeDatasetId === 'NONE') {
-      selectDataset('BASELINE');
-    }
-  }, [activeDatasetId, selectDataset]);
-
-  const effectiveDatasetId = activeDatasetId && activeDatasetId !== 'NONE' ? activeDatasetId : 'BASELINE';
+  const effectiveDatasetId = activeDatasetId;
 
   const fetchCatalog = async () => {
     try {
@@ -162,70 +157,72 @@ export default function CommonMaster() {
       case 'APPROVED_MASTER':
       case 'VERIFIED_HARMONIZED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Harmonized
+          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 whitespace-nowrap shadow-none">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+            <span>Harmonized</span>
           </span>
         );
       case 'STANDALONE_CANDIDATE':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground border border-border">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-            Standalone
+          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-border bg-muted/60 text-muted-foreground whitespace-nowrap shadow-none">
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 shrink-0" />
+            <span>Standalone</span>
           </span>
         );
       case 'AMBIGUOUS_REVIEW_REQUIRED':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-            Needs Review
+          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-amber-500/30 bg-amber-500/10 text-amber-400 border-amber-500/30 whitespace-nowrap shadow-none">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+            <span>Needs Review</span>
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
-            {formatReadableText(status)}
+          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-border bg-muted text-muted-foreground whitespace-nowrap shadow-none">
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 shrink-0" />
+            <span>{formatReadableText(status)}</span>
           </span>
         );
     }
   };
 
   const getCpseBadge = (cpse: string) => {
-    const c = cpse.toUpperCase();
-    if (c.includes('IOCL')) {
-      return (
-        <span key={cpse} className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-          {cpse}
-        </span>
-      );
-    }
-    if (c.includes('ONGC')) {
-      return (
-        <span key={cpse} className="px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-          {cpse}
-        </span>
-      );
-    }
-    if (c.includes('HPCL')) {
-      return (
-        <span key={cpse} className="px-2 py-0.5 rounded text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
-          {cpse}
-        </span>
-      );
-    }
-    if (c.includes('BPCL')) {
-      return (
-        <span key={cpse} className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-          {cpse}
-        </span>
-      );
-    }
     return (
-      <span key={cpse} className="px-2 py-0.5 rounded text-xs font-medium bg-slate-500/10 text-slate-300 border border-slate-500/20">
+      <span key={cpse} className="px-2 py-0.5 rounded text-[11px] font-mono border border-border/80 bg-muted/40 text-foreground font-medium">
         {cpse}
       </span>
     );
   };
+
+  if (activeDatasetId === 'NONE') {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <PageHeader
+            title="Common Material Master"
+            description="Unified, harmonized material catalog across all CPSEs with standardized specifications."
+          />
+          <Card className="border-border bg-card p-12">
+            <EmptyState
+              icon={Database}
+              title="No Dataset Selected"
+              description="Upload a material master dataset or select the frozen baseline dataset to begin."
+              action={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectDataset('BASELINE')}
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  Select Baseline Dataset
+                </Button>
+              }
+            />
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -267,10 +264,10 @@ export default function CommonMaster() {
 
           <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
             <div className="text-xs text-muted-foreground">Verified Standards</div>
-            <div className="text-2xl font-semibold text-blue-400 mt-1">
+            <div className="text-2xl font-semibold text-foreground mt-1">
               {stats ? stats.verified_harmonized.toLocaleString() : '—'}
             </div>
-            <div className="text-xs text-blue-400/80 mt-1">Governed master records</div>
+            <div className="text-xs text-muted-foreground mt-1">Governed master records</div>
           </div>
 
           <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
@@ -374,25 +371,25 @@ export default function CommonMaster() {
             <Table className="w-full table-fixed">
               <TableHeader className="bg-muted/30">
                 <TableRow className="border-border">
-                  <TableHead className="font-medium text-xs text-muted-foreground pl-4 py-3.5 w-[17%]">
+                  <TableHead className="font-medium text-xs text-muted-foreground pl-4 py-3.5 w-[16%]">
                     Common Code
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[35%]">
+                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[33%]">
                     Standardized Description
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[13%]">
+                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[12%]">
                     Family
                   </TableHead>
                   <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[14%]">
                     Enterprises
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground text-center py-3.5 w-[6%]">
+                  <TableHead className="font-medium text-xs text-muted-foreground text-center py-3.5 w-[5%]">
                     Items
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[9%]">
+                  <TableHead className="font-medium text-xs text-muted-foreground text-center py-3.5 w-[11%]">
                     Status
                   </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground text-right pr-4 py-3.5 w-[6%]">
+                  <TableHead className="font-medium text-xs text-muted-foreground text-right pr-4 py-3.5 w-[9%]">
                     Action
                   </TableHead>
                 </TableRow>
@@ -451,17 +448,18 @@ export default function CommonMaster() {
                         <TableCell className="py-3.5 text-center text-xs text-muted-foreground">
                           <span className="font-medium text-foreground">{m.member_count ?? 1}</span>
                         </TableCell>
-                        <TableCell className="py-3.5">
+                        <TableCell className="py-3.5 text-center align-middle">
                           {getStatusBadge(m.governance_status)}
                         </TableCell>
-                        <TableCell className="py-3.5 text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="py-3.5 text-right pr-4 align-middle" onClick={(e) => e.stopPropagation()}>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => openInspector(m)}
-                            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            className="h-7 px-2.5 text-xs font-medium rounded-md border border-border hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 text-foreground transition-colors shadow-none gap-1"
                           >
-                            View
+                            <span>Inspect</span>
+                            <ArrowRight className="h-3 w-3 opacity-70" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -528,15 +526,16 @@ export default function CommonMaster() {
                         </div>
                       </div>
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           openInspector(m);
                         }}
-                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                        className="h-7 px-2.5 text-xs font-medium rounded-md border border-border hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 text-foreground transition-colors shadow-none shrink-0 gap-1"
                       >
-                        View
+                        <span>Inspect</span>
+                        <ArrowRight className="h-3 w-3 opacity-70" />
                       </Button>
                     </div>
                   </div>

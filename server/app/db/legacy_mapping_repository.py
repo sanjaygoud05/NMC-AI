@@ -148,13 +148,18 @@ class LegacyMappingRepository:
                 select(func.count(LegacyMaterialMapping.mapping_id)).where(LegacyMaterialMapping.mapping_status == "UNMAPPED")
             ).scalar() or 0
 
-            # CPSE distribution
+            # CPSE distribution - dynamically queried from all distinct source CPSEs in the dataset
             cpse_counts = {}
-            for cpse in ["ONGC", "IOCL", "HPCL", "CPCL"]:
-                cnt = session.execute(
-                    select(func.count(LegacyMaterialMapping.mapping_id)).where(LegacyMaterialMapping.source_cpse == cpse)
-                ).scalar() or 0
-                cpse_counts[cpse] = cnt
+            cpse_rows = session.execute(
+                select(LegacyMaterialMapping.source_cpse, func.count(LegacyMaterialMapping.mapping_id))
+                .group_by(LegacyMaterialMapping.source_cpse)
+                .order_by(LegacyMaterialMapping.source_cpse.asc())
+            ).all()
+            for cpse, cnt in cpse_rows:
+                if cpse:
+                    cpse_counts[str(cpse).strip()] = cnt
+
+            coverage_pct = round(((mapped_verified + mapped_standalone) / total_mappings) * 100, 1) if total_mappings > 0 else 0.0
 
             return {
                 "total_source_materials": total_mappings,
@@ -168,7 +173,7 @@ class LegacyMappingRepository:
                 "unmapped": unmapped,
                 "transitive_verified": 0,
                 "cpse_distribution": cpse_counts,
-                "mapping_coverage_pct": round((total_mappings / 1250) * 100, 2) if total_mappings > 0 else 0.0,
+                "mapping_coverage_pct": coverage_pct,
             }
 
     def bulk_replace_mappings(self, mapping_records: List[Dict[str, Any]]) -> Dict[str, Any]:

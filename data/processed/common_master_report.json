@@ -3,16 +3,16 @@
   "status": "completed",
   "database_persistence": {
     "status": "success",
-    "masters_saved": 1249,
-    "members_saved": 1250
+    "masters_saved": 1228,
+    "members_saved": 2200
   },
   "metrics": {
-    "total_source_materials": 1250,
-    "total_common_material_groups": 1249,
-    "multi_cpse_groups": 1,
-    "standalone_groups": 1248,
-    "verified_harmonized": 1,
-    "ambiguous_review_required": 0,
+    "total_source_materials": 2200,
+    "total_common_material_groups": 1228,
+    "multi_cpse_groups": 352,
+    "standalone_groups": 876,
+    "verified_harmonized": 310,
+    "ambiguous_review_required": 42,
     "split_conflict": 0,
     "approved_master": 0
   },

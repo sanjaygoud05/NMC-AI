@@ -36,10 +36,11 @@ def resolve_dataset_files(
     - If dataset_id is 'ALL': returns baseline + all completed upload datasets
     - If dataset_id is 'UPLOAD-...': returns upload directory file
     """
-    if not dataset_id or not dataset_id.strip() or dataset_id.strip().upper() == "NONE":
+    # Explicit unselected state
+    if dataset_id and dataset_id.strip().upper() == "NONE":
         return ([], "NONE")
 
-    scope = dataset_id.strip().upper()
+    scope = dataset_id.strip().upper() if (dataset_id and dataset_id.strip()) else "BASELINE"
 
     if scope == "BASELINE":
         base_path = PROCESSED_BASE / filename

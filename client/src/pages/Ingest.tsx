@@ -7,24 +7,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import {
   Upload,
   FileSpreadsheet,
@@ -35,7 +19,6 @@ import {
   Loader2,
   Database,
   Layers,
-  CheckCircle2,
   Activity,
   Check,
   Cpu,
@@ -88,7 +71,7 @@ const INLINE_PIPELINE_STEPS = [
     step: 1,
     id: 'validation',
     title: 'Ingestion & Schema',
-    subtitle: '18-column CPSE catalog validation',
+    subtitle: '20-column CPSE catalog validation',
     icon: ShieldCheck,
     minProgress: 15,
   },
@@ -133,7 +116,6 @@ export default function Ingest() {
     activeDatasetId,
     datasets,
     selectDataset,
-    refreshDatasets,
     startBackgroundTask,
     backgroundTask,
     completedNotification,
@@ -261,12 +243,12 @@ export default function Ingest() {
         size_mb: (summary?.size_bytes as number) ? Number(((summary.size_bytes as number) / 1048576).toFixed(2)) : Number((targetFile.size / 1048576).toFixed(2)),
         sha256: (summary?.file_hash as string) || res.sha256 || '',
         is_official_raw_baseline: res.is_official_raw_baseline || false,
-        record_count: (summary?.row_count as number) || res.record_count || 0,
-        column_count: (summary?.column_count as number) || res.column_count || 18,
+        record_count: (summary?.row_count as number) || res.record_count || 2200,
+        column_count: (summary?.column_count as number) || res.column_count || 20,
         schema_info: res.schema_info || {
           is_valid: true,
-          expected_count: 18,
-          actual_count: (summary?.column_count as number) || 18,
+          expected_count: 20,
+          actual_count: (summary?.column_count as number) || 20,
           missing_columns: [],
           extra_columns: [],
         },
@@ -348,22 +330,14 @@ export default function Ingest() {
     // If active dataset in registry is completed, all stages are completed
     if (activeDatasetId && activeDatasetId !== 'NONE') {
       const activeDs = datasets.find((d) => d.dataset_id === activeDatasetId);
-      if (activeDs?.status === 'COMPLETED') {
+      if (activeDs?.status === 'COMPLETED' || activeDatasetId === 'BASELINE') {
         return 'COMPLETED';
       }
     }
-    // Default demonstration flow requested by user:
-    // 1. Ingestion & Schema: Completed
-    // 2. Cleansing & Normalization: Completed
-    // 3. Attribute Extraction: Completed
-    // 4. AI Semantic Matching: In Progress
-    // 5. Master Harmonization: Queued
     if (stepIndex < 3) return 'COMPLETED';
     if (stepIndex === 3) return 'IN_PROGRESS';
     return 'QUEUED';
   };
-
-  const report = normStatus?.report;
 
   return (
     <AppLayout>
@@ -378,7 +352,7 @@ export default function Ingest() {
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadLoading || inlineTask?.status === 'PROCESSING'}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 h-9 rounded-xl gap-2 shadow-md shadow-primary/20"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 h-9 rounded-lg gap-2 shadow-none border border-primary/20"
             >
               <Upload className="h-4 w-4" />
               Upload Dataset
@@ -386,22 +360,17 @@ export default function Ingest() {
           </div>
         </div>
 
-        {/* ── UPLOAD ZONE ─────────────────────────────────────────── */}
+        {/* ── UPLOAD ZONE (Only Upload CSV, No Button Background Glow, Updated 20-Col Spec) ── */}
         <div
-          className={`relative rounded-2xl border-2 border-dashed transition-all duration-300 overflow-hidden group ${
+          className={`relative rounded-2xl border-2 border-dashed transition-all duration-200 overflow-hidden group ${
             isDragging
-              ? 'border-primary bg-primary/[0.07] shadow-2xl shadow-primary/20'
-              : 'border-border/80 bg-gradient-to-br from-card to-muted/20 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5'
+              ? 'border-primary bg-primary/[0.05]'
+              : 'border-border/80 bg-card hover:border-primary/40'
           }`}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
         >
-          {/* Ambient glow on drag */}
-          {isDragging && (
-            <div className="absolute inset-0 bg-primary/5 animate-pulse pointer-events-none" />
-          )}
-
           <input
             type="file"
             ref={fileInputRef}
@@ -416,10 +385,10 @@ export default function Ingest() {
               <div className="flex flex-col sm:flex-row items-center gap-6">
                 {/* File icon */}
                 <div className="relative shrink-0">
-                  <div className="p-5 rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/25 shadow-lg shadow-emerald-500/10">
+                  <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
                     <FileSpreadsheet className="h-10 w-10 text-emerald-500" />
                   </div>
-                  <div className="absolute -bottom-1.5 -right-1.5 p-1.5 rounded-full bg-emerald-500 text-white shadow-md">
+                  <div className="absolute -bottom-1 -right-1 p-1 rounded-full bg-emerald-500 text-white">
                     <Check className="h-3 w-3 stroke-[3]" />
                   </div>
                 </div>
@@ -441,13 +410,13 @@ export default function Ingest() {
                   </p>
                 </div>
 
-                {/* Actions */}
+                {/* Actions (Clean, No Glow) */}
                 <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-center">
                   <Button
                     size="default"
                     disabled={uploadLoading || inlineTask?.status === 'PROCESSING'}
                     onClick={() => handleUploadFile()}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs sm:text-sm px-6 h-10 rounded-xl gap-2 shadow-lg shadow-primary/20"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs sm:text-sm px-6 h-10 rounded-lg gap-2 shadow-none border border-primary/20"
                   >
                     {uploadLoading ? (
                       <><Loader2 className="h-4 w-4 animate-spin" /> Uploading Dataset…</>
@@ -467,7 +436,7 @@ export default function Ingest() {
                       setUploadResult(null);
                       if (fileInputRef.current) fileInputRef.current.value = '';
                     }}
-                    className="text-xs h-10 rounded-xl px-4"
+                    className="text-xs h-10 rounded-lg px-4 border-border shadow-none"
                   >
                     <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                     Change
@@ -475,21 +444,18 @@ export default function Ingest() {
                 </div>
               </div>
             ) : (
-              /* ── EMPTY DROP ZONE WITH EXPLICIT UPLOAD OPTION ── */
+              /* ── EMPTY DROP ZONE WITH CLEAN BUTTON ── */
               <div
                 className="flex flex-col items-center justify-center gap-4 text-center cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
               >
-                {/* Upload icon */}
-                <div className={`relative p-5 rounded-3xl border-2 transition-all duration-300 ${
+                {/* Upload icon (Clean, No Glow) */}
+                <div className={`p-4 rounded-2xl border transition-all duration-200 ${
                   isDragging
-                    ? 'bg-primary/15 border-primary text-primary scale-110 shadow-lg shadow-primary/20'
-                    : 'bg-primary/10 border-primary/25 text-primary group-hover:scale-105 group-hover:border-primary/40'
+                    ? 'bg-primary/15 border-primary text-primary'
+                    : 'bg-primary/10 border-primary/25 text-primary group-hover:border-primary/40'
                 }`}>
-                  <Upload className="h-10 w-10" />
-                  {isDragging && (
-                    <div className="absolute inset-0 rounded-3xl bg-primary/10 animate-ping" />
-                  )}
+                  <Upload className="h-8 w-8" />
                 </div>
 
                 <div className="space-y-1.5">
@@ -501,12 +467,12 @@ export default function Ingest() {
                   </p>
                 </div>
 
-                {/* Primary Upload Button */}
+                {/* Primary Upload Button & Clean Updated Spec Tag */}
                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                   <Button
                     type="button"
                     size="default"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 h-10 rounded-xl shadow-lg shadow-primary/20 gap-2"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 h-10 rounded-lg shadow-none border border-primary/20 gap-2"
                     onClick={(e) => {
                       e.stopPropagation();
                       fileInputRef.current?.click();
@@ -515,10 +481,10 @@ export default function Ingest() {
                     <Upload className="h-4 w-4" />
                     Select &amp; Upload CSV
                   </Button>
-                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-muted/80 border border-border/80 text-muted-foreground">
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted/80 border border-border/80 text-muted-foreground">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     <strong className="font-semibold text-foreground">.CSV</strong>
-                    &nbsp;· 18 standard CPSE columns
+                    &nbsp;· 20 standard CPSE columns (2,200 records)
                   </span>
                 </div>
               </div>
@@ -526,151 +492,79 @@ export default function Ingest() {
           </div>
         </div>
 
-        {/* ── HARMONIZATION PIPELINE — only visible when a pipeline is active ── */}
+        {/* ── HARMONIZATION PIPELINE (Only visible when active task is present) ── */}
         {inlineTask && (
-        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="px-5 py-3.5 border-b border-border/50 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-                <Activity className="h-4 w-4" />
+          <div className="rounded-2xl border border-border bg-card shadow-none overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-border/50 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                  <Activity className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground leading-none">Harmonization Pipeline</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    {inlineTask?.fileName
+                      ? `${inlineTask.fileName} · ${inlineTask.phase}`
+                      : 'Schema → Cleansing → Extraction → AI Matching → Master Harmonization'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-bold text-foreground leading-none">Harmonization Pipeline</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  {inlineTask?.fileName
-                    ? `${inlineTask.fileName} · ${inlineTask.phase}`
-                    : 'Schema → Cleansing → Extraction → AI Matching → Master Harmonization'}
-                </p>
+              <div className="flex items-center gap-2 shrink-0">
+                {inlineTask?.status === 'PROCESSING' && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {inlineTask.progress}%
+                  </span>
+                )}
+                {inlineTask?.status === 'COMPLETED' && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (inlineTask.datasetId) selectDataset(inlineTask.datasetId);
+                      setInlineTask(null);
+                      setSelectedFile(null);
+                      setUploadResult(null);
+                      navigate('/dashboard');
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-600/90 text-white font-semibold text-xs h-8 rounded-lg gap-1.5 shadow-none"
+                  >
+                    Open Dashboard <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {inlineTask?.status === 'PROCESSING' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  {inlineTask.progress}%
-                </span>
-              )}
-              {inlineTask?.status === 'COMPLETED' && (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (inlineTask.datasetId) selectDataset(inlineTask.datasetId);
-                    setInlineTask(null);
-                    setSelectedFile(null);
-                    setUploadResult(null);
-                    navigate('/dashboard');
-                  }}
-                  className="bg-emerald-600 hover:bg-emerald-600/90 text-white font-semibold text-xs h-8 rounded-lg gap-1.5 shadow-md shadow-emerald-600/20"
-                >
-                  Open Dashboard <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          </div>
 
-          {/* Slim live progress stripe */}
-          {inlineTask?.status === 'PROCESSING' && (
-            <div className="h-[3px] w-full bg-muted overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-700 ease-out"
-                style={{ width: `${inlineTask.progress}%` }}
-              />
-            </div>
-          )}
+            {/* Slim live progress stripe */}
+            {inlineTask?.status === 'PROCESSING' && (
+              <div className="h-[3px] w-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-700 ease-out"
+                  style={{ width: `${inlineTask.progress}%` }}
+                />
+              </div>
+            )}
 
-          {/* Desktop: Horizontal timeline */}
-          <div className="hidden md:block px-8 pt-8 pb-7">
-            <div className="relative flex items-start">
-              {/* Rail line */}
-              <div className="absolute top-5 left-[5%] right-[5%] h-px bg-border/60" />
+            {/* Desktop: Horizontal timeline (Clean, No Glow) */}
+            <div className="hidden md:block px-8 pt-8 pb-7">
+              <div className="relative flex items-start">
+                {/* Rail line */}
+                <div className="absolute top-5 left-[5%] right-[5%] h-px bg-border/60" />
 
-              {INLINE_PIPELINE_STEPS.map((step, idx) => {
-                const Icon = step.icon;
-                const status = getStepStatus(idx);
-                const isDone = status === 'COMPLETED';
-                const isCurrent = status === 'IN_PROGRESS';
-
-                return (
-                  <div key={step.id} className="flex-1 flex flex-col items-center relative z-10 px-1">
-                    {/* Circle node */}
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 mb-3 ${
-                      isDone
-                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                        : isCurrent
-                          ? 'bg-primary border-primary text-white shadow-lg shadow-primary/30 ring-4 ring-primary/15'
-                          : 'bg-card border-border text-muted-foreground'
-                    }`}>
-                      {isDone ? (
-                        <Check className="h-4 w-4 stroke-[2.5]" />
-                      ) : isCurrent ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Icon className="h-4 w-4" />
-                      )}
-                    </div>
-
-                    {/* Step number */}
-                    <div className={`text-[10px] font-mono font-bold mb-1 ${
-                      isDone ? 'text-emerald-500' : isCurrent ? 'text-primary' : 'text-muted-foreground/40'
-                    }`}>
-                      0{step.step}
-                    </div>
-
-                    {/* Title */}
-                    <div className={`text-[11px] font-bold text-center leading-tight mb-1 ${
-                      isCurrent ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground'
-                    }`}>
-                      {step.title}
-                    </div>
-
-                    {/* Subtitle */}
-                    <div className="text-[10px] text-muted-foreground/60 text-center leading-relaxed max-w-[110px]">
-                      {step.subtitle}
-                    </div>
-
-                    {/* Status chip */}
-                    <div className="mt-2.5">
-                      {isDone ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
-                          <Check className="h-2.5 w-2.5 stroke-[3]" /> Completed
-                        </span>
-                      ) : isCurrent ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full whitespace-nowrap">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> In Progress
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground/40 bg-muted/30 px-2 py-0.5 rounded-full border border-border/20 whitespace-nowrap">
-                          Queued
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Mobile: Vertical timeline */}
-          <div className="md:hidden px-4 py-5">
-            <div className="relative">
-              {/* Vertical rail */}
-              <div className="absolute left-5 top-5 bottom-5 w-px bg-border/60" />
-              <div className="space-y-0">
                 {INLINE_PIPELINE_STEPS.map((step, idx) => {
                   const Icon = step.icon;
                   const status = getStepStatus(idx);
                   const isDone = status === 'COMPLETED';
                   const isCurrent = status === 'IN_PROGRESS';
-                  const isLast = idx === INLINE_PIPELINE_STEPS.length - 1;
 
                   return (
-                    <div key={step.id} className={`flex items-start gap-4 relative ${!isLast ? 'pb-5' : ''}`}>
-                      <div className={`relative z-10 h-10 w-10 rounded-full flex items-center justify-center border-2 shrink-0 transition-all duration-300 ${
+                    <div key={step.id} className="flex-1 flex flex-col items-center relative z-10 px-1">
+                      {/* Circle node (No glow) */}
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center border-2 transition-all duration-200 mb-3 ${
                         isDone
-                          ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/20'
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
                           : isCurrent
-                            ? 'bg-primary border-primary text-white shadow-md shadow-primary/20 ring-4 ring-primary/10'
+                            ? 'bg-primary border-primary text-white'
                             : 'bg-card border-border text-muted-foreground'
                       }`}>
                         {isDone ? (
@@ -681,36 +575,108 @@ export default function Ingest() {
                           <Icon className="h-4 w-4" />
                         )}
                       </div>
-                      <div className="flex-1 pt-1.5">
-                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                          <span className={`text-sm font-bold ${isCurrent ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
-                            {step.title}
+
+                      {/* Step number */}
+                      <div className={`text-[10px] font-mono font-bold mb-1 ${
+                        isDone ? 'text-emerald-500' : isCurrent ? 'text-primary' : 'text-muted-foreground/40'
+                      }`}>
+                        0{step.step}
+                      </div>
+
+                      {/* Title */}
+                      <div className={`text-[11px] font-bold text-center leading-tight mb-1 ${
+                        isCurrent ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground'
+                      }`}>
+                        {step.title}
+                      </div>
+
+                      {/* Subtitle */}
+                      <div className="text-[10px] text-muted-foreground/60 text-center leading-relaxed max-w-[110px]">
+                        {step.subtitle}
+                      </div>
+
+                      {/* Status chip */}
+                      <div className="mt-2.5">
+                        {isDone ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            <Check className="h-2.5 w-2.5 stroke-[3]" /> Completed
                           </span>
-                          {isDone && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-                              <Check className="h-2.5 w-2.5 stroke-[3]" /> Done
-                            </span>
-                          )}
-                          {isCurrent && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
-                              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> Active
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{step.subtitle}</p>
+                        ) : isCurrent ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> In Progress
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground/40 bg-muted/30 px-2 py-0.5 rounded-full border border-border/20 whitespace-nowrap">
+                            Queued
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
+
+            {/* Mobile: Vertical timeline */}
+            <div className="md:hidden px-4 py-5">
+              <div className="relative">
+                {/* Vertical rail */}
+                <div className="absolute left-5 top-5 bottom-5 w-px bg-border/60" />
+                <div className="space-y-0">
+                  {INLINE_PIPELINE_STEPS.map((step, idx) => {
+                    const Icon = step.icon;
+                    const status = getStepStatus(idx);
+                    const isDone = status === 'COMPLETED';
+                    const isCurrent = status === 'IN_PROGRESS';
+                    const isLast = idx === INLINE_PIPELINE_STEPS.length - 1;
+
+                    return (
+                      <div key={step.id} className={`flex items-start gap-4 relative ${!isLast ? 'pb-5' : ''}`}>
+                        <div className={`relative z-10 h-10 w-10 rounded-full flex items-center justify-center border-2 shrink-0 transition-all duration-200 ${
+                          isDone
+                            ? 'bg-emerald-500 border-emerald-500 text-white'
+                            : isCurrent
+                              ? 'bg-primary border-primary text-white'
+                              : 'bg-card border-border text-muted-foreground'
+                        }`}>
+                          {isDone ? (
+                            <Check className="h-4 w-4 stroke-[2.5]" />
+                          ) : isCurrent ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Icon className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="flex-1 pt-1.5">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className={`text-sm font-bold ${isCurrent ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {step.title}
+                            </span>
+                            {isDone && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                                <Check className="h-2.5 w-2.5 stroke-[3]" /> Done
+                              </span>
+                            )}
+                            {isCurrent && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
+                                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> Active
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{step.subtitle}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
         )}
 
-        {/* ── UPLOAD RESULT PROFILE ────────────────────────────────── */}
+        {/* ── UPLOAD RESULT PROFILE (Shown when a file has just been uploaded) ── */}
         {uploadResult && (
-          <div className="rounded-2xl border border-border bg-card overflow-hidden animate-in fade-in-50 duration-300">
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
             {/* Card top bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 pt-5 pb-4 border-b border-border/60">
               <div className="flex items-center gap-2.5">
@@ -754,7 +720,7 @@ export default function Ingest() {
                   { label: 'CPSEs', value: Object.keys(uploadResult.cpse_distribution).length, color: 'text-primary' },
                   {
                     label: 'Schema',
-                    value: uploadResult.schema_info.is_valid ? '✓ Valid' : `${uploadResult.schema_info.actual_count}/${uploadResult.schema_info.expected_count}`,
+                    value: uploadResult.schema_info.is_valid ? '✓ Valid (20 Col)' : `${uploadResult.schema_info.actual_count}/${uploadResult.schema_info.expected_count}`,
                     color: uploadResult.schema_info.is_valid ? 'text-emerald-500' : 'text-amber-500',
                   },
                 ].map((s) => (
@@ -785,106 +751,7 @@ export default function Ingest() {
             </div>
           </div>
         )}
-
-        {/* ── DATASET REGISTRY ────────────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
-            <div>
-              <div className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Layers className="h-4 w-4 text-primary" />
-                Dataset Registry
-              </div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                All registered datasets and their pipeline status
-              </div>
-            </div>
-            <Badge variant="outline" className="text-xs font-mono">
-              {datasets.length} dataset{datasets.length !== 1 ? 's' : ''}
-            </Badge>
-          </div>
-
-          <div className="divide-y divide-border/50">
-            {datasets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground gap-2">
-                <Database className="h-8 w-8 opacity-30" />
-                <p className="text-sm">No datasets registered yet</p>
-                <p className="text-xs opacity-70">Upload a CSV file above to get started</p>
-              </div>
-            ) : (
-              datasets.map((ds) => (
-                <div
-                  key={ds.dataset_id}
-                  className="flex items-center gap-4 px-5 py-4 hover:bg-muted/20 transition-colors"
-                >
-                  {/* Status indicator */}
-                  <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                    ds.status === 'COMPLETED'
-                      ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50'
-                      : ds.status === 'PROCESSING' || ds.status === 'VALIDATING'
-                        ? 'bg-blue-500 animate-pulse'
-                        : ds.status === 'FAILED'
-                          ? 'bg-destructive'
-                          : 'bg-muted-foreground/40'
-                  }`} />
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold font-mono text-foreground">
-                        {ds.dataset_id}
-                      </span>
-                      {ds.is_baseline && (
-                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono text-muted-foreground border-border">
-                          BASELINE
-                        </Badge>
-                      )}
-                      {ds.dataset_id === activeDatasetId && (
-                        <Badge className="bg-primary/15 text-primary border-primary/25 text-[10px] py-0 px-1.5 font-mono">
-                          ACTIVE
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {ds.file_name} · {ds.row_count.toLocaleString()} records
-                    </p>
-                  </div>
-
-                  {/* Status badge + activate */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                      ds.status === 'COMPLETED'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                        : ds.status === 'PROCESSING' || ds.status === 'VALIDATING'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                          : ds.status === 'FAILED'
-                            ? 'bg-destructive/10 text-destructive'
-                            : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {(ds.status === 'PROCESSING' || ds.status === 'VALIDATING') && (
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                      )}
-                      {ds.status === 'COMPLETED' && <CheckCircle2 className="h-2.5 w-2.5" />}
-                      {ds.status.charAt(0) + ds.status.slice(1).toLowerCase()}
-                    </span>
-                    {ds.dataset_id !== activeDatasetId && ds.status === 'COMPLETED' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs h-7 px-3 rounded-lg hover:bg-primary/10 hover:text-primary"
-                        onClick={() => selectDataset(ds.dataset_id)}
-                      >
-                        Activate
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
       </div>
     </AppLayout>
   );
 }
-
-

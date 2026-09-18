@@ -83,15 +83,23 @@ export default function Matches() {
 
   const availableCpses = Array.from(
     new Set([
-      ...Object.keys(report?.cpse_distribution || {}),
       ...Object.keys(activeDataset?.cpse_summary || {}),
-      'IOCL',
-      'ONGC',
+      ...(report?.cpse_distribution
+        ? Object.keys(report.cpse_distribution).flatMap((k) => k.split('->').map((s) => s.trim()))
+        : []),
+      'BHEL',
+      'Coal India',
       'HPCL',
-      'BPCL',
-      'CPCL',
+      'IOCL',
+      'NMDC',
+      'NTPC',
+      'ONGC',
+      'SAIL',
     ])
-  ).filter(Boolean);
+  )
+    .map((s) => s.trim())
+    .filter((s) => s && !s.includes('->'))
+    .sort();
 
   const loadReport = useCallback(async () => {
     try {
@@ -449,7 +457,7 @@ export default function Matches() {
                     {/* Left Column: Material comparison title & Subtitle */}
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex items-center flex-wrap gap-1.5 text-sm sm:text-base leading-snug break-words [overflow-wrap:anywhere]">
-                        <span className="font-bold text-foreground hover:text-primary transition-colors">
+                        <span className="font-medium text-foreground hover:text-primary transition-colors">
                           {sourceTitle}
                         </span>
                         <span className="text-muted-foreground font-normal">
@@ -458,7 +466,7 @@ export default function Matches() {
                         <span className="text-muted-foreground/80 mx-1 font-mono">
                           &rarr;
                         </span>
-                        <span className="font-bold text-foreground hover:text-primary transition-colors">
+                        <span className="font-medium text-foreground hover:text-primary transition-colors">
                           {candidateTitle}
                         </span>
                         <span className="text-muted-foreground font-normal">
@@ -474,7 +482,7 @@ export default function Matches() {
 
                     {/* Right Column: Score % + Status Badge matching Image 1 */}
                     <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
-                      <span className="font-bold font-mono text-base text-foreground">
+                      <span className="font-semibold font-mono text-base text-foreground">
                         {score}%
                       </span>
                       {getStatusBadge(item.status_tier, score)}
@@ -556,12 +564,12 @@ export default function Matches() {
                     <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-0.5">
                       {selectedCandidate.candidate_id} · Rank #{selectedCandidate.candidate_rank}
                     </p>
-                    <DialogTitle className="text-sm sm:text-base font-bold text-foreground leading-tight">
+                    <DialogTitle className="text-sm sm:text-base font-semibold text-foreground leading-tight">
                       Match Review
                     </DialogTitle>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-mono font-bold text-sm text-foreground">
+                    <span className="font-mono font-semibold text-sm text-foreground">
                       {selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100)}%
                     </span>
                     {getStatusBadge(selectedCandidate.status_tier, selectedCandidate.score_percent ?? Math.round((selectedCandidate.final_match_score || 0) * 100))}
@@ -581,15 +589,15 @@ export default function Matches() {
                   {/* Material pair summary */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-3 rounded-xl bg-background border border-border space-y-0.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Source</p>
-                      <p className="text-xs font-bold text-foreground truncate">
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Source</p>
+                      <p className="text-xs font-medium text-foreground truncate">
                         {selectedCandidate.source_title || selectedCandidate.source_material_code}
                       </p>
                       <p className="text-[11px] text-muted-foreground">{selectedCandidate.source_cpse}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-background border border-border space-y-0.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Candidate</p>
-                      <p className="text-xs font-bold text-foreground truncate">
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Candidate</p>
+                      <p className="text-xs font-medium text-foreground truncate">
                         {selectedCandidate.candidate_title || selectedCandidate.candidate_material_code}
                       </p>
                       <p className="text-[11px] text-muted-foreground">{selectedCandidate.candidate_cpse}</p>
@@ -600,13 +608,13 @@ export default function Matches() {
                   <div className="border border-border/80 rounded-xl overflow-x-auto bg-card">
                     <table className="w-full min-w-[360px] text-xs border-collapse">
                       <thead>
-                        <tr className="border-b border-border bg-muted/40 text-muted-foreground font-medium">
-                          <th className="p-2.5 text-left w-20 text-[11px]">Attribute</th>
-                          <th className="p-2.5 text-left text-[11px]">Source</th>
-                          <th className="p-2.5 text-left text-[11px]">Candidate</th>
+                        <tr className="border-b border-border bg-muted/30 text-muted-foreground font-medium">
+                          <th className="p-2.5 text-left w-20 text-[11px] font-medium">Attribute</th>
+                          <th className="p-2.5 text-left text-[11px] font-medium">Source</th>
+                          <th className="p-2.5 text-left text-[11px] font-medium">Candidate</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border">
+                      <tbody className="divide-y divide-border/60">
                         {['Type', 'Grade', 'Size', 'Coating', 'Unit'].map((attr) => {
                           const attrObj = selectedCandidate.attributes?.[attr];
                           const sVal = attrObj?.source || '-';
@@ -614,11 +622,11 @@ export default function Matches() {
                           const isDiff = sVal !== '-' && cVal !== '-' && sVal.toLowerCase() !== cVal.toLowerCase();
                           return (
                             <tr key={attr} className="hover:bg-muted/20 transition-colors">
-                              <td className="p-2.5 font-semibold text-muted-foreground text-[11px]">{attr}</td>
-                              <td className={`p-2.5 font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
+                              <td className="p-2.5 font-normal text-muted-foreground text-[11px]">{attr}</td>
+                              <td className={`p-2.5 font-normal ${isDiff ? 'text-rose-500 font-medium' : 'text-foreground/90'}`}>
                                 {sVal}
                               </td>
-                              <td className={`p-2.5 font-medium ${isDiff ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-foreground'}`}>
+                              <td className={`p-2.5 font-normal ${isDiff ? 'text-rose-500 font-medium' : 'text-foreground/90'}`}>
                                 {cVal}
                               </td>
                             </tr>
