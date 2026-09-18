@@ -164,30 +164,30 @@ export default function CommonMasterDetail() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm font-mono">
-                <div className="p-2.5 rounded bg-muted/30 border border-border">
-                  <div className="text-[11px] text-muted-foreground uppercase">Family</div>
-                  <div className="font-semibold mt-0.5">{material.material_family || '—'}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 text-xs font-mono">
+                <div className="p-3 rounded-lg bg-muted/20 border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div className="text-[11px] text-muted-foreground/80 font-sans uppercase font-medium tracking-wider">Family</div>
+                  <div className="font-semibold text-foreground mt-1 truncate">{material.material_family || '—'}</div>
                 </div>
-                <div className="p-2.5 rounded bg-muted/30 border border-border">
-                  <div className="text-[11px] text-muted-foreground uppercase">Type</div>
-                  <div className="font-semibold mt-0.5">{material.material_type || '—'}</div>
+                <div className="p-3 rounded-lg bg-muted/20 border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div className="text-[11px] text-muted-foreground/80 font-sans uppercase font-medium tracking-wider">Type</div>
+                  <div className="font-semibold text-foreground mt-1 truncate">{material.material_type || '—'}</div>
                 </div>
-                <div className="p-2.5 rounded bg-muted/30 border border-border">
-                  <div className="text-[11px] text-muted-foreground uppercase">Grade</div>
-                  <div className="font-semibold mt-0.5">{material.material_grade || '—'}</div>
+                <div className="p-3 rounded-lg bg-muted/20 border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div className="text-[11px] text-muted-foreground/80 font-sans uppercase font-medium tracking-wider">Grade</div>
+                  <div className="font-semibold text-foreground mt-1 truncate">{material.material_grade || '—'}</div>
                 </div>
-                <div className="p-2.5 rounded bg-muted/30 border border-border">
-                  <div className="text-[11px] text-muted-foreground uppercase">Size</div>
-                  <div className="font-semibold mt-0.5">{material.nominal_size || '—'}</div>
+                <div className="p-3 rounded-lg bg-muted/20 border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div className="text-[11px] text-muted-foreground/80 font-sans uppercase font-medium tracking-wider">Size</div>
+                  <div className="font-semibold text-foreground mt-1 truncate">{material.nominal_size || '—'}</div>
                 </div>
-                <div className="p-2.5 rounded bg-muted/30 border border-border">
-                  <div className="text-[11px] text-muted-foreground uppercase">Pressure / Rating</div>
-                  <div className="font-semibold mt-0.5">{material.pressure_rating || '—'}</div>
+                <div className="p-3 rounded-lg bg-muted/20 border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div className="text-[11px] text-muted-foreground/80 font-sans uppercase font-medium tracking-wider">Pressure / Rating</div>
+                  <div className="font-semibold text-foreground mt-1 truncate">{material.pressure_rating || '—'}</div>
                 </div>
-                <div className="p-2.5 rounded bg-muted/30 border border-border">
-                  <div className="text-[11px] text-muted-foreground uppercase">Standard / Spec</div>
-                  <div className="font-semibold mt-0.5">{material.standard_spec || '—'}</div>
+                <div className="p-3 rounded-lg bg-muted/20 border border-border/70 hover:bg-muted/30 transition-colors">
+                  <div className="text-[11px] text-muted-foreground/80 font-sans uppercase font-medium tracking-wider">Standard / Spec</div>
+                  <div className="font-semibold text-foreground mt-1 truncate">{material.standard_spec || '—'}</div>
                 </div>
               </div>
             </CardContent>
@@ -244,7 +244,7 @@ export default function CommonMasterDetail() {
               Source Material Members & Decision Provenance
             </CardTitle>
             <CardDescription>
-              Complete lineage tracking every member code back to original CPSE records, Phase 7 human reviewers, and evidence snapshot hashes
+              Complete lineage tracking every member code back to original CPSE records, human reviewers, and evidence snapshot hashes
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -256,7 +256,7 @@ export default function CommonMasterDetail() {
                     <TableHead className="font-semibold text-xs uppercase">CPSE</TableHead>
                     <TableHead className="font-semibold text-xs uppercase">Original Description</TableHead>
                     <TableHead className="font-semibold text-xs uppercase">Membership</TableHead>
-                    <TableHead className="font-semibold text-xs uppercase">Phase 7 Reviewers</TableHead>
+                    <TableHead className="font-semibold text-xs uppercase">Reviewers</TableHead>
                     <TableHead className="font-semibold text-xs uppercase">Evidence Hash</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -303,7 +303,7 @@ export default function CommonMasterDetail() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                Phase 8 Human Governance Sign-Off
+                Human Governance Sign-Off
               </CardTitle>
               <CardDescription>
                 Authorized lead domain engineers and governance admins may grant formal APPROVED_MASTER sign-off
