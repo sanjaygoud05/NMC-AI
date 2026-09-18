@@ -46,6 +46,7 @@ class ReviewRepository:
                 db_path = os.path.join(data_dir, "review_store.db")
                 db_url = f"sqlite:///{db_path}"
 
+        self.db_url = db_url
         if self.db_url.startswith("postgres://"):
             self.db_url = self.db_url.replace("postgres://", "postgresql://", 1)
 

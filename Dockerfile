@@ -20,10 +20,11 @@ COPY data/ ./data/
 # Environment configuration
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/server:/app
-ENV PORT=8000
+ENV PORT=10000
 ENV DATA_DIR=/app/data
 
+EXPOSE 10000
 EXPOSE 8000
 
-# Start Uvicorn adapting dynamically to Railway's or cloud provider's $PORT
-CMD ["sh", "-c", "uvicorn app.main:app --app-dir server --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start Uvicorn adapting dynamically to Render's or cloud provider's $PORT
+CMD ["sh", "-c", "uvicorn app.main:app --app-dir server --host 0.0.0.0 --port ${PORT:-10000}"]
