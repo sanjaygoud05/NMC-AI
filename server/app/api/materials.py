@@ -23,7 +23,7 @@ async def get_materials(
     """
     Get materials scoped by dataset_id (NONE, BASELINE, UPLOAD-..., or ALL) with search and filters
     """
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
 
     effective_id = (dataset_id or "NONE").strip().upper()
     has_dataset = effective_id not in ["", "NONE"]
@@ -136,7 +136,7 @@ async def get_material(
     """
     Get single material details by compound ID (dataset_id:cpse:code) or direct Material_Code
     """
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
 
     # Extract target code and optional dataset from compound ID
     target_code = material_id

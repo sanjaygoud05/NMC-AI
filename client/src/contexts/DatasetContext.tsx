@@ -64,6 +64,25 @@ const DatasetContext = createContext<DatasetContextType | undefined>(undefined);
 import { API_BASE } from '@/services/apiConfig';
 import { useAuth } from '@/hooks/useAuth';
 
+export const BASELINE_DATASET: DatasetItem = {
+  dataset_id: 'BASELINE',
+  file_name: 'CPSE_Material_Master_cleaned.csv',
+  row_count: 1250,
+  column_count: 18,
+  cpse_summary: {
+    ONGC: 332,
+    IOCL: 319,
+    HPCL: 301,
+    CPCL: 298,
+  },
+  status: 'COMPLETED',
+  is_baseline: true,
+  uploaded_at: '2026-03-31T00:00:00Z',
+  current_phase: 'COMPLETED',
+  progress: 100,
+  cpse_count: 4,
+};
+
 export function DatasetProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -74,16 +93,22 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
 
   const [activeDatasetId, setActiveDatasetId] = useState<string>(() => {
     const stored = localStorage.getItem(storageKey);
-    return stored !== null ? stored : 'NONE';
+    return stored !== null ? stored : 'BASELINE';
   });
 
   const [datasets, setDatasets] = useState<DatasetItem[]>(() => {
     try {
       const cached = localStorage.getItem(cacheKey);
-      return cached ? JSON.parse(cached) : [];
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
     } catch {
-      return [];
+      // ignore
     }
+    return [BASELINE_DATASET];
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -133,13 +158,38 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const data: DatasetItem[] = await res.json();
-        setDatasets(data);
-        localStorage.setItem(cacheKey, JSON.stringify(data));
+        
+        // Ensure BASELINE is always present
+        const withBaseline = data.some((d) => d.dataset_id === 'BASELINE')
+          ? data
+          : [BASELINE_DATASET, ...data];
+
+        // Merge with existing cached user uploads so ephemeral restarts don't erase user's upload records
+        let merged = [...withBaseline];
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed: DatasetItem[] = JSON.parse(cached);
+            parsed.forEach((oldDs) => {
+              if (
+                oldDs.dataset_id.startsWith('UPLOAD-') &&
+                !merged.some((m) => m.dataset_id === oldDs.dataset_id)
+              ) {
+                merged.push(oldDs);
+              }
+            });
+          }
+        } catch {
+          // ignore
+        }
+
+        setDatasets(merged);
+        localStorage.setItem(cacheKey, JSON.stringify(merged));
 
         // Auto-recover active background task if any dataset is currently processing
         setBackgroundTask((curr) => {
           if (curr && curr.status === 'PROCESSING') return curr;
-          const processing = data.find((d) => d.status === 'PROCESSING' || d.status === 'VALIDATING');
+          const processing = merged.find((d) => d.status === 'PROCESSING' || d.status === 'VALIDATING');
           if (processing) {
             return {
               datasetId: processing.dataset_id,
@@ -154,28 +204,47 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
           return curr;
         });
 
-        // If persisted selection is a specific upload that no longer exists, reset to NONE
+        // If persisted selection is a specific upload that no longer exists in merged, reset to BASELINE
         const saved = localStorage.getItem(storageKey);
-        if (saved && saved.startsWith('UPLOAD-') && !data.some((d) => d.dataset_id === saved)) {
-          setActiveDatasetId('NONE');
-          localStorage.setItem(storageKey, 'NONE');
+        if (saved && saved.startsWith('UPLOAD-') && !merged.some((d) => d.dataset_id === saved)) {
+          setActiveDatasetId('BASELINE');
+          localStorage.setItem(storageKey, 'BASELINE');
         }
-        return data;
+        return merged;
       }
-      return [];
+      return [BASELINE_DATASET];
     } catch {
-      // Backend offline - maintain cached state if available
-      return [];
+      // Backend offline - maintain cached state with baseline
+      return [BASELINE_DATASET];
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Re-fetch datasets whenever the logged-in user changes
+  // Re-fetch datasets whenever the logged-in user changes and instantly hydrate from cache
   useEffect(() => {
+    const activeUserKey = user?.id || 'guest';
+    const activeCacheKey = `nmc_cached_datasets_${activeUserKey}`;
+    const activeStorageKey = `sih26099_active_dataset_id_${activeUserKey}`;
+
+    try {
+      const cached = localStorage.getItem(activeCacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDatasets(parsed);
+        }
+      } else {
+        setDatasets([BASELINE_DATASET]);
+      }
+    } catch {
+      setDatasets([BASELINE_DATASET]);
+    }
+
+    const stored = localStorage.getItem(activeStorageKey);
+    setActiveDatasetId(stored !== null ? stored : 'BASELINE');
+
     fetchDatasets();
-    const stored = localStorage.getItem(storageKey);
-    setActiveDatasetId(stored !== null ? stored : 'NONE');
   }, [user?.id]);
 
   // Dedicated fast poller for active background task
@@ -270,7 +339,7 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   const selectDataset = (id: string) => {
     setActiveDatasetId(id);
     localStorage.setItem(storageKey, id);
-    // Instant switch without destroying entire React Query cache
+    queryClient.invalidateQueries();
   };
 
   const startBackgroundTask = (task: BackgroundTaskState) => {

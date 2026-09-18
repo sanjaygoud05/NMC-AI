@@ -99,8 +99,8 @@ async def upload_dataset_file(
 
     try:
         content = await file.read()
-        from server.services.dataset_registry_service import dataset_registry_service
-        from server.services.upload_processing_service import upload_processing_service
+        from services.dataset_registry_service import dataset_registry_service
+        from services.upload_processing_service import upload_processing_service
 
         effective_user_id = user_id or x_user_id
         reg = dataset_registry_service.register_upload(
@@ -148,7 +148,7 @@ async def list_datasets(
     """
     List all registered datasets visible to user (BASELINE + user's uploaded datasets).
     """
-    from server.services.dataset_registry_service import dataset_registry_service
+    from services.dataset_registry_service import dataset_registry_service
     effective_user_id = user_id or x_user_id
     return dataset_registry_service.list_datasets(user_id=effective_user_id)
 
@@ -158,7 +158,7 @@ async def get_dataset_status(dataset_id: str):
     """
     Get metadata and processing status for specific dataset.
     """
-    from server.services.dataset_registry_service import dataset_registry_service
+    from services.dataset_registry_service import dataset_registry_service
     ds = dataset_registry_service.get_dataset(dataset_id)
     if not ds:
         raise HTTPException(status_code=404, detail=f"Dataset '{dataset_id}' not found.")
@@ -170,7 +170,7 @@ async def list_ingestion_jobs():
     """
     List all ingestion jobs with their status and metadata.
     """
-    from server.services.dataset_registry_service import dataset_registry_service
+    from services.dataset_registry_service import dataset_registry_service
     datasets = dataset_registry_service.list_datasets()
     
     jobs = []
@@ -197,7 +197,7 @@ async def get_ingestion_job(job_id: str):
     """
     Get detailed information about a specific ingestion job.
     """
-    from server.services.dataset_registry_service import dataset_registry_service
+    from services.dataset_registry_service import dataset_registry_service
     ds = dataset_registry_service.get_dataset(job_id)
     if not ds:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
@@ -223,7 +223,7 @@ async def get_ingestion_job_status(job_id: str):
     """
     Get current status of a specific ingestion job.
     """
-    from server.services.dataset_registry_service import dataset_registry_service
+    from services.dataset_registry_service import dataset_registry_service
     ds = dataset_registry_service.get_dataset(job_id)
     if not ds:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
@@ -242,7 +242,7 @@ async def cancel_ingestion_job(job_id: str):
     """
     Cancel a running ingestion job.
     """
-    from server.services.dataset_registry_service import dataset_registry_service
+    from services.dataset_registry_service import dataset_registry_service
     ds = dataset_registry_service.get_dataset(job_id)
     if not ds:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")

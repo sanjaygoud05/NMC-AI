@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 import pandas as pd
 
-from server.services.ingestion_service import EXPECTED_SCHEMA
+from services.ingestion_service import EXPECTED_SCHEMA
 
 _WORKSPACE_ROOT = Path(__file__).resolve().parent.parent.parent
 UPLOADS_DIR = _WORKSPACE_ROOT / "data" / "uploads"

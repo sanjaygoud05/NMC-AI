@@ -12,7 +12,10 @@ from typing import Dict, Any, Tuple
 import numpy as np
 import pandas as pd
 
-from server.services.embedding_service import embedding_service
+try:
+    from services.embedding_service import embedding_service
+except ImportError:
+    from server.services.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
