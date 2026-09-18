@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import {
   Select,
@@ -53,6 +53,7 @@ const PAGE_SIZE = 10;
 
 export default function Review() {
   const { activeDatasetId, selectDataset } = useDataset();
+  const location = useLocation();
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [items, setItems] = useState<ValidatedCandidateRecord[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -65,6 +66,15 @@ export default function Review() {
   const [filterDecision, setFilterDecision] = useState<'pending' | 'accepted' | 'rejected'>('pending');
   // Track local decisions made in this session (item stays visible with badge)
   const [localDecisions, setLocalDecisions] = useState<Record<string, 'ACCEPT' | 'REJECT' | 'DEFER'>>({});
+
+  // When navigating back from MatchDetail after a decision, pre-seed the badge
+  useEffect(() => {
+    const state = location.state as { decidedId?: string; decision?: 'ACCEPT' | 'REJECT' | 'DEFER' } | null;
+    if (state?.decidedId && state?.decision) {
+      setLocalDecisions((prev) => ({ ...prev, [state.decidedId!]: state.decision! }));
+      window.history.replaceState({}, '');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track totals per tab so tab badges match list totals 100%
   const [tabTotals, setTabTotals] = useState<{ pending: number; accepted: number; rejected: number }>({

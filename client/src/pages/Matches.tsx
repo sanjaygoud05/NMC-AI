@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -47,6 +47,7 @@ import { toast } from 'sonner';
 
 export default function Matches() {
   const { activeDatasetId, datasets, selectDataset } = useDataset();
+  const location = useLocation();
   const [report, setReport] = useState<MatchingReport | null>(null);
   const [matches, setMatches] = useState<MatchCandidateRecord[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -56,6 +57,16 @@ export default function Matches() {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   const activeDataset = datasets.find((d) => d.dataset_id === activeDatasetId);
+
+  // When navigating back from MatchDetail after a decision, immediately show the badge
+  useEffect(() => {
+    const state = location.state as { decidedId?: string; decision?: 'ACCEPT' | 'REJECT' | 'DEFER' } | null;
+    if (state?.decidedId && state?.decision) {
+      setDecisions((prev) => ({ ...prev, [state.decidedId!]: state.decision! }));
+      // Clear state from history so refresh doesn't re-apply it
+      window.history.replaceState({}, '');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filters matching Image 1: Confidence, Category, Status
   const [confidenceFilter, setConfidenceFilter] = useState('all');

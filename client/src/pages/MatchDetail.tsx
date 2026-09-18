@@ -31,6 +31,7 @@ import {
 import { useDataset } from '@/contexts/DatasetContext';
 import { matchingService } from '@/services/matchingService';
 import { materialService } from '@/services/materialService';
+import { reviewService } from '@/services/reviewService';
 import { useQuery } from '@tanstack/react-query';
 import type { MaterialMatch } from '@/types';
 import type { Material } from '@/types';
@@ -69,11 +70,33 @@ export default function MatchDetail() {
     enabled: !!match?.candidate_material_code && activeDatasetId !== 'NONE',
   });
 
-  const [decision, setDecision] = useState<string>('candidate');
+  const [decision, setDecision] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleAction = (newDecision: string, label: string) => {
-    setDecision(newDecision);
-    toast.success(`Match status updated to: ${label}`);
+  const handleAction = async (apiDecision: 'ACCEPT' | 'REJECT' | 'DEFER', label: string) => {
+    if (!id || submitting || decision) return;
+    setSubmitting(true);
+    try {
+      await reviewService.submitDecision(id, {
+        decision: apiDecision,
+        rationale: `${label} from Match Detail view`,
+      });
+      setDecision(apiDecision);
+      toast.success(`Match ${id} — ${label} ✓`);
+      // Navigate back after 1.5s, passing the decision so the previous list shows the badge
+      setTimeout(() => {
+        if (fromParam) {
+          navigate(fromParam, { state: { decidedId: id, decision: apiDecision } });
+        } else {
+          navigate(-1);
+        }
+      }, 1500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to record decision';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (activeDatasetId === 'NONE') {
@@ -138,32 +161,55 @@ export default function MatchDetail() {
             description={`Comparing ${sourceMaterial?.cpse || 'CPSE 1'} and ${candidateMaterial?.cpse || 'CPSE 2'} records`}
           />
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-rose-500 hover:text-rose-600 border-rose-500/20"
-              onClick={() => handleAction('rejected', 'Rejected')}
-            >
-              <XCircle className="h-4 w-4" />
-              Reject
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-amber-500 hover:text-amber-600 border-amber-500/20"
-              onClick={() => handleAction('review', 'Sent to Review Queue')}
-            >
-              <AlertCircle className="h-4 w-4" />
-              Request Review
-            </Button>
-            <Button
-              size="sm"
-              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => handleAction('accepted', 'Accepted')}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Accept Match
-            </Button>
+            {/* Show persistent decision badge after action */}
+            {decision === 'ACCEPT' && (
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-3 py-1.5 rounded-full border border-emerald-500/30">
+                <CheckCircle2 className="h-4 w-4" /> Accepted — redirecting...
+              </span>
+            )}
+            {decision === 'REJECT' && (
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-rose-700 dark:text-rose-400 bg-rose-500/15 px-3 py-1.5 rounded-full border border-rose-500/30">
+                <XCircle className="h-4 w-4" /> Rejected — redirecting...
+              </span>
+            )}
+            {decision === 'DEFER' && (
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/15 px-3 py-1.5 rounded-full border border-amber-500/30">
+                <AlertCircle className="h-4 w-4" /> Sent to Review — redirecting...
+              </span>
+            )}
+            {!decision && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={submitting}
+                  className="gap-1.5 text-rose-500 hover:text-rose-600 border-rose-500/20"
+                  onClick={() => handleAction('REJECT', 'Rejected')}
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                  Reject
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={submitting}
+                  className="gap-1.5 text-amber-500 hover:text-amber-600 border-amber-500/20"
+                  onClick={() => handleAction('DEFER', 'Sent to Review Queue')}
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertCircle className="h-4 w-4" />}
+                  Request Review
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={submitting}
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => handleAction('ACCEPT', 'Accepted')}
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Accept Match
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
