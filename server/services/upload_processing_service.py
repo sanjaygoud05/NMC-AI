@@ -26,15 +26,15 @@ for _p in [_root_dir, _server_dir]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from server.services.normalization_service import normalization_service
-from server.services.attribute_extraction_service import attribute_extraction_service
-from server.services.standardization_service import standardization_service
-from server.services.embedding_service import embedding_service
-from server.services.matching_service import matching_service
-from server.services.validation_service import validation_service
-from server.services.confidence_service import confidence_service
-from server.services.dataset_registry_service import dataset_registry_service
-from server.services.procurement_analytics_service import ANALYSIS_REFERENCE_DATE, FROZEN_REF_DATE
+from services.normalization_service import normalization_service
+from services.attribute_extraction_service import attribute_extraction_service
+from services.standardization_service import standardization_service
+from services.embedding_service import embedding_service
+from services.matching_service import matching_service
+from services.validation_service import validation_service
+from services.confidence_service import confidence_service
+from services.dataset_registry_service import dataset_registry_service
+from services.procurement_analytics_service import ANALYSIS_REFERENCE_DATE, FROZEN_REF_DATE
 
 logger = logging.getLogger(__name__)
 

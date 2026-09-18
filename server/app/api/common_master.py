@@ -47,106 +47,108 @@ async def list_common_materials(
             "data_available": False,
         }
 
-    if effective_id != "BASELINE":
-        from server.services.dataset_resolver import load_dataset_dataframe
-        import json
+    if effective_id == "BASELINE":
+        res = common_master_repository.query_common_materials(
+            search=search,
+            family=family,
+            governance_status=governance_status,
+            cpse=cpse,
+            page=page,
+            page_size=page_size,
+        )
+        if res.get("total", 0) > 0:
+            res["dataset_id"] = "BASELINE"
+            res["has_dataset"] = True
+            res["data_available"] = True
+            return res
 
-        df = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
-        if df.empty:
-            return {
-                "items": [],
-                "total": 0,
-                "page": page,
-                "page_size": page_size,
-                "total_pages": 0,
-                "dataset_id": effective_id,
-                "has_dataset": True,
-                "data_available": False,
-            }
+    # Fallback to direct CSV loading if DB is empty or custom upload dataset
+    from services.dataset_resolver import load_dataset_dataframe
+    import json
 
-        if family and family != "all":
-            df = df[df["material_family"].str.upper() == family.upper()]
-        if governance_status and governance_status != "all":
-            df = df[df["governance_status"] == governance_status]
-        if cpse and cpse != "all":
-            df = df[df["cpse_coverage"].str.contains(cpse, case=False, na=False)]
-        if search:
-            s = search.strip().lower()
-            mask = (
-                df["common_code"].str.lower().str.contains(s, na=False)
-                | df["common_description"].str.lower().str.contains(s, na=False)
-                | df["material_family"].str.lower().str.contains(s, na=False)
-            )
-            df = df[mask]
-
-        total = len(df)
-        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-        start = (page - 1) * page_size
-        page_df = df.iloc[start : start + page_size]
-
-        items = []
-        for _, r in page_df.iterrows():
-            c_attrs = {}
-            raw_attrs = r.get("consolidated_attributes", "{}")
-            if isinstance(raw_attrs, str):
-                try:
-                    c_attrs = json.loads(raw_attrs)
-                except Exception:
-                    c_attrs = {}
-            elif isinstance(raw_attrs, dict):
-                c_attrs = raw_attrs
-
-            cov = r.get("cpse_coverage", "")
-            cov_list = cov.split(";") if isinstance(cov, str) else []
-
-            items.append({
-                "common_material_id": str(r.get("common_material_id", "")),
-                "common_code": str(r.get("common_code", "")),
-                "common_description": str(r.get("common_description", "")),
-                "material_family": str(r.get("material_family", "")),
-                "material_type": str(r.get("material_type", "")),
-                "material_grade": str(r.get("material_grade", "")),
-                "nominal_size": str(r.get("nominal_size", "")),
-                "pressure_rating": str(r.get("pressure_rating", "")),
-                "standard_spec": str(r.get("standard_spec", "")),
-                "unit_of_measure": str(r.get("unit_of_measure", "")),
-                "consolidated_attributes": c_attrs,
-                "cpse_coverage": cov_list,
-                "member_count": int(r.get("member_count", 1)),
-                "governance_status": str(r.get("governance_status", "STANDALONE_CANDIDATE")),
-                "group_confidence": float(r.get("group_confidence", 1.0)),
-                "group_identity_hash": str(r.get("group_identity_hash", "")),
-                "approved_by": None,
-                "approved_at": None,
-                "approval_rationale": None,
-                "created_at": "2026-03-31T00:00:00Z",
-                "updated_at": "2026-03-31T00:00:00Z",
-                "members": [],
-            })
-
+    df = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
+    if df.empty:
         return {
-            "items": items,
-            "total": total,
+            "items": [],
+            "total": 0,
             "page": page,
             "page_size": page_size,
-            "total_pages": total_pages,
+            "total_pages": 0,
             "dataset_id": effective_id,
             "has_dataset": True,
-            "data_available": total > 0,
+            "data_available": False,
         }
 
-    res = common_master_repository.query_common_materials(
-        search=search,
-        family=family,
-        governance_status=governance_status,
-        cpse=cpse,
-        page=page,
-        page_size=page_size,
-    )
-    res["dataset_id"] = "BASELINE"
-    res["has_dataset"] = True
-    res["data_available"] = res.get("total", 0) > 0
-    return res
+    if family and family != "all":
+        df = df[df["material_family"].str.upper() == family.upper()]
+    if governance_status and governance_status != "all":
+        df = df[df["governance_status"] == governance_status]
+    if cpse and cpse != "all":
+        df = df[df["cpse_coverage"].str.contains(cpse, case=False, na=False)]
+    if search:
+        s = search.strip().lower()
+        mask = (
+            df["common_code"].str.lower().str.contains(s, na=False)
+            | df["common_description"].str.lower().str.contains(s, na=False)
+            | df["material_family"].str.lower().str.contains(s, na=False)
+        )
+        df = df[mask]
+
+    total = len(df)
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    start = (page - 1) * page_size
+    page_df = df.iloc[start : start + page_size]
+
+    items = []
+    for _, r in page_df.iterrows():
+        c_attrs = {}
+        raw_attrs = r.get("consolidated_attributes", "{}")
+        if isinstance(raw_attrs, str):
+            try:
+                c_attrs = json.loads(raw_attrs)
+            except Exception:
+                c_attrs = {}
+        elif isinstance(raw_attrs, dict):
+            c_attrs = raw_attrs
+
+        cov = r.get("cpse_coverage", "")
+        cov_list = cov.split(";") if isinstance(cov, str) else []
+
+        items.append({
+            "common_material_id": str(r.get("common_material_id", "")),
+            "common_code": str(r.get("common_code", "")),
+            "common_description": str(r.get("common_description", "")),
+            "material_family": str(r.get("material_family", "")),
+            "material_type": str(r.get("material_type", "")),
+            "material_grade": str(r.get("material_grade", "")),
+            "nominal_size": str(r.get("nominal_size", "")),
+            "pressure_rating": str(r.get("pressure_rating", "")),
+            "standard_spec": str(r.get("standard_spec", "")),
+            "unit_of_measure": str(r.get("unit_of_measure", "")),
+            "consolidated_attributes": c_attrs,
+            "cpse_coverage": cov_list,
+            "member_count": int(r.get("member_count", 1)),
+            "governance_status": str(r.get("governance_status", "STANDALONE_CANDIDATE")),
+            "group_confidence": float(r.get("group_confidence", 1.0)),
+            "group_identity_hash": str(r.get("group_identity_hash", "")),
+            "approved_by": None,
+            "approved_at": None,
+            "approval_rationale": None,
+            "created_at": "2026-03-31T00:00:00Z",
+            "updated_at": "2026-03-31T00:00:00Z",
+            "members": [],
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "dataset_id": effective_id,
+        "has_dataset": True,
+        "data_available": total > 0,
+    }
 
 
 @router.get("/stats", response_model=Dict[str, Any])
@@ -176,46 +178,48 @@ async def get_common_master_stats(
             "data_available": False,
         }
 
-    if effective_id != "BASELINE":
-        from server.services.dataset_resolver import load_dataset_dataframe
-        df = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
-        total_records = len(df)
-        families = sorted(list(df["material_family"].dropna().unique())) if not df.empty and "material_family" in df.columns else []
-        multi_cpse = len(df[df["cpse_coverage"].str.contains(";", na=False)]) if not df.empty and "cpse_coverage" in df.columns else 0
-        verified = len(df[df["governance_status"].isin(["VERIFIED_HARMONIZED", "APPROVED_MASTER"])]) if not df.empty and "governance_status" in df.columns else 0
-        
-        member_sum = total_records
-        if not df.empty and "member_count" in df.columns:
-            try:
-                member_sum = int(df["member_count"].astype(int).sum())
-            except Exception:
-                member_sum = total_records
+    if effective_id == "BASELINE":
+        stats = common_master_repository.get_stats()
+        if stats.get("total_common_materials", 0) > 0:
+            stats["dataset_id"] = "BASELINE"
+            stats["has_dataset"] = True
+            stats["data_available"] = True
+            return stats
 
-        return {
-            "total_common_materials": total_records,
-            "multi_cpse_harmonized": multi_cpse,
-            "verified_harmonized": verified,
-            "verified_harmonized_count": verified,
-            "standalone_count": total_records - multi_cpse,
-            "approved_master_count": len(df[df["governance_status"] == "APPROVED_MASTER"]) if not df.empty and "governance_status" in df.columns else 0,
-            "review_required_count": len(df[df["governance_status"] == "AMBIGUOUS_REVIEW_REQUIRED"]) if not df.empty and "governance_status" in df.columns else 0,
-            "total_source_members": member_sum,
-            "total_members_mapped": member_sum,
-            "unique_families": families,
-            "coverage_stats": {
-                "single_cpse_count": total_records - multi_cpse,
-                "multi_cpse_count": multi_cpse,
-            },
-            "family_distribution": df["material_family"].value_counts().to_dict() if not df.empty and "material_family" in df.columns else {},
-            "dataset_id": effective_id,
-            "has_dataset": True,
-            "data_available": total_records > 0,
-        }
-    stats = common_master_repository.get_stats()
-    stats["dataset_id"] = "BASELINE"
-    stats["has_dataset"] = True
-    stats["data_available"] = stats.get("total_common_materials", 0) > 0
-    return stats
+    from services.dataset_resolver import load_dataset_dataframe
+    df = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
+    total_records = len(df)
+    families = sorted(list(df["material_family"].dropna().unique())) if not df.empty and "material_family" in df.columns else []
+    multi_cpse = len(df[df["cpse_coverage"].str.contains(";", na=False)]) if not df.empty and "cpse_coverage" in df.columns else 0
+    verified = len(df[df["governance_status"].isin(["VERIFIED_HARMONIZED", "APPROVED_MASTER"])]) if not df.empty and "governance_status" in df.columns else 0
+    
+    member_sum = total_records
+    if not df.empty and "member_count" in df.columns:
+        try:
+            member_sum = int(df["member_count"].astype(int).sum())
+        except Exception:
+            member_sum = total_records
+
+    return {
+        "total_common_materials": total_records,
+        "multi_cpse_harmonized": multi_cpse,
+        "verified_harmonized": verified,
+        "verified_harmonized_count": verified,
+        "standalone_count": total_records - multi_cpse,
+        "approved_master_count": len(df[df["governance_status"] == "APPROVED_MASTER"]) if not df.empty and "governance_status" in df.columns else 0,
+        "review_required_count": len(df[df["governance_status"] == "AMBIGUOUS_REVIEW_REQUIRED"]) if not df.empty and "governance_status" in df.columns else 0,
+        "total_source_members": member_sum,
+        "total_members_mapped": member_sum,
+        "unique_families": families,
+        "coverage_stats": {
+            "single_cpse_count": total_records - multi_cpse,
+            "multi_cpse_count": multi_cpse,
+        },
+        "family_distribution": df["material_family"].value_counts().to_dict() if not df.empty and "material_family" in df.columns else {},
+        "dataset_id": effective_id,
+        "has_dataset": True,
+        "data_available": total_records > 0,
+    }
 
 
 @router.get("/{common_id}", response_model=Dict[str, Any])
@@ -235,7 +239,7 @@ async def get_common_material_detail(
         return record
 
     # 2. Try loading from dataset file
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
     import json
     df = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id if effective_id != "NONE" else "BASELINE")
     if not df.empty:

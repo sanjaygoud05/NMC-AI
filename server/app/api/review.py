@@ -63,7 +63,7 @@ def _clean_dict(d: dict) -> dict:
 
 
 def _get_std_map(effective_id: str) -> Dict[str, dict]:
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
     std_df = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
     if std_df.empty and effective_id == "BASELINE":
         if os.path.exists(STD_MATERIALS_CSV):
@@ -127,7 +127,7 @@ async def get_review_queue(
             "total_candidate_universe": 0,
         }
 
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
 
     df = load_dataset_dataframe("validated_candidates.csv", dataset_id=effective_id)
     if df.empty and effective_id == "BASELINE":
@@ -349,7 +349,7 @@ async def get_review_stats(dataset_id: Optional[str] = Query(None)):
             "data_available": False,
         }
 
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
     df = load_dataset_dataframe("validated_candidates.csv", dataset_id=effective_id)
     if df.empty and effective_id == "BASELINE":
         if os.path.exists(VALIDATED_CSV):
@@ -523,7 +523,7 @@ async def submit_review_decision(
 
     # If not found in validated_candidates, look in dataset matches
     if not cand_row:
-        from server.services.dataset_resolver import load_dataset_dataframe
+        from services.dataset_resolver import load_dataset_dataframe
         matches_df = load_dataset_dataframe("matches.csv", dataset_id=effective_id if effective_id != "NONE" else "BASELINE")
         if not matches_df.empty and "candidate_id" in matches_df.columns:
             m_match = matches_df[matches_df["candidate_id"] == candidate_id]

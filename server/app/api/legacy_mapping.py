@@ -44,7 +44,7 @@ async def list_legacy_mappings(
         }
 
     if effective_id != "BASELINE":
-        from server.services.dataset_resolver import load_dataset_dataframe
+        from services.dataset_resolver import load_dataset_dataframe
         df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=effective_id)
         if df.empty:
             return {
@@ -158,7 +158,7 @@ async def get_legacy_mapping_stats(
         }
 
     if effective_id != "BASELINE":
-        from server.services.dataset_resolver import load_dataset_dataframe
+        from services.dataset_resolver import load_dataset_dataframe
         df = load_dataset_dataframe("legacy_material_mapping.csv", dataset_id=effective_id)
         total = len(df)
         cpse_dist = df["source_cpse"].value_counts().to_dict() if "source_cpse" in df.columns else {}

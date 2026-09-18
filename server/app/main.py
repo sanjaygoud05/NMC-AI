@@ -51,6 +51,20 @@ app.include_router(legacy_mapping.router, prefix="/api/legacy-mapping", tags=["L
 app.include_router(procurement.router, prefix="/api/procurement", tags=["Procurement"])
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Run database seeder if tables are empty on deployment/startup"""
+    try:
+        try:
+            from services.db_seeder import seed_database_if_empty
+        except ImportError:
+            from server.services.db_seeder import seed_database_if_empty
+        seed_database_if_empty()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Startup seeder warning: {e}")
+
+
 @app.get("/")
 async def root():
     """Root endpoint"""

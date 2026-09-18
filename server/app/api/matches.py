@@ -11,7 +11,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Query
 import pandas as pd
 
-from server.pipeline.phase07_candidate_matching import run_matching
+from pipeline.phase07_candidate_matching import run_matching
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -54,7 +54,7 @@ async def get_matching_report(dataset_id: Optional[str] = None):
             "message": "No dataset selected",
         }
 
-    from server.services.dataset_resolver import resolve_artifact_path
+    from services.dataset_resolver import resolve_artifact_path
 
     if effective_id != "BASELINE":
         rpt_path = resolve_artifact_path("matching_report.json", dataset_id=effective_id)
@@ -88,7 +88,7 @@ async def get_matching_report(dataset_id: Optional[str] = None):
 
 
 def _get_std_map(effective_id: str) -> Dict[str, dict]:
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
     std_df = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
     if std_df.empty and effective_id == "BASELINE":
         std_path = Path("data/processed/standardized_materials.csv")
@@ -201,7 +201,7 @@ async def get_matches(
             "categories": [],
         }
 
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
 
     df = load_dataset_dataframe("match_candidates.csv", dataset_id=effective_id)
     if df.empty and effective_id == "BASELINE":
@@ -344,7 +344,7 @@ async def get_match_detail(candidate_id: str, dataset_id: Optional[str] = None):
     Get detailed evidence breakdown for a single candidate match pair.
     """
     effective_id = (dataset_id or "NONE").strip().upper()
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
     df = load_dataset_dataframe("match_candidates.csv", dataset_id=effective_id)
     if df.empty and effective_id == "BASELINE":
         df = _load_candidates_df()
@@ -360,7 +360,7 @@ async def get_match_detail(candidate_id: str, dataset_id: Optional[str] = None):
 
     # Organize attribute-level similarities into structured comparison
     attr_breakdown = {}
-    from server.services.matching_service import ENGINEERING_ATTRS
+    from services.matching_service import ENGINEERING_ATTRS
     for attr in ENGINEERING_ATTRS:
         sim_col = f"{attr}_similarity"
         sim_val = rec.get(sim_col)

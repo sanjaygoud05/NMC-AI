@@ -53,11 +53,11 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
             "data_available": False,
         }
 
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
 
     df_std = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
     if df_std.empty and effective_id != "BASELINE":
-        from server.services.dataset_registry_service import dataset_registry_service
+        from services.dataset_registry_service import dataset_registry_service
         meta = dataset_registry_service.get_dataset(effective_id)
         reg_progress = meta.get("progress", 0) if meta else 0
         return {
@@ -86,7 +86,7 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
 
     # Load review queue pending count
     df_reviews = load_dataset_dataframe("validated_candidates.csv", dataset_id=effective_id)
-    from server.app.db.review_repository import review_repository
+    from app.db.review_repository import review_repository
     decisions_map = review_repository.get_all_decisions()
     pending_cnt = 0
     if not df_reviews.empty and "candidate_id" in df_reviews.columns:
@@ -100,7 +100,7 @@ async def get_dashboard_metrics(dataset_id: Optional[str] = Query(None)):
     data_quality_score = 0
     if total_mats > 0:
         try:
-            from server.services.dataset_resolver import resolve_artifact_path
+            from services.dataset_resolver import resolve_artifact_path
             norm_path = resolve_artifact_path("normalized_materials.csv", dataset_id=effective_id)
             if norm_path and norm_path.exists():
                 df_norm = load_dataset_dataframe("normalized_materials.csv", dataset_id=effective_id)
@@ -148,7 +148,7 @@ async def get_cpse_analytics(dataset_id: Optional[str] = Query(None)):
             "data_available": False,
         }
 
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
 
     df = load_dataset_dataframe("standardized_materials.csv", dataset_id=effective_id)
     if df.empty:
@@ -196,7 +196,7 @@ async def get_data_quality_metrics(dataset_id: Optional[str] = Query(None)):
             "quality_flags": [],
         }
 
-    from server.services.dataset_resolver import resolve_artifact_path
+    from services.dataset_resolver import resolve_artifact_path
     import pandas as _pd
 
     try:

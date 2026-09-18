@@ -15,7 +15,7 @@ import pandas as pd
 import yaml
 from rapidfuzz import fuzz
 
-from server.services.embedding_service import embedding_service
+from services.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 

@@ -16,9 +16,14 @@ from typing import Dict, Any, List, Tuple
 import numpy as np
 import pandas as pd
 
-from server.services.embedding_service import embedding_service
-from server.services.matching_service import matching_service
-from server.pipeline.phase06_embedding import run_embedding
+try:
+    from services.embedding_service import embedding_service
+    from services.matching_service import matching_service
+    from pipeline.phase06_embedding import run_embedding
+except ImportError:
+    from server.services.embedding_service import embedding_service
+    from server.services.matching_service import matching_service
+    from server.pipeline.phase06_embedding import run_embedding
 
 logger = logging.getLogger(__name__)
 

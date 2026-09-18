@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { API_BASE } from "./services/apiConfig";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -46,6 +47,21 @@ const App = () => {
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
     }
+  }, []);
+
+  // Keep-alive ping — prevents Render Free cold starts (30-60s delay)
+  // Pings /api/health every 9 minutes silently in the background
+  useEffect(() => {
+    const ping = () => {
+      fetch(`${API_BASE}/api/health`, { method: "GET" }).catch(() => {
+        // silent — just keeping the server warm
+      });
+    };
+    // Ping immediately on app load to wake up sleeping server
+    ping();
+    // Then every 9 minutes (Render sleeps after ~15 min inactivity)
+    const interval = setInterval(ping, 9 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

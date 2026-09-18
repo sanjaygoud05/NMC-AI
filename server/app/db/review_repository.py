@@ -46,15 +46,35 @@ class ReviewRepository:
                 db_path = os.path.join(data_dir, "review_store.db")
                 db_url = f"sqlite:///{db_path}"
 
-        self.db_url = db_url
-        self.engine = create_engine(
-            self.db_url,
-            echo=False,
-            future=True,
-            connect_args={"check_same_thread": False} if "sqlite" in self.db_url else {}
-        )
-        self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False)
-        self._init_db()
+        if self.db_url.startswith("postgres://"):
+            self.db_url = self.db_url.replace("postgres://", "postgresql://", 1)
+
+        try:
+            connect_args = {}
+            if "sqlite" in self.db_url:
+                connect_args = {"check_same_thread": False}
+            elif "supabase.com" in self.db_url or "pooler" in self.db_url:
+                connect_args = {"sslmode": "require"}
+
+            self.engine = create_engine(
+                self.db_url,
+                echo=False,
+                future=True,
+                pool_pre_ping=True,
+                pool_recycle=300,
+                connect_args=connect_args,
+            )
+            self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False)
+            self._init_db()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to connect to primary DB {self.db_url}: {e}. Falling back to SQLite.")
+            data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data"))
+            os.makedirs(data_dir, exist_ok=True)
+            self.db_url = f"sqlite:///{os.path.join(data_dir, 'review_store.db')}"
+            self.engine = create_engine(self.db_url, future=True, connect_args={"check_same_thread": False})
+            self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False, autocommit=False, expire_on_commit=False)
+            self._init_db()
 
     def _init_db(self):
         """Create database tables if they do not exist"""

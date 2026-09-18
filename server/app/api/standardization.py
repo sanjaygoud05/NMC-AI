@@ -58,7 +58,7 @@ async def get_attributes_summary(dataset_id: Optional[str] = None):
             "data_available": False,
         }
 
-    from server.services.dataset_resolver import resolve_artifact_path
+    from services.dataset_resolver import resolve_artifact_path
     import json as _json
 
     # Resolve extraction report for specific dataset
@@ -224,7 +224,7 @@ async def get_standardization_report(dataset_id: Optional[str] = None):
     """
     Get Phase 4 Material Standardization & Canonicalization report, scoped by dataset_id.
     """
-    from server.services.dataset_resolver import resolve_artifact_path
+    from services.dataset_resolver import resolve_artifact_path
 
     effective_id = dataset_id.strip().upper() if dataset_id else "NONE"
     if effective_id == "NONE":
@@ -292,7 +292,7 @@ async def get_standardized_material(
     Get standardized material details for a specific material code scoped by dataset_id.
     Returns original fields, Phase 3 extracted attributes, and Phase 4 canonical attributes.
     """
-    from server.services.dataset_resolver import load_dataset_dataframe
+    from services.dataset_resolver import load_dataset_dataframe
 
     effective_id = dataset_id.strip().upper() if dataset_id else "NONE"
     if effective_id == "NONE":

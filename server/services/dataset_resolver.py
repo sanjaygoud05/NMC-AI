@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 import pandas as pd
 
-from server.services.dataset_registry_service import dataset_registry_service
+from services.dataset_registry_service import dataset_registry_service
 
 _WORKSPACE_ROOT = Path(__file__).resolve().parent.parent.parent
 PROCESSED_BASE = _WORKSPACE_ROOT / "data" / "processed"
