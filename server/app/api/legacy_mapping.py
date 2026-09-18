@@ -179,11 +179,15 @@ async def get_legacy_mapping_stats(
         "total_mappings": total,
         "mapped_verified": int(len(df[df["mapping_status"] == "MAPPED_VERIFIED"])) if not df.empty and "mapping_status" in df.columns else 0,
         "mapped_standalone": int(len(df[df["mapping_status"] == "MAPPED_STANDALONE"])) if not df.empty and "mapping_status" in df.columns else total,
-        "review_required": int(len(df[df["mapping_status"] == "AMBIGUOUS_REVIEW_REQUIRED"])) if not df.empty and "mapping_status" in df.columns else 0,
-        "conflict": int(len(df[df["mapping_status"] == "UNRESOLVABLE_CONFLICT"])) if not df.empty and "mapping_status" in df.columns else 0,
+        "review_required": int(len(df[df["mapping_status"] == "REVIEW_REQUIRED"])) if not df.empty and "mapping_status" in df.columns else 0,
+        "conflict": int(len(df[df["mapping_status"] == "CONFLICT"])) if not df.empty and "mapping_status" in df.columns else 0,
         "unmapped": int(len(df[df["mapping_status"] == "UNMAPPED"])) if not df.empty and "mapping_status" in df.columns else 0,
         "cpse_distribution": cpse_dist,
-        "mapping_coverage_pct": 100.0 if total > 0 else 0.0,
+        "mapping_coverage_pct": (
+            round(
+                (int(len(df[df["mapping_status"] == "MAPPED_VERIFIED"])) + int(len(df[df["mapping_status"] == "MAPPED_STANDALONE"]))) / total * 100, 1
+            ) if total > 0 and "mapping_status" in df.columns else 0.0
+        ),
         "dataset_id": effective_id,
         "has_dataset": True,
         "data_available": total > 0,

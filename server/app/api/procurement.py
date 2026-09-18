@@ -53,15 +53,22 @@ async def get_procurement_kpis(
 
     if effective_id == "BASELINE":
         kpis = procurement_repository.get_kpis()
-        if kpis.get("total_materials_analyzed", 0) >= 2000:
+        total_analyzed = kpis.get("total_materials_analyzed", 0)
+        multi_cpse_count = kpis.get("multi_cpse_cmms_count", 0)
+        total_opps = kpis.get("total_opportunities_count", 0)
+        # Guard: if total_materials >= 2000 AND multi_cpse > 0 AND total_opps > 0 then DB is fully seeded
+        if total_analyzed >= 2000 and multi_cpse_count > 0 and total_opps > 0:
             kpis["dataset_id"] = "BASELINE"
             kpis["has_dataset"] = True
             kpis["data_available"] = True
             return kpis
+        # DB is stale (missing multi-cpse or opportunity data) – fall through to CSV baseline
 
     from services.dataset_resolver import load_dataset_dataframe
     df_facts = load_dataset_dataframe("procurement_facts.csv", dataset_id=effective_id)
     df_cmm = load_dataset_dataframe("common_material_master.csv", dataset_id=effective_id)
+    df_opps = load_dataset_dataframe("procurement_opportunities.csv", dataset_id=effective_id)
+    df_cmm_cons = load_dataset_dataframe("cmm_consumption_summary.csv", dataset_id=effective_id)
 
     volume_by_uom: Dict[str, float] = {}
     if not df_facts.empty and "unit_of_measure" in df_facts.columns and "annual_consumption" in df_facts.columns:
@@ -71,24 +78,37 @@ async def get_procurement_kpis(
 
     total_mats = len(df_facts)
     total_cmm = len(df_cmm)
+    multi_cmms = int(df_cmm["cpse_coverage"].str.contains(";", na=False).sum()) if not df_cmm.empty and "cpse_coverage" in df_cmm.columns else 0
+    standalone_cmms = total_cmm - multi_cmms
+
+    multi_cpse_volume_by_uom: Dict[str, float] = {}
+    if not df_cmm_cons.empty and "cpse_count" in df_cmm_cons.columns and "primary_uom" in df_cmm_cons.columns:
+        multi_cons = df_cmm_cons[pd.to_numeric(df_cmm_cons["cpse_count"], errors="coerce").fillna(0) >= 2]
+        for uom, grp in multi_cons.groupby("primary_uom"):
+            val = pd.to_numeric(grp["total_annual_consumption"], errors="coerce").fillna(0).sum()
+            multi_cpse_volume_by_uom[str(uom)] = round(float(val), 2)
+
     active_count = len(df_facts[df_facts["material_status"].str.lower() == "active"]) if not df_facts.empty and "material_status" in df_facts.columns else total_mats
     plants_count = df_facts["plant"].nunique() if not df_facts.empty and "plant" in df_facts.columns else (1 if total_mats > 0 else 0)
     mfg_count = df_facts["manufacturer"].nunique() if not df_facts.empty and "manufacturer" in df_facts.columns else 0
 
+    opps_by_type = {str(k): int(v) for k, v in df_opps["opportunity_type"].value_counts().to_dict().items()} if not df_opps.empty and "opportunity_type" in df_opps.columns else {}
+    total_opps = len(df_opps) if not df_opps.empty else 0
+
     return {
         "total_materials_analyzed": total_mats,
         "total_cmm_entities": total_cmm,
-        "multi_cpse_cmms_count": 0,
-        "standalone_cmms_count": total_cmm,
+        "multi_cpse_cmms_count": multi_cmms,
+        "standalone_cmms_count": standalone_cmms,
         "volume_by_uom": volume_by_uom,
-        "multi_cpse_volume_by_uom": {},
+        "multi_cpse_volume_by_uom": multi_cpse_volume_by_uom,
         "active_materials_count": active_count,
         "inactive_materials_count": total_mats - active_count,
         "active_materials_pct": round((active_count / total_mats) * 100, 1) if total_mats > 0 else 0,
         "distinct_plants_count": plants_count,
         "distinct_manufacturers_count": mfg_count,
-        "opportunities_by_type": {},
-        "total_opportunities_count": 0,
+        "opportunities_by_type": opps_by_type,
+        "total_opportunities_count": total_opps,
         "analysis_reference_date": "2026-03-31",
         "dataset_id": effective_id,
         "has_dataset": True,
@@ -306,7 +326,7 @@ async def list_procurement_opportunities(
             page=page,
             page_size=page_size,
         )
-        if res.get("total", 0) > 0:
+        if res.get("total", 0) >= 500 or (opportunity_type or cmm_code or effective_cpse):
             res["dataset_id"] = "BASELINE"
             res["has_dataset"] = True
             res["data_available"] = True
