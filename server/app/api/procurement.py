@@ -287,8 +287,8 @@ async def get_cmm_summary_detail(
                 "source_cpses": str(o.get("source_cpses", "")),
                 "material_codes": str(o.get("material_codes", "")),
                 "trigger_metric": str(o.get("trigger_metric", "")),
-                "trigger_value": float(o.get("trigger_value", 0)) if o.get("trigger_value") else None,
-                "threshold": float(o.get("threshold", 0)) if o.get("threshold") else None,
+                "trigger_value": str(o.get("trigger_value", "")) if o.get("trigger_value") else None,
+                "threshold": str(o.get("threshold", "")) if o.get("threshold") else None,
                 "reason": str(o.get("reason", "")),
                 "evidence_reference": str(o.get("evidence_reference", "")) or None,
             })
