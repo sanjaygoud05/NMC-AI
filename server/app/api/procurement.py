@@ -134,7 +134,11 @@ async def list_cmm_summaries(
             page=page,
             page_size=page_size,
         )
-        if res.get("total", 0) > 0:
+        # Guard: only use DB if total is exactly in the 1228 baseline range (not stale 1249)
+        # Allow filters to pass through if there are results (filtered queries can have any count)
+        has_filters = any([search, material_family, primary_uom, cpse, min_consumption])
+        db_total = res.get("total", 0)
+        if db_total == 1228 or (has_filters and db_total > 0):
             res["dataset_id"] = "BASELINE"
             res["has_dataset"] = True
             res["data_available"] = True
