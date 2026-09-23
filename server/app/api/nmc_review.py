@@ -22,6 +22,18 @@ class DecisionRequest(BaseModel):
     cpse_code: Optional[str] = None
 
 
+@router.get("/stats")
+def get_review_stats(
+    cpse_id: Optional[str] = Query(None, description="Optional CPSE filter"),
+    role: str = Depends(verify_reviewer_access),
+):
+    """
+    Per-tab match counts for the Review Queue.
+    Returns: { pending, different, mapped }
+    """
+    return nmc_repo.get_queue_stats(cpse_id=cpse_id)
+
+
 @router.get("/queue")
 def get_review_queue(
     cpse_id: Optional[str] = Query(None, description="CPSE filter for review queue"),

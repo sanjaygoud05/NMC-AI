@@ -16,10 +16,10 @@ import {
   Split,
   ShieldAlert,
   Sparkles,
-  GitCompare,
   Building2,
   AlertTriangle,
   Lock,
+  LinkIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,7 +28,7 @@ export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { canSubmitDecisions, isAdmin } = useAuth();
+  const { canSubmitDecisions, isAdmin, reviewerKey } = useAuth();
 
   const [decision, setDecision] = useState<'ACCEPT' | 'REJECT' | 'DIFFERENT' | 'OVERRIDE'>('ACCEPT');
   const [overrideOutcome, setOverrideOutcome] = useState<'EQUIVALENT' | 'DIFFERENT' | null>(null);
@@ -50,6 +50,7 @@ export default function MatchDetail() {
         decision: data.decision,
         override_outcome: data.override_outcome,
         reason: data.reason,
+        reviewer: reviewerKey || 'Reviewer',
         cpse_code: match?.source_material?.cpse_code,
       }),
     onSuccess: (res) => {
@@ -272,7 +273,55 @@ export default function MatchDetail() {
           </CardContent>
         </Card>
 
-        {/* Review Action Form */}
+        {/* CMM/NMC Info for accepted matches */}
+        {match.cmm && (
+          <Card className="border-emerald-500/30 bg-emerald-500/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <LinkIcon className="h-4 w-4" />
+                Common Material Master Record
+              </CardTitle>
+              <CardDescription className="text-xs">
+                This match has been accepted and mapped to the following National Material Code.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-xs space-y-2 divide-y divide-border/40">
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">NMC Code:</span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                  {match.cmm.national_material_code}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Canonical Description:</span>
+                <span className="font-semibold text-foreground text-right max-w-[60%]">
+                  {match.cmm.canonical_description}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Material Family:</span>
+                <span className="font-semibold text-foreground capitalize">{match.cmm.material_family || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Material Type:</span>
+                <span className="font-semibold text-foreground capitalize">{match.cmm.material_type || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">UOM:</span>
+                <span className="font-semibold text-foreground">{match.cmm.uom || '—'}</span>
+              </div>
+              {match.cmm.source_cpses && match.cmm.source_cpses.length > 0 && (
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">Source CPSEs:</span>
+                  <span className="font-semibold text-foreground">{match.cmm.source_cpses.join(', ')}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Review Action Form — only for PENDING_REVIEW matches */}
+        {match.status === 'PENDING_REVIEW' ? (
         <Card className="border-border/60">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -307,7 +356,7 @@ export default function MatchDetail() {
                   disabled={!canSubmitDecisions}
                   variant={decision === 'ACCEPT' ? 'default' : 'outline'}
                   onClick={() => setDecision('ACCEPT')}
-                  className={`text-xs h-9 gap-1.5 ${decision === 'ACCEPT' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                  className={'text-xs h-9 gap-1.5 ' + (decision === 'ACCEPT' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : '')}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Accept & Harmonize
@@ -318,7 +367,7 @@ export default function MatchDetail() {
                   disabled={!canSubmitDecisions}
                   variant={decision === 'DIFFERENT' ? 'default' : 'outline'}
                   onClick={() => setDecision('DIFFERENT')}
-                  className={`text-xs h-9 gap-1.5 ${decision === 'DIFFERENT' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}
+                  className={'text-xs h-9 gap-1.5 ' + (decision === 'DIFFERENT' ? 'bg-amber-600 hover:bg-amber-700 text-white' : '')}
                 >
                   <Split className="h-3.5 w-3.5" />
                   Mark as Different
@@ -329,7 +378,7 @@ export default function MatchDetail() {
                   disabled={!canSubmitDecisions}
                   variant={decision === 'REJECT' ? 'default' : 'outline'}
                   onClick={() => setDecision('REJECT')}
-                  className={`text-xs h-9 gap-1.5 ${decision === 'REJECT' ? 'bg-destructive hover:bg-destructive/90 text-white' : ''}`}
+                  className={'text-xs h-9 gap-1.5 ' + (decision === 'REJECT' ? 'bg-destructive hover:bg-destructive/90 text-white' : '')}
                 >
                   <XCircle className="h-3.5 w-3.5" />
                   Reject Match
@@ -340,14 +389,13 @@ export default function MatchDetail() {
                   disabled={!canSubmitDecisions}
                   variant={decision === 'OVERRIDE' ? 'default' : 'outline'}
                   onClick={() => setDecision('OVERRIDE')}
-                  className={`text-xs h-9 gap-1.5 ${decision === 'OVERRIDE' ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
+                  className={'text-xs h-9 gap-1.5 ' + (decision === 'OVERRIDE' ? 'bg-purple-600 hover:bg-purple-700 text-white' : '')}
                 >
                   Override Rule
                 </Button>
               </div>
             </div>
 
-            {/* OVERRIDE Sub-choice panel */}
             {decision === 'OVERRIDE' && (
               <div className="p-4 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
@@ -364,11 +412,11 @@ export default function MatchDetail() {
                     disabled={!canSubmitDecisions}
                     variant={overrideOutcome === 'EQUIVALENT' ? 'default' : 'outline'}
                     onClick={() => setOverrideOutcome('EQUIVALENT')}
-                    className={`text-xs h-8 gap-1.5 ${
+                    className={'text-xs h-8 gap-1.5 ' + (
                       overrideOutcome === 'EQUIVALENT'
                         ? 'bg-purple-600 hover:bg-purple-700 text-white'
                         : 'border-purple-500/30 hover:bg-purple-500/10'
-                    }`}
+                    )}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Equivalent (Harmonize & Map to CMM)
@@ -379,11 +427,11 @@ export default function MatchDetail() {
                     disabled={!canSubmitDecisions}
                     variant={overrideOutcome === 'DIFFERENT' ? 'default' : 'outline'}
                     onClick={() => setOverrideOutcome('DIFFERENT')}
-                    className={`text-xs h-8 gap-1.5 ${
+                    className={'text-xs h-8 gap-1.5 ' + (
                       overrideOutcome === 'DIFFERENT'
                         ? 'bg-amber-600 hover:bg-amber-700 text-white'
                         : 'border-amber-500/30 hover:bg-amber-500/10'
-                    }`}
+                    )}
                   >
                     <Split className="h-3.5 w-3.5" />
                     Different (Record Decision, Do Not Map)
@@ -432,12 +480,39 @@ export default function MatchDetail() {
                 ? 'Recording Decision...'
                 : decision === 'OVERRIDE'
                 ? overrideOutcome
-                  ? `Confirm Override (${overrideOutcome})`
+                  ? 'Confirm Override (' + overrideOutcome + ')'
                   : 'Select Override Outcome Above'
-                : `Confirm Decision (${decision})`}
+                : 'Confirm Decision (' + decision + ')'}
             </Button>
           </CardFooter>
         </Card>
+        ) : (
+          /* Already decided — show read-only status banner */
+          <Card className="border-border/60">
+            <CardContent className="pt-4 pb-4">
+              <div className={'p-3 rounded-lg border flex items-center gap-2.5 text-xs ' + (
+                match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN'
+                  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                  : match.status === 'DIFFERENT' || match.status === 'REJECTED'
+                  ? 'bg-amber-500/5 border-amber-500/20 text-amber-600'
+                  : 'bg-muted/60 border-border text-muted-foreground'
+              )}>
+                {match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN' ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                ) : (
+                  <XCircle className="h-4 w-4 shrink-0" />
+                )}
+                <span>
+                  <strong>Decision recorded:</strong> This match was marked as <strong>{match.status}</strong>.
+                  {match.cmm && (
+                    <> Assigned NMC Code: <strong className="font-mono">{match.cmm.national_material_code}</strong>.</>  
+                  )}
+                  {' '}No further actions are available.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );

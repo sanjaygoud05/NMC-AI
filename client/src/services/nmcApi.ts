@@ -176,6 +176,13 @@ export const nmcApi = {
 
   // Review Queue
   review: {
+    getStats: (cpse_id?: string) => {
+      const sp = new URLSearchParams();
+      if (cpse_id) sp.set('cpse_id', cpse_id);
+      return request<{ pending: number; different: number; mapped: number }>(
+        `/api/nmc/review/stats?${sp.toString()}`
+      );
+    },
     getQueue: (params: {
       cpse_id?: string;
       status?: string;

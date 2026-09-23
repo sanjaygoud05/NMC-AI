@@ -336,11 +336,10 @@ export default function ManageCPSE() {
               {readiness && (
                 <Badge
                   variant="outline"
-                  className={`text-xs gap-1 px-2 py-0.5 ${
-                    allReady
+                  className={`text-xs gap-1 px-2 py-0.5 ${allReady
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                       : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                  }`}
+                    }`}
                 >
                   {allReady ? (
                     <CheckCircle2 className="h-3 w-3" />
@@ -628,18 +627,16 @@ export default function ManageCPSE() {
                         <tr
                           key={c.id}
                           onClick={() => setSelectedId(isSelected ? null : c.id)}
-                          className={`cursor-pointer transition-colors select-none ${
-                            isSelected
+                          className={`cursor-pointer transition-colors select-none ${isSelected
                               ? 'bg-primary/5 border-l-2 border-l-primary'
                               : 'hover:bg-muted/30'
-                          }`}
+                            }`}
                         >
                           {/* # — radio indicator */}
                           <td className={`py-2.5 text-xs text-muted-foreground ${isSelected ? 'pl-[14px] pr-3' : 'px-4'}`}>
                             <span
-                              className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                isSelected ? 'border-primary bg-primary' : 'border-border bg-transparent'
-                              }`}
+                              className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-border bg-transparent'
+                                }`}
                             >
                               {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                             </span>
