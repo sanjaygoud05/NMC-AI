@@ -434,6 +434,38 @@ class NMCRepository:
                 cand_d["cpse_code"] = cand_cpse.code if cand_cpse else None
                 cand_d["cpse_name"] = cand_cpse.name if cand_cpse else None
                 d["candidate_material"] = cand_d
+
+            # For accepted/overridden matches, attach the CMM/NMC code
+            if m.status in ("ACCEPTED", "OVERRIDDEN"):
+                mapping = None
+                for mat in [src, cand]:
+                    if mat:
+                        mapping = session.execute(
+                            select(MaterialMapping).where(
+                                and_(
+                                    MaterialMapping.material_id == mat.id,
+                                    MaterialMapping.mapping_status == "ACTIVE",
+                                )
+                            )
+                        ).scalars().first()
+                        if mapping:
+                            break
+                if mapping:
+                    cmm = session.get(NMCCommonMaterial, mapping.cmm_id)
+                    if cmm:
+                        d["cmm"] = {
+                            "id": cmm.id,
+                            "national_material_code": cmm.national_material_code,
+                            "canonical_description": cmm.canonical_description,
+                            "material_family": cmm.material_family,
+                            "material_type": cmm.material_type,
+                            "grade": cmm.grade,
+                            "dimensions": cmm.dimensions,
+                            "specifications": cmm.specifications,
+                            "uom": cmm.uom,
+                            "source_cpses": cmm.source_cpses,
+                            "status": cmm.status,
+                        }
             return d
 
     def query_matches(
@@ -484,6 +516,27 @@ class NMCRepository:
                     d["candidate_cpse_code"] = cand_cpse.code if cand_cpse else None
                     d["candidate_code"] = cand.original_material_code
                     d["candidate_description"] = cand.original_description
+                # For accepted/overridden, attach NMC code for "Already Mapped" tab
+                if m.status in ("ACCEPTED", "OVERRIDDEN"):
+                    mapping = None
+                    for mat in [src, cand]:
+                        if mat:
+                            mapping = session.execute(
+                                select(MaterialMapping).where(
+                                    and_(
+                                        MaterialMapping.material_id == mat.id,
+                                        MaterialMapping.mapping_status == "ACTIVE",
+                                    )
+                                )
+                            ).scalars().first()
+                            if mapping:
+                                break
+                    if mapping:
+                        cmm = session.get(NMCCommonMaterial, mapping.cmm_id)
+                        if cmm:
+                            d["nmc_code"] = cmm.national_material_code
+                            d["cmm_id"] = cmm.id
+                            d["canonical_description"] = cmm.canonical_description
                 items.append(d)
 
             return {
@@ -503,6 +556,34 @@ class NMCRepository:
             m.updated_at = datetime.now(timezone.utc)
             session.commit()
             return True
+
+    def get_queue_stats(self, cpse_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Return per-tab counts for the Review Queue UI:
+        - pending: PENDING_REVIEW (Potentially Same tab)
+        - different: DIFFERENT + REJECTED (Different tab)
+        - mapped: ACCEPTED + OVERRIDDEN (Already Mapped tab)
+        """
+        with self.get_session() as session:
+            def _count(statuses):
+                stmt = select(func.count(MaterialMatch.id)).where(
+                    MaterialMatch.status.in_(statuses)
+                )
+                if cpse_id:
+                    src_sub = select(Material.id).where(Material.cpse_id == cpse_id)
+                    stmt = stmt.where(
+                        or_(
+                            MaterialMatch.source_material_id.in_(src_sub),
+                            MaterialMatch.candidate_material_id.in_(src_sub),
+                        )
+                    )
+                return session.execute(stmt).scalar() or 0
+
+            return {
+                "pending": _count(["PENDING_REVIEW"]),
+                "different": _count(["DIFFERENT", "REJECTED"]),
+                "mapped": _count(["ACCEPTED", "OVERRIDDEN"]),
+            }
 
     def clear_all_matches(self):
         """Remove all matches before re-running matching."""
