@@ -260,11 +260,21 @@ export const nmcApi = {
 
   // Audit Trail
   audit: {
-    list: (params: { cpse_code?: string; action?: string; actor?: string; page?: number; page_size?: number }) => {
+    list: (params: {
+      cpse_code?: string;
+      action?: string;
+      actor?: string;
+      entity_type?: string;
+      search?: string;
+      page?: number;
+      page_size?: number;
+    }) => {
       const sp = new URLSearchParams();
       if (params.cpse_code) sp.set('cpse_code', params.cpse_code);
       if (params.action) sp.set('action', params.action);
       if (params.actor) sp.set('actor', params.actor);
+      if (params.entity_type) sp.set('entity_type', params.entity_type);
+      if (params.search) sp.set('search', params.search);
       if (params.page) sp.set('page', params.page.toString());
       if (params.page_size) sp.set('page_size', params.page_size.toString());
       return request<{

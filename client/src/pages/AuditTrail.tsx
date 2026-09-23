@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -12,200 +11,397 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { nmcApi } from '@/services/nmcApi';
-import { ShieldCheck, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Filter, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
+
+function formatAuditTimestamp(dateStr?: string): string {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    const month = monthNames[d.getMonth()];
+    const day = d.getDate();
+    const year = d.getFullYear();
+
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const seconds = d.getSeconds().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+
+    return `${month} ${day}, ${year} at ${hours}:${minutes}:${seconds} ${ampm}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+function normalizeActor(actor?: string): string {
+  if (!actor) return 'system_harmonization';
+  const a = actor.toLowerCase();
+  if (a === 'system' || a.includes('system') || a === 'system_harmonization') {
+    return 'system_harmonization';
+  }
+  if (a === 'reviewer' || a.includes('reviewer') || a === 'human_reviewer') {
+    return 'human_reviewer';
+  }
+  if (a === 'admin') {
+    return 'admin';
+  }
+  return actor;
+}
+
+function resolveAction(rawAction: string): { displayAction: string; badgeStyle: string } {
+  const act = rawAction.toUpperCase();
+  if (act === 'MARK_DIFFERENT' || act === 'MATCH_DIFFERENT') {
+    return {
+      displayAction: 'MARK_DIFFERENT',
+      badgeStyle:
+        'border border-amber-400/80 bg-amber-50/70 text-amber-700 dark:border-amber-600/70 dark:bg-amber-950/40 dark:text-amber-300',
+    };
+  }
+  if (act === 'CREATE_MAPPING' || act === 'MATCH_ACCEPTED') {
+    return {
+      displayAction: 'CREATE_MAPPING',
+      badgeStyle:
+        'border border-slate-300 bg-slate-100/80 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200',
+    };
+  }
+  if (
+    act === 'CREATE_NATIONAL_MATERIAL' ||
+    act === 'CMM_CREATED' ||
+    act === 'CMM_UPDATED'
+  ) {
+    return {
+      displayAction: 'CREATE_NATIONAL_MATERIAL',
+      badgeStyle:
+        'border border-emerald-300/80 bg-emerald-50/80 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
+    };
+  }
+  if (act === 'OVERRIDE_MATCH' || act === 'MATCH_OVERRIDDEN') {
+    return {
+      displayAction: 'OVERRIDE_MATCH',
+      badgeStyle:
+        'border border-purple-300/80 bg-purple-50/80 text-purple-700 dark:border-purple-600 dark:bg-purple-950/40 dark:text-purple-300',
+    };
+  }
+  if (act === 'REJECT_MATCH' || act === 'MATCH_REJECTED') {
+    return {
+      displayAction: 'REJECT_MATCH',
+      badgeStyle:
+        'border border-rose-300/80 bg-rose-50/80 text-rose-700 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
+    };
+  }
+  if (act === 'MATCHING_STARTED' || act === 'MATCHING_COMPLETED' || act === 'RUN_HARMONIZATION') {
+    return {
+      displayAction: 'RUN_HARMONIZATION',
+      badgeStyle:
+        'border border-blue-300/80 bg-blue-50/80 text-blue-700 dark:border-blue-600 dark:bg-blue-950/40 dark:text-blue-300',
+    };
+  }
+  return {
+    displayAction: rawAction,
+    badgeStyle:
+      'border border-border bg-muted/60 text-foreground font-mono',
+  };
+}
+
+function resolveEntityType(action: string, metadata?: any): string {
+  const act = action.toUpperCase();
+  if (
+    act === 'MARK_DIFFERENT' ||
+    act === 'MATCH_DIFFERENT' ||
+    act === 'REJECT_MATCH' ||
+    act === 'MATCH_REJECTED' ||
+    act === 'OVERRIDE_MATCH' ||
+    act === 'MATCH_OVERRIDDEN'
+  ) {
+    return 'MATCH_RECOMMENDATION';
+  }
+  if (act === 'CREATE_MAPPING' || act === 'MATCH_ACCEPTED') {
+    return 'MATERIAL_NATIONAL_MAPPING';
+  }
+  if (
+    act === 'CREATE_NATIONAL_MATERIAL' ||
+    act === 'CMM_CREATED' ||
+    act === 'CMM_UPDATED'
+  ) {
+    return 'NATIONAL_MATERIAL';
+  }
+  if (act.includes('DATASET')) {
+    return 'MATERIAL_DATASET';
+  }
+  if (act.includes('MATCHING') || act.includes('HARMONIZATION')) {
+    return 'HARMONIZATION_RUN';
+  }
+  if (act.includes('CPSE')) {
+    return 'CPSE_ENTERPRISE';
+  }
+  if (metadata?.entity_type) {
+    return metadata.entity_type;
+  }
+  return 'MATCH_RECOMMENDATION';
+}
+
+function resolveReasonNotes(log: any): string {
+  if (log.reason && log.reason.trim()) {
+    return log.reason;
+  }
+  const meta = log.metadata || log.extra_metadata;
+  if (meta) {
+    if (meta.reason && typeof meta.reason === 'string') {
+      return meta.reason;
+    }
+    if (meta.match_id) {
+      if (log.action === 'CREATE_MAPPING' || log.action === 'MATCH_ACCEPTED') {
+        return `Auto-mapped based on SAME recommendation ${meta.match_id}...`;
+      }
+      return `Processed match recommendation ${meta.match_id}`;
+    }
+  }
+  if (log.material_code) {
+    if (
+      log.action === 'CREATE_NATIONAL_MATERIAL' ||
+      log.action === 'CMM_CREATED'
+    ) {
+      return `Auto-created from Material ${log.material_code}`;
+    }
+    return `Referenced material ${log.material_code}`;
+  }
+  return 'System governance record recorded.';
+}
 
 export default function AuditTrail() {
-  const [selectedActor, setSelectedActor] = useState<string>('ALL');
-  const [selectedAction, setSelectedAction] = useState<string>('ALL');
-  const [page, setPage] = useState(1);
-  const pageSize = 25;
+  const [entityTypeFilter, setEntityTypeFilter] = useState<string>('ALL');
+  const [uuidInput, setUuidInput] = useState<string>('');
+  const [appliedSearch, setAppliedSearch] = useState<string>('');
+  const [appliedEntityType, setAppliedEntityType] = useState<string>('ALL');
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 50;
 
-  const { data: auditData, isLoading } = useQuery({
-    queryKey: ['nmc', 'audit-logs', selectedActor, selectedAction, page],
+  const {
+    data: auditData,
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ['nmc', 'audit-trail', appliedEntityType, appliedSearch, page],
     queryFn: () =>
       nmcApi.audit.list({
-        actor: selectedActor === 'ALL' ? undefined : selectedActor,
-        action: selectedAction === 'ALL' ? undefined : selectedAction,
+        entity_type: appliedEntityType === 'ALL' ? undefined : appliedEntityType,
+        search: appliedSearch.trim() || undefined,
         page,
         page_size: pageSize,
       }),
   });
 
+  const handleApply = () => {
+    setAppliedEntityType(entityTypeFilter);
+    setAppliedSearch(uuidInput);
+    setPage(1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleApply();
+    }
+  };
+
   return (
     <AppLayout requireReviewer>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center justify-between pb-2">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Platform Governance & Audit Trail
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              Audit Trail
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Append-only immutable record of all CPSE uploads, normalization runs, AI matching triggers, and reviewer decisions.
+            <p className="text-xs text-muted-foreground mt-0.5">
+              System and governance history
             </p>
           </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="h-8 w-8 rounded-md border-border/70 hover:bg-muted text-muted-foreground hover:text-foreground"
+            title="Refresh Audit Trail"
+          >
+            <RotateCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
 
         {/* Filter Bar */}
-        <Card className="border-border/60">
-          <CardContent className="p-4 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select
-                value={selectedActor}
-                onValueChange={(val) => {
-                  setSelectedActor(val);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[150px] h-9 text-xs">
-                  <SelectValue placeholder="Actor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Actors</SelectItem>
-                  <SelectItem value="Admin">Admin</SelectItem>
-                  <SelectItem value="System">System</SelectItem>
-                  <SelectItem value="Reviewer">Reviewer</SelectItem>
-                </SelectContent>
-              </Select>
+        <div className="bg-card border border-border/70 rounded-md p-2.5 shadow-xs">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs">
+            <div className="flex items-center gap-1.5 font-medium text-muted-foreground pl-1">
+              <Filter className="h-3.5 w-3.5" />
+              <span>Filters:</span>
             </div>
 
             <Select
-              value={selectedAction}
-              onValueChange={(val) => {
-                setSelectedAction(val);
-                setPage(1);
-              }}
+              value={entityTypeFilter}
+              onValueChange={(val) => setEntityTypeFilter(val)}
             >
-              <SelectTrigger className="w-[200px] h-9 text-xs">
-                <SelectValue placeholder="Action Type" />
+              <SelectTrigger className="w-[190px] h-8 text-xs bg-background border-border/70">
+                <SelectValue placeholder="All Entity Types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Actions</SelectItem>
-                <SelectItem value="CPSE_CREATED">CPSE_CREATED</SelectItem>
-                <SelectItem value="DATASET_UPLOADED">DATASET_UPLOADED</SelectItem>
-                <SelectItem value="DATASET_NORMALIZED">DATASET_NORMALIZED</SelectItem>
-                <SelectItem value="MATCHING_STARTED">MATCHING_STARTED</SelectItem>
-                <SelectItem value="MATCHING_COMPLETED">MATCHING_COMPLETED</SelectItem>
-                <SelectItem value="MATCH_ACCEPTED">MATCH_ACCEPTED</SelectItem>
-                <SelectItem value="MATCH_REJECTED">MATCH_REJECTED</SelectItem>
-                <SelectItem value="MATCH_DIFFERENT">MATCH_DIFFERENT</SelectItem>
-                <SelectItem value="CMM_CREATED">CMM_CREATED</SelectItem>
+                <SelectItem value="ALL">All Entity Types</SelectItem>
+                <SelectItem value="MATCH_RECOMMENDATION">MATCH_RECOMMENDATION</SelectItem>
+                <SelectItem value="MATERIAL_NATIONAL_MAPPING">
+                  MATERIAL_NATIONAL_MAPPING
+                </SelectItem>
+                <SelectItem value="NATIONAL_MATERIAL">NATIONAL_MATERIAL</SelectItem>
+                <SelectItem value="CPSE_ENTERPRISE">CPSE_ENTERPRISE</SelectItem>
+                <SelectItem value="MATERIAL_DATASET">MATERIAL_DATASET</SelectItem>
+                <SelectItem value="HARMONIZATION_RUN">HARMONIZATION_RUN</SelectItem>
               </SelectContent>
             </Select>
 
-            <div className="ml-auto text-xs text-muted-foreground">
-              Total Log Entries: <strong className="text-foreground">{auditData?.total || 0}</strong>
-            </div>
-          </CardContent>
-        </Card>
+            <Input
+              type="text"
+              placeholder="Filter by Entity UUID..."
+              value={uuidInput}
+              onChange={(e) => setUuidInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="h-8 w-64 text-xs bg-background border-border/70 placeholder:text-muted-foreground/60"
+            />
 
-        {/* Audit Log Table */}
-        <Card className="border-border/60 overflow-hidden">
+            <Button
+              onClick={handleApply}
+              className="h-8 px-4 text-xs font-medium bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 rounded-md"
+            >
+              Apply
+            </Button>
+          </div>
+        </div>
+
+        {/* Audit Trail Table */}
+        <div className="bg-card border border-border/70 rounded-md overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="p-3 w-36">Timestamp</th>
-                  <th className="p-3 w-24">Actor</th>
-                  <th className="p-3 w-24">CPSE</th>
-                  <th className="p-3 w-40">Action</th>
-                  <th className="p-3 w-32">Material</th>
-                  <th className="p-3 w-40">Status Transition</th>
-                  <th className="p-3 min-w-[200px]">Reason / Metadata</th>
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-muted/30 border-b border-border text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+                  <th className="py-2.5 px-3 w-10 text-center">#</th>
+                  <th className="py-2.5 px-3 w-52">TIMESTAMP</th>
+                  <th className="py-2.5 px-3 w-44">ACTOR</th>
+                  <th className="py-2.5 px-3 w-48">ACTION</th>
+                  <th className="py-2.5 px-3 w-56">ENTITY TYPE</th>
+                  <th className="py-2.5 px-3 min-w-[280px]">REASON / NOTES</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
+              <tbody className="divide-y divide-border/50">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                      Loading audit records...
+                    <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2">
+                        <RotateCw className="h-4 w-4 animate-spin text-primary" />
+                        <span>Loading audit records...</span>
+                      </div>
                     </td>
                   </tr>
                 ) : !auditData?.items || auditData.items.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                      No audit log records found.
+                    <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                      No audit records found matching your filters.
                     </td>
                   </tr>
                 ) : (
-                  auditData.items.map((log: any) => (
-                    <tr key={log.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-3 text-muted-foreground font-mono">
-                        {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
-                      </td>
-                      <td className="p-3">
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] ${
-                            log.actor === 'Admin'
-                              ? 'bg-primary/10 text-primary border border-primary/20'
-                              : log.actor === 'Reviewer'
-                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                              : 'bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          {log.actor}
-                        </Badge>
-                      </td>
-                      <td className="p-3 font-mono text-muted-foreground">{log.cpse_code || '—'}</td>
-                      <td className="p-3 font-semibold font-mono text-foreground">{log.action}</td>
-                      <td className="p-3 font-mono text-xs">{log.material_code || '—'}</td>
-                      <td className="p-3 text-[11px]">
-                        {log.previous_status || log.new_status ? (
-                          <span className="font-mono">
-                            {log.previous_status || 'NONE'} &rarr; <span className="font-bold text-foreground">{log.new_status}</span>
+                  auditData.items.map((log: any, idx: number) => {
+                    const rowIndex = (page - 1) * pageSize + idx + 1;
+                    const actorName = normalizeActor(log.actor);
+                    const { displayAction, badgeStyle } = resolveAction(log.action);
+                    const entityType = resolveEntityType(log.action, log.metadata || log.extra_metadata);
+                    const reasonNotes = resolveReasonNotes(log);
+
+                    return (
+                      <tr
+                        key={log.id || rowIndex}
+                        className="hover:bg-muted/20 transition-colors"
+                      >
+                        <td className="py-2.5 px-3 text-center text-muted-foreground/70 font-mono text-[11px]">
+                          {rowIndex}
+                        </td>
+                        <td className="py-2.5 px-3 text-muted-foreground font-sans whitespace-nowrap">
+                          {formatAuditTimestamp(log.timestamp)}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-foreground/80 font-medium whitespace-nowrap">
+                          {actorName}
+                        </td>
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide ${badgeStyle}`}
+                          >
+                            {displayAction}
                           </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="p-3 font-mono text-[11px] text-muted-foreground max-w-[320px] truncate">
-                        {log.metadata?.override_outcome && (
-                          <span className="font-bold text-purple-600 dark:text-purple-400 mr-1.5">
-                            [{log.metadata.override_outcome}]
+                        </td>
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono border border-border/70 bg-muted/60 text-muted-foreground font-medium">
+                            {entityType}
                           </span>
-                        )}
-                        {log.reason ? log.reason : log.metadata ? JSON.stringify(log.metadata) : '—'}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="py-2.5 px-3 text-muted-foreground font-sans truncate max-w-lg">
+                          {reasonNotes}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
-          {auditData && auditData.total_pages > 1 && (
-            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-muted/20">
+          {/* Table Footer / Pagination */}
+          {auditData && auditData.total > 0 && (
+            <div className="px-4 py-2.5 border-t border-border/60 bg-muted/15 flex items-center justify-between text-xs text-muted-foreground">
               <span>
-                Page {page} of {auditData.total_pages} ({auditData.total} entries)
+                Showing{' '}
+                <strong className="text-foreground">
+                  {(page - 1) * pageSize + 1}
+                </strong>{' '}
+                to{' '}
+                <strong className="text-foreground">
+                  {Math.min(page * pageSize, auditData.total)}
+                </strong>{' '}
+                of <strong className="text-foreground">{auditData.total}</strong> records
               </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={page >= auditData.total_pages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              {auditData.total_pages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs border-border/70"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                    Previous
+                  </Button>
+                  <span className="px-2 text-xs">
+                    {page} / {auditData.total_pages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs border-border/70"
+                    disabled={page >= auditData.total_pages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </AppLayout>
   );
 }
-

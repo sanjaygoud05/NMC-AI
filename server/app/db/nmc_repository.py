@@ -1108,6 +1108,8 @@ class NMCRepository:
         cpse_code: Optional[str] = None,
         action: Optional[str] = None,
         actor: Optional[str] = None,
+        entity_type: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 100,
     ) -> Dict[str, Any]:
@@ -1119,6 +1121,32 @@ class NMCRepository:
                 stmt = stmt.where(AuditLog.action == action)
             if actor:
                 stmt = stmt.where(AuditLog.actor == actor)
+            if entity_type and entity_type != "ALL":
+                et = entity_type.upper()
+                if et == "MATCH_RECOMMENDATION":
+                    stmt = stmt.where(AuditLog.action.in_(["MATCH_ACCEPTED", "MATCH_REJECTED", "MATCH_DIFFERENT", "MATCH_OVERRIDDEN", "MARK_DIFFERENT", "REJECT_MATCH", "OVERRIDE_MATCH"]))
+                elif et == "MATERIAL_NATIONAL_MAPPING":
+                    stmt = stmt.where(AuditLog.action.in_(["CREATE_MAPPING", "MATCH_ACCEPTED"]))
+                elif et == "NATIONAL_MATERIAL":
+                    stmt = stmt.where(AuditLog.action.in_(["CMM_CREATED", "CMM_UPDATED", "CREATE_NATIONAL_MATERIAL"]))
+                elif et == "CPSE_ENTERPRISE":
+                    stmt = stmt.where(AuditLog.action.in_(["CPSE_CREATED", "CPSE_DELETED"]))
+                elif et == "MATERIAL_DATASET":
+                    stmt = stmt.where(AuditLog.action.in_(["DATASET_UPLOADED", "DATASET_VALIDATED", "DATASET_NORMALIZED"]))
+                elif et == "HARMONIZATION_RUN":
+                    stmt = stmt.where(AuditLog.action.in_(["MATCHING_STARTED", "MATCHING_COMPLETED"]))
+            if search:
+                term = f"%{search.strip()}%"
+                stmt = stmt.where(
+                    or_(
+                        AuditLog.id.ilike(term),
+                        AuditLog.material_code.ilike(term),
+                        AuditLog.cpse_code.ilike(term),
+                        AuditLog.reason.ilike(term),
+                        AuditLog.action.ilike(term),
+                        AuditLog.actor.ilike(term),
+                    )
+                )
             total = session.execute(select(func.count()).select_from(stmt.subquery())).scalar() or 0
             stmt = stmt.order_by(desc(AuditLog.timestamp)).offset((page - 1) * page_size).limit(page_size)
             rows = session.execute(stmt).scalars().all()

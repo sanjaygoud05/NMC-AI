@@ -17,6 +17,8 @@ def list_audit_logs(
     cpse_code: Optional[str] = Query(None, description="Filter by CPSE code"),
     action: Optional[str] = Query(None, description="Filter by action name"),
     actor: Optional[str] = Query(None, description="Filter by actor (Admin, System, Reviewer)"),
+    entity_type: Optional[str] = Query(None, description="Filter by entity type"),
+    search: Optional[str] = Query(None, description="Filter by UUID, material, actor or keyword"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     role: str = Depends(verify_reviewer_access),
@@ -29,6 +31,9 @@ def list_audit_logs(
         cpse_code=cpse_code,
         action=action,
         actor=actor,
+        entity_type=entity_type,
+        search=search,
         page=page,
         page_size=page_size,
     )
+
