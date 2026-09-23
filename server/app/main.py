@@ -1,6 +1,6 @@
 """
-SIH26099 Material Harmonization Platform - FastAPI Backend
-Main application entry point
+NMC — National Material Code Platform
+FastAPI Backend Main Application Entry Point
 """
 
 import os
@@ -15,18 +15,28 @@ for _p in [_root_dir, _server_dir]:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api import health, materials, matches, review, analytics, ingestion, standardization, common_master, legacy_mapping, procurement
 
-# Create FastAPI application
+# Import NMC routers
+from app.api import (
+    health,
+    nmc_auth,
+    cpse,
+    nmc_materials,
+    nmc_matching,
+    nmc_review,
+    nmc_cmm,
+    nmc_analytics,
+    nmc_audit,
+)
+
 app = FastAPI(
-    title="SIH26099 Material Harmonization API",
+    title="NMC — National Material Code Platform API",
     description="AI-Driven Standardization and Harmonization of Material Codes Across CPSEs",
-    version="0.1.0",
+    version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
 
-# Configure CORS to accept local dev and any deployed cloud frontend (Vercel, Railway, Render)
 allowed_origins = list(settings.cors_origins)
 
 app.add_middleware(
@@ -38,40 +48,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Register health check
 app.include_router(health.router, prefix="/api", tags=["Health"])
-app.include_router(materials.router, prefix="/api/materials", tags=["Materials"])
-app.include_router(matches.router, prefix="/api/matches", tags=["Matches"])
-app.include_router(review.router, prefix="/api/review", tags=["Review"])
-app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
-app.include_router(ingestion.router, prefix="/api/ingest", tags=["Ingestion"])
-app.include_router(standardization.router, prefix="/api/standardization", tags=["Standardization"])
-app.include_router(common_master.router, prefix="/api/common-master", tags=["Common Master"])
-app.include_router(legacy_mapping.router, prefix="/api/legacy-mapping", tags=["Legacy Mapping"])
-app.include_router(procurement.router, prefix="/api/procurement", tags=["Procurement"])
 
-
-@app.on_event("startup")
-async def startup_event():
-    """Run database seeder if tables are empty on deployment/startup"""
-    try:
-        try:
-            from services.db_seeder import seed_database_if_empty
-        except ImportError:
-            from server.services.db_seeder import seed_database_if_empty
-        seed_database_if_empty()
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"Startup seeder warning: {e}")
+# Register NMC platform routers
+app.include_router(nmc_auth.router, prefix="/api/nmc/auth", tags=["NMC Auth"])
+app.include_router(cpse.router, prefix="/api/nmc/cpses", tags=["NMC CPSE"])
+app.include_router(nmc_materials.router)
+app.include_router(nmc_matching.router)
+app.include_router(nmc_review.router)
+app.include_router(nmc_cmm.router)
+app.include_router(nmc_analytics.router)
+app.include_router(nmc_audit.router)
 
 
 @app.get("/")
 async def root():
     """Root endpoint"""
     return {
-        "message": "SIH26099 Material Harmonization API",
-        "version": "0.1.0",
+        "message": "NMC — National Material Code Platform API",
+        "version": "1.0.0",
         "status": "active",
+        "docs": "/api/docs",
     }
 
 

@@ -1,17 +1,11 @@
-/**
- * Material Explorer Page
- * Searchable, filterable, and paginated table of CPSE materials scoped by active dataset.
- */
-
-import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { PageHeader } from '@/components/shared/PageHeader';
-import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -20,544 +14,750 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { nmcApi } from '@/services/nmcApi';
 import {
   Search,
-  Filter,
-  ExternalLink,
-  Loader2,
-  Database,
-  Upload,
   ChevronLeft,
   ChevronRight,
-  RotateCcw,
-  X,
-  Building2,
-  Tag,
+  Eye,
+  RefreshCw,
+  AlertTriangle,
   CheckCircle2,
+  ArrowLeft,
+  Copy,
+  Check,
 } from 'lucide-react';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { materialService } from '@/services/materialService';
-import { useDataset } from '@/contexts/DatasetContext';
-import type { Material } from '@/types';
+import { toast } from 'sonner';
 
-const CPSE_OPTIONS = [
-  { value: 'all', label: 'All CPSEs' },
-  { value: 'ONGC', label: 'ONGC' },
-  { value: 'IOCL', label: 'IOCL' },
-  { value: 'HPCL', label: 'HPCL' },
-  { value: 'CPCL', label: 'CPCL' },
-];
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const CATEGORY_OPTIONS = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'Bearings', label: 'Bearings' },
-  { value: 'Electrical', label: 'Electrical' },
-  { value: 'Fasteners', label: 'Fasteners' },
-  { value: 'Hoses', label: 'Hoses' },
-  { value: 'Instrumentation', label: 'Instrumentation' },
-  { value: 'Lubricants', label: 'Lubricants' },
-  { value: 'Pipes & Fittings', label: 'Pipes & Fittings' },
-  { value: 'Pumps', label: 'Pumps' },
-  { value: 'Safety', label: 'Safety' },
-  { value: 'Seals', label: 'Seals' },
-  { value: 'Valves', label: 'Valves' },
-];
+const NA = '—';
+const isRaw = (m: any) => m?.processing_status !== 'NORMALIZED';
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Inactive', label: 'Inactive' },
-  { value: 'Blocked', label: 'Blocked' },
-];
-
-const PAGE_SIZE_OPTIONS = [15, 25, 50, 100];
-
-export default function Materials() {
-  const { activeDatasetId, selectDataset } = useDataset();
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  // Filter States
-  const [search, setSearch] = useState('');
-  const [selectedCpse, setSelectedCpse] = useState('all');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-
-  // Pagination States (chunk of data)
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-
-  const hasActiveFilters = search.trim() !== '' || selectedCpse !== 'all' || selectedCategory !== 'all' || selectedStatus !== 'all';
-
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
-  // Reset page to 1 when filters change
-  const handleSearchChange = (val: string) => {
-    setSearch(val);
-    setPage(1);
-  };
-
-  const handleCpseChange = (val: string) => {
-    setSelectedCpse(val);
-    setPage(1);
-  };
-
-  const handleCategoryChange = (val: string) => {
-    setSelectedCategory(val);
-    setPage(1);
-  };
-
-  const handleStatusChange = (val: string) => {
-    setSelectedStatus(val);
-    setPage(1);
-  };
-
-  const handlePageSizeChange = (val: string) => {
-    const size = parseInt(val, 10);
-    setPageSize(size);
-    setPage(1);
-  };
-
-  const handleResetFilters = () => {
-    setSearch('');
-    setSelectedCpse('all');
-    setSelectedCategory('all');
-    setSelectedStatus('all');
-    setPage(1);
-  };
-
-  useEffect(() => {
-    let isCurrent = true;
-    if (activeDatasetId === 'NONE') {
-      setMaterials([]);
-      setTotal(0);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    materialService
-      .getMaterials({
-        datasetId: activeDatasetId,
-        search: search.trim() || undefined,
-        cpseId: selectedCpse !== 'all' ? selectedCpse : undefined,
-        category: selectedCategory !== 'all' ? selectedCategory : undefined,
-        status: selectedStatus !== 'all' ? selectedStatus : undefined,
-        page,
-        limit: pageSize,
-      })
-      .then((res) => {
-        if (isCurrent) {
-          setMaterials(res.materials);
-          setTotal(res.total);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isCurrent) setLoading(false);
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [activeDatasetId, search, selectedCpse, selectedCategory, selectedStatus, page, pageSize]);
-
-  // Generate visible page numbers for chunk navigation
-  const pageNumbers = useMemo(() => {
-    const items: (number | string)[] = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) items.push(i);
-    } else {
-      items.push(1);
-      if (page > 3) items.push('...');
-      const start = Math.max(2, page - 1);
-      const end = Math.min(totalPages - 1, page + 1);
-      for (let i = start; i <= end; i++) items.push(i);
-      if (page < totalPages - 2) items.push('...');
-      items.push(totalPages);
-    }
-    return items;
-  }, [page, totalPages]);
-
-  if (activeDatasetId === 'NONE') {
+const renderHarmonizationBadge = (m: any) => {
+  if (!m) return null;
+  // If matched / mapped across CPSEs in Common Material Master
+  if (m.mapping_status === 'MAPPED') {
     return (
-      <AppLayout>
-        <div className="space-y-6">
-          <PageHeader
-            title="Material Explorer"
-            description="Browse, search, and filter all CPSE materials across the harmonization pipeline"
-          />
-          <Card className="border-border bg-card p-6 sm:p-12">
-            <EmptyState
-              icon={Database}
-              title="No Dataset Selected"
-              description="Upload a material master dataset or explicitly select an existing dataset to begin."
-              action={{
-                label: "Upload Dataset",
-                icon: Upload,
-                href: "/ingest",
-              }}
-            />
-            <div className="mt-4 flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => selectDataset('BASELINE')}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Or select Frozen Baseline (1,250 records)
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </AppLayout>
+      <Badge
+        variant="secondary"
+        className="text-[10px] font-semibold px-2 py-0.5 bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30"
+      >
+        <CheckCircle2 className="h-3 w-3 mr-1 text-blue-600 dark:text-blue-400" />
+        Harmonized
+      </Badge>
     );
   }
 
-  const startRecord = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const endRecord = Math.min(page * pageSize, total);
+  // If normalized / processed through NMC pipeline
+  if (m.processing_status === 'NORMALIZED') {
+    return (
+      <Badge
+        variant="secondary"
+        className="text-[10px] font-semibold px-2 py-0.5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+      >
+        <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600 dark:text-emerald-400" />
+        Processed
+      </Badge>
+    );
+  }
+
+  // Default: RAW / not yet normalized
+  return (
+    <Badge
+      variant="secondary"
+      className="text-[10px] font-medium px-2 py-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+    >
+      Not Processed
+    </Badge>
+  );
+};
+
+export default function Materials() {
+  const { id } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // If navigated from Manage CPSE with ?cpse_id=xxx, pre-filter to that CPSE
+  const cpseIdFromUrl = searchParams.get('cpse_id') || undefined;
+
+  const [search, setSearch] = useState('');
+  const [selectedCpse, setSelectedCpse] = useState<string>(cpseIdFromUrl || 'ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
+
+  const [selectedMaterial, setSelectedMaterial] = useState<any | null>(null);
+  const [payloadOpen, setPayloadOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // If a material ID is in the URL, load it
+  useEffect(() => {
+    if (id) {
+      nmcApi.materials
+        .get(id)
+        .then((m) => {
+          if (m) setSelectedMaterial(m);
+        })
+        .catch(() => {});
+    }
+  }, [id]);
+
+  // Sync CPSE filter if URL param changes
+  useEffect(() => {
+    if (cpseIdFromUrl) setSelectedCpse(cpseIdFromUrl);
+  }, [cpseIdFromUrl]);
+
+  // ── Queries ──────────────────────────────────────────────────────────────
+
+  const { data: cpses } = useQuery({
+    queryKey: ['nmc', 'cpses-list'],
+    queryFn: () => nmcApi.cpses.list(),
+  });
+
+  const { data: materialsData, isLoading, refetch: refetchMaterials } = useQuery({
+    queryKey: ['nmc', 'materials', selectedCpse, statusFilter, search, page],
+    queryFn: () =>
+      nmcApi.materials.list({
+        cpse_id: selectedCpse === 'ALL' ? undefined : selectedCpse,
+        processing_status: statusFilter === 'ALL' ? undefined : statusFilter,
+        search: search.trim() || undefined,
+        page,
+        page_size: pageSize,
+      }),
+    placeholderData: (prev) => prev,
+  });
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+
+  const cpseMap = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    cpses?.forEach((c: any) => {
+      map[c.id] = c.code;
+    });
+    return map;
+  }, [cpses]);
+
+  // The CPSE object for the currently selected filter (single CPSE)
+  const activeCpse = React.useMemo(() => {
+    if (selectedCpse === 'ALL') return null;
+    return cpses?.find((c: any) => c.id === selectedCpse) ?? null;
+  }, [cpses, selectedCpse]);
+
+  const activeCpseStatus = activeCpse?.active_dataset?.status;
+  const canNormalize =
+    activeCpse &&
+    (activeCpseStatus === 'VALIDATED' ||
+      activeCpseStatus === 'NORMALIZED' ||
+      activeCpseStatus === 'UPLOADED');
+  const isNormalized = activeCpseStatus === 'NORMALIZED';
+  const isProcessing = activeCpseStatus === 'PROCESSING';
+
+  // ── Normalize mutation ────────────────────────────────────────────────────
+
+  const normalizeMutation = useMutation({
+    mutationFn: (cpseId: string) => nmcApi.cpses.normalizeDataset(cpseId),
+    onSuccess: async () => {
+      toast.success('Materials normalized successfully! All fields updated.');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['nmc', 'materials'] }),
+        queryClient.invalidateQueries({ queryKey: ['nmc', 'cpses-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['nmc', 'matching-readiness'] }),
+        queryClient.invalidateQueries({ queryKey: ['nmc', 'dashboard-metrics'] }),
+      ]);
+      await refetchMaterials();
+
+      // If a material detail modal/sheet is open, refresh that material
+      if (selectedMaterial?.id) {
+        try {
+          const fresh = await nmcApi.materials.get(selectedMaterial.id);
+          if (fresh) setSelectedMaterial(fresh);
+        } catch {}
+      }
+    },
+    onError: (err: any) => toast.error(err.message || 'Normalization failed'),
+  });
+
+  // Clean tabular parameter generator for Technical Attribute Inspection
+  const getTabularAttributes = (m: any) => {
+    if (!m) return [];
+    const attrs = m.attributes || {};
+    const family = (m.material_family || attrs.material_family || '').toString().trim();
+    const typeLabel = family ? `${family.charAt(0).toUpperCase() + family.slice(1)} Type` : 'Material Type';
+
+    const list: { name: string; value: string }[] = [];
+
+    if (family || m.category) {
+      list.push({
+        name: 'Category / Family',
+        value: (family || m.category).toString().toUpperCase(),
+      });
+    }
+    if (m.material_type || attrs.material_type || attrs.material_subtype) {
+      list.push({
+        name: typeLabel,
+        value: (m.material_type || attrs.material_type || attrs.material_subtype).toString().toUpperCase(),
+      });
+    }
+    if (m.dimensions || attrs.size || attrs.nominal_size || attrs.diameter || attrs.length) {
+      list.push({
+        name: 'Size / Dimensions',
+        value: (m.dimensions || attrs.size || attrs.nominal_size || attrs.diameter || attrs.length).toString().toUpperCase(),
+      });
+    }
+    if (attrs.pressure_class || attrs.rating || attrs.schedule) {
+      list.push({
+        name: 'Pressure Class / Rating',
+        value: (attrs.pressure_class || attrs.rating || attrs.schedule).toString().toUpperCase(),
+      });
+    }
+    if (attrs.material || attrs.material_grade || m.grade) {
+      list.push({
+        name: 'Material Grade / Spec',
+        value: (attrs.material_grade || attrs.material || m.grade).toString().toUpperCase(),
+      });
+    }
+    if (attrs.connection_type || attrs.end_type) {
+      list.push({
+        name: 'Connection / End Type',
+        value: (attrs.connection_type || attrs.end_type).toString().toUpperCase(),
+      });
+    }
+    if (attrs.trim_material || attrs.specification || m.specifications) {
+      list.push({
+        name: 'Specification / Trim',
+        value: (attrs.trim_material || attrs.specification || m.specifications).toString().toUpperCase(),
+      });
+    }
+    if (m.uom || attrs.unit) {
+      list.push({
+        name: 'Normalized Unit of Measure',
+        value: (m.uom || attrs.unit || 'EACH').toString().toUpperCase(),
+      });
+    }
+
+    if (list.length === 0) {
+      list.push(
+        { name: 'Category', value: (m.category || NA).toUpperCase() },
+        { name: 'Unit of Measure', value: (m.uom || 'EACH').toUpperCase() }
+      );
+    }
+
+    return list;
+  };
+
+  const handleCopyCode = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success('Material code copied to clipboard');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <PageHeader
-          title="Material Explorer"
-          description="Browse, search, and filter all CPSE materials across the harmonization pipeline"
-        />
-
-        {/* Search & Comprehensive Filters Bar */}
-        <Card className="border-border bg-card shadow-xs rounded-2xl p-4">
-          <div className="flex flex-col gap-3">
-            {/* Top row: Search and Quick stats */}
-            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search material description, code, manufacturer…"
-                  className="pl-9 pr-8 text-xs sm:text-sm h-9 rounded-xl bg-background"
-                  value={search}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                />
-                {search && (
-                  <button
-                    onClick={() => handleSearchChange('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
-                    title="Clear search"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Total count badge */}
-              <div className="flex items-center gap-2 shrink-0">
-                <Badge variant="secondary" className="text-xs py-1 px-3 rounded-lg font-medium">
-                  {loading ? (
-                    <span className="flex items-center gap-1.5">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Loading chunk…
-                    </span>
-                  ) : (
-                    <span>
-                      <strong className="text-foreground">{total.toLocaleString()}</strong> materials found
-                    </span>
-                  )}
-                </Badge>
-
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleResetFilters}
-                    className="h-8 text-xs text-muted-foreground hover:text-foreground gap-1.5 px-2.5"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Reset
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Bottom row: Dropdown Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 pt-1 border-t border-border/60">
-              {/* CPSE Select */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <Building2 className="h-3 w-3" /> CPSE Enterprise
-                </label>
-                <Select value={selectedCpse} onValueChange={handleCpseChange}>
-                  <SelectTrigger className="h-8 text-xs bg-background border-border rounded-lg">
-                    <SelectValue placeholder="All CPSEs" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    {CPSE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Category Select */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <Tag className="h-3 w-3" /> Material Category
-                </label>
-                <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger className="h-8 text-xs bg-background border-border rounded-lg">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border max-h-56">
-                    {CATEGORY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Status Select */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Material Status
-                </label>
-                <Select value={selectedStatus} onValueChange={handleStatusChange}>
-                  <SelectTrigger className="h-8 text-xs bg-background border-border rounded-lg">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    {STATUS_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Chunk Size / Rows Per Page */}
-              <div className="space-y-1 sm:col-span-3 lg:col-span-1">
-                <label className="text-[11px] font-medium text-muted-foreground">
-                  Chunk Size (Per Page)
-                </label>
-                <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
-                  <SelectTrigger className="h-8 text-xs bg-background border-border rounded-lg">
-                    <SelectValue placeholder="25 rows" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    {PAGE_SIZE_OPTIONS.map((sz) => (
-                      <SelectItem key={sz} value={sz.toString()} className="text-xs">
-                        {sz} rows per page
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Mobile Material Cards View (< sm) */}
-        <div className="block sm:hidden space-y-3">
-          {materials.length === 0 && !loading && (
-            <Card className="p-8 text-center text-muted-foreground text-xs border-border bg-card rounded-2xl">
-              No materials match the selected filters for dataset {activeDatasetId}
-            </Card>
-          )}
-
-          {materials.map((material) => (
-            <Card key={material.id} className="p-4 border-border bg-card space-y-2.5 rounded-2xl shadow-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-xs font-bold text-primary">{material.materialCode}</span>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-semibold">{material.cpseId}</Badge>
-                  <StatusBadge status={material.standardizationStatus} />
-                </div>
-              </div>
-              <div className="text-xs font-semibold text-foreground leading-snug">
-                {material.description}
-              </div>
-              {material.standardizedDescription && (
-                <div className="text-[11px] text-muted-foreground leading-snug p-2 rounded-lg bg-muted/30 border border-border/50">
-                  <span className="text-primary font-medium mr-1">Std:</span>
-                  {material.standardizedDescription}
-                </div>
-              )}
-              <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
-                <span>{material.category || 'General'} · {material.unit || 'NOS'}</span>
-                <Button asChild variant="ghost" size="sm" className="h-7 px-2.5 text-xs text-primary">
-                  <Link to={`/materials/${material.id}`}>
-                    Details <ExternalLink className="h-3 w-3 ml-1" />
-                  </Link>
-                </Button>
-              </div>
-            </Card>
-          ))}
+    <AppLayout requireReviewer>
+      <div className="space-y-4">
+        {/* ── Back Navigation Button ── */}
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground font-medium hover:bg-muted"
+            onClick={() => navigate('/manage-cpses')}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to CPSEs</span>
+          </Button>
         </div>
 
-        {/* Tablet & Desktop Materials Table (>= sm) */}
-        <Card className="hidden sm:block border-border bg-card shadow-sm rounded-2xl overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto w-full">
-              <Table className="min-w-[760px]">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent border-b border-border">
-                    <TableHead className="w-28 font-semibold">Material Code</TableHead>
-                    <TableHead className="font-semibold">Raw Description / Standardized</TableHead>
-                    <TableHead className="w-24 font-semibold">CPSE</TableHead>
-                    <TableHead className="w-32 font-semibold">Category</TableHead>
-                    <TableHead className="w-20 font-semibold">Unit</TableHead>
-                    <TableHead className="w-28 font-semibold">Status</TableHead>
-                    <TableHead className="w-24 font-semibold">Confidence</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {materials.length === 0 && !loading && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-sm">
-                        No materials found matching your filters in dataset <span className="font-mono text-foreground">{activeDatasetId}</span>.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {materials.map((material) => (
-                    <TableRow key={material.id} className="hover:bg-muted/30 transition-colors border-b border-border/60">
-                      <TableCell className="font-mono text-xs font-semibold text-primary">
-                        {material.materialCode}
-                      </TableCell>
-                      <TableCell className="max-w-md py-3">
-                        <div className="text-xs font-medium text-foreground line-clamp-1">{material.description}</div>
-                        {material.standardizedDescription && (
-                          <div className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                            <span className="text-primary font-medium mr-1">↳</span>
-                            {material.standardizedDescription}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5">
-                          {material.cpseId}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-medium">
-                        {material.category || '—'}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
-                        {material.unit || 'NOS'}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={material.standardizationStatus} />
-                      </TableCell>
-                      <TableCell>
-                        {material.confidenceScore !== undefined && material.confidenceScore !== null ? (
-                          <span className={`text-xs font-bold ${material.confidenceScore >= 0.9 ? 'text-emerald-500' : material.confidenceScore >= 0.8 ? 'text-amber-500' : 'text-rose-500'}`}>
-                            {(material.confidenceScore * 100).toFixed(0)}%
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button asChild variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                          <Link to={`/materials/${material.id}`}>
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+        {/* ── Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              Material Catalog Explorer
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {activeCpse
+                ? `Viewing ${activeCpse.name} (${activeCpse.code}) — ${materialsData?.total ?? 0} materials`
+                : 'Inspect raw and normalized material records across all CPSEs.'}
+            </p>
+          </div>
+
+          {/* Normalize button — visible when a specific CPSE is selected */}
+          {activeCpse && canNormalize && (
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                size="sm"
+                variant={isNormalized ? 'outline' : 'default'}
+                className="h-8 text-xs gap-1.5 font-medium shadow-xs"
+                disabled={isProcessing || normalizeMutation.isPending}
+                onClick={() => normalizeMutation.mutate(activeCpse.id)}
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${
+                    isProcessing || normalizeMutation.isPending ? 'animate-spin' : ''
+                  }`}
+                />
+                {normalizeMutation.isPending || isProcessing
+                  ? 'Normalizing Materials...'
+                  : isNormalized
+                  ? 'Re-normalize Materials'
+                  : 'Normalize Materials'}
+              </Button>
+              {!isNormalized && (
+                <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">
+                  Normalize this dataset to unlock all fields.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Not-normalized warning banner ── */}
+        {activeCpse && !isNormalized && activeCpseStatus !== 'PROCESSING' && (
+          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+            <span>
+              This CPSE dataset has not been processed yet. Only raw material codes and original
+              descriptions are shown. All other fields will display as <strong>—</strong> until you
+              click <strong>Normalize Materials</strong>.
+            </span>
+          </div>
+        )}
+
+        {/* ── Filter Bar ── */}
+        <Card className="border-border/60">
+          <CardContent className="p-3 flex flex-col md:flex-row items-center gap-2">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search descriptions, material codes, categories..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-9 h-8 text-xs"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <Select
+                value={selectedCpse}
+                onValueChange={(val) => {
+                  setSelectedCpse(val);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full md:w-[170px] h-8 text-xs">
+                  <SelectValue placeholder="All CPSEs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All CPSEs</SelectItem>
+                  {cpses?.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.code} — {c.name}
+                    </SelectItem>
                   ))}
-                </TableBody>
-              </Table>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={statusFilter}
+                onValueChange={(val) => {
+                  setStatusFilter(val);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full md:w-[150px] h-8 text-xs">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Statuses</SelectItem>
+                  <SelectItem value="RAW">Not Processed</SelectItem>
+                  <SelectItem value="NORMALIZED">Processed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Pagination & Chunk Navigation Bar (Previous and Next Buttons) */}
-        {total > 0 && (
-          <Card className="border-border bg-card shadow-xs rounded-2xl p-3.5 sm:p-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              {/* Record Range Info */}
-              <div className="text-xs text-muted-foreground text-center sm:text-left">
-                Showing <strong className="text-foreground font-semibold">{startRecord}</strong> to{' '}
-                <strong className="text-foreground font-semibold">{endRecord}</strong> of{' '}
-                <strong className="text-foreground font-semibold">{total.toLocaleString()}</strong> materials
-                {hasActiveFilters && <span className="ml-1 text-primary">(filtered)</span>}
-              </div>
+        {/* ── Materials Table (CPSE column removed) ── */}
+        <Card className="border-border/60 overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/60 border-b border-border text-muted-foreground uppercase tracking-wider font-semibold">
+                <tr>
+                  <th className="p-3 w-36">Material Code</th>
+                  <th className="p-3 min-w-[240px]">Original Description</th>
+                  <th className="p-3 w-36">Category</th>
+                  <th className="p-3 w-36">Harmonization Status</th>
+                  <th className="p-3 min-w-[260px]">Normalized Description</th>
+                  <th className="p-3 w-20 text-center">View</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                        <span>Loading materials...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : !materialsData?.items || materialsData.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                      No materials found.
+                    </td>
+                  </tr>
+                ) : (
+                  materialsData.items.map((m: any) => {
+                    const raw = isRaw(m);
+                    return (
+                      <tr
+                        key={m.id}
+                        className="hover:bg-muted/30 cursor-pointer transition-colors"
+                        onClick={() => setSelectedMaterial(m)}
+                      >
+                        {/* Material Code */}
+                        <td className="p-3 font-mono font-medium text-foreground truncate max-w-[140px]">
+                          {m.original_material_code || NA}
+                        </td>
 
-              {/* Previous / Page Numbers / Next Button Controls */}
-              <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                {/* Previous Button */}
+                        {/* Original Description — always shown */}
+                        <td
+                          className="p-3 text-foreground font-medium max-w-[280px] truncate"
+                          title={m.original_description}
+                        >
+                          {m.original_description}
+                        </td>
+
+                        {/* Category */}
+                        <td className="p-3 text-muted-foreground">
+                          {raw ? (
+                            <span className="text-muted-foreground/40 italic font-mono">—</span>
+                          ) : (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-foreground capitalize">
+                                {m.material_family || m.category || NA}
+                              </span>
+                              {m.material_type && (
+                                <span className="text-[10px] text-muted-foreground capitalize">
+                                  {m.material_type}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Harmonization Status */}
+                        <td className="p-3">
+                          {renderHarmonizationBadge(m)}
+                        </td>
+
+                        {/* Normalized Description */}
+                        <td
+                          className="p-3 text-muted-foreground max-w-[280px] truncate"
+                          title={m.standardized_description || m.normalized_description || ''}
+                        >
+                          {raw ? (
+                            <span className="text-muted-foreground/40 italic font-mono">—</span>
+                          ) : (
+                            <span className="text-foreground/90 font-medium">
+                              {m.standardized_description || m.normalized_description || NA}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* View Button */}
+                        <td className="p-3 text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2.5 text-xs gap-1 font-medium text-foreground hover:bg-muted"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedMaterial(m);
+                            }}
+                          >
+                            <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>View</span>
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {materialsData && materialsData.total_pages > 1 && (
+            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-muted/20">
+              <span>
+                Showing {(page - 1) * pageSize + 1}–
+                {Math.min(page * pageSize, materialsData.total)} of {materialsData.total}
+              </span>
+              <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
-                  size="sm"
-                  disabled={page <= 1 || loading}
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-8 text-xs px-3 gap-1 rounded-lg border-border hover:border-primary/40 font-medium"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
-                  Previous
                 </Button>
-
-                {/* Page Number Chips */}
-                <div className="hidden sm:flex items-center gap-1">
-                  {pageNumbers.map((pNum, idx) => {
-                    if (pNum === '...') {
-                      return (
-                        <span key={`ellipsis-${idx}`} className="px-1.5 text-xs text-muted-foreground font-mono">
-                          …
-                        </span>
-                      );
-                    }
-                    const isCurrent = pNum === page;
-                    return (
-                      <Button
-                        key={`page-${pNum}`}
-                        variant={isCurrent ? 'default' : 'outline'}
-                        size="sm"
-                        disabled={loading}
-                        onClick={() => setPage(pNum as number)}
-                        className={`h-8 w-8 p-0 text-xs rounded-lg font-semibold transition-all ${
-                          isCurrent
-                            ? 'bg-primary text-primary-foreground shadow-xs shadow-primary/30'
-                            : 'border-border hover:border-primary/40 text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {pNum}
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                {/* Mobile Page indicator */}
-                <span className="sm:hidden text-xs font-medium px-2 text-muted-foreground">
-                  {page} / {totalPages}
+                <span className="px-2 font-medium text-foreground">
+                  {page} / {materialsData.total_pages}
                 </span>
-
-                {/* Next Button */}
                 <Button
                   variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages || loading}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-8 text-xs px-3 gap-1 rounded-lg border-border hover:border-primary/40 font-medium"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={page >= materialsData.total_pages}
+                  onClick={() => setPage((p) => p + 1)}
                 >
-                  Next
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
-          </Card>
-        )}
+          )}
+        </Card>
+
+        {/* ── Technical Attribute Inspection (Clean Tabular Popup Modal) ── */}
+        <Dialog
+          open={!!selectedMaterial}
+          onOpenChange={(open) => !open && setSelectedMaterial(null)}
+        >
+          <DialogContent className="max-w-3xl sm:max-w-3xl w-[95vw] p-0 overflow-hidden border border-border bg-card rounded-2xl shadow-2xl flex flex-col max-h-[88vh]">
+            {selectedMaterial && (
+              <>
+                {/* ── Modal Header ── */}
+                <div className="p-4 px-6 border-b border-border bg-muted/30 flex items-center justify-between">
+                  <div className="min-w-0 pr-8">
+                    <div className="flex items-center gap-2">
+                      <DialogTitle className="text-base font-bold font-mono text-foreground leading-tight truncate">
+                        {selectedMaterial.original_material_code || selectedMaterial.id}
+                      </DialogTitle>
+                      {selectedMaterial.original_material_code && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(selectedMaterial.original_material_code)}
+                          className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted"
+                          title="Copy Material Code"
+                        >
+                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
+                      <Badge variant="outline" className="text-[10px] font-mono ml-1 px-2 py-0.5">
+                        {cpseMap[selectedMaterial.cpse_id] || 'CPSE'}
+                      </Badge>
+                    </div>
+                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                      Technical Attribute Inspection & Harmonization Profile
+                    </DialogDescription>
+                  </div>
+                  <div>
+                    {renderHarmonizationBadge(selectedMaterial)}
+                  </div>
+                </div>
+
+                {/* ── Modal Scrollable Body with Clean Spacing & Margins ── */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+
+                  {/* 1. Harmonization Outcome Banner */}
+                  <div className="p-4 rounded-xl border border-border bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                        Harmonization Status
+                      </div>
+                      <div className="text-sm font-bold font-mono text-foreground">
+                        {selectedMaterial.mapping_status === 'MAPPED'
+                          ? 'MATCHED & HARMONIZED'
+                          : isRaw(selectedMaterial)
+                          ? 'NOT PROCESSED'
+                          : 'UNMATCHED (STANDALONE)'}
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                        {selectedMaterial.mapping_status === 'MAPPED'
+                          ? 'This material has been harmonized across CPSE catalogs into the Common Material Master.'
+                          : isRaw(selectedMaterial)
+                          ? 'Dataset uploaded. Run normalization to extract engineering parameters and canonical key.'
+                          : 'Processed through NMC pipeline with deterministic standard. No duplicate candidates found yet.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 2. Canonical Normalized Identity */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Canonical Normalized Description
+                      </h3>
+                      <span className="text-[11px] text-muted-foreground font-medium">Deterministic Standard</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl border border-border bg-muted/30 font-mono text-xs font-semibold text-foreground leading-relaxed select-text">
+                      {selectedMaterial.standardized_description ||
+                        selectedMaterial.normalized_description ||
+                        NA}
+                    </div>
+                  </div>
+
+                  {/* 3. Technical Parameters Table (Clean Tabular Form) */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Extracted Technical Parameters
+                    </h3>
+
+                    {isRaw(selectedMaterial) ? (
+                      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 text-xs">
+                        This material has not been normalized yet. Parameters will appear here once you run <strong>Normalize Materials</strong>.
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-border overflow-hidden shadow-2xs">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-muted/60 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider border-b border-border">
+                            <tr>
+                              <th className="px-4 py-2.5 w-2/5 border-r border-border">Technical Parameter</th>
+                              <th className="px-4 py-2.5 w-3/5">Extracted Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {getTabularAttributes(selectedMaterial).map((row) => (
+                              <tr key={row.name} className="hover:bg-muted/20 transition-colors">
+                                <td className="px-4 py-2.5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                                  {row.name}
+                                </td>
+                                <td className="px-4 py-2.5 font-bold font-mono text-foreground uppercase">
+                                  {row.value}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4. Source Data Table (Original Master Record) */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      Source Record (Immutable)
+                    </h3>
+
+                    <div className="rounded-xl border border-border overflow-hidden shadow-2xs">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <tbody className="divide-y divide-border">
+                          <tr className="hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                              Source Material Code
+                            </td>
+                            <td className="px-4 py-2.5 font-bold font-mono text-foreground">
+                              {selectedMaterial.original_material_code || NA}
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                              Original Description
+                            </td>
+                            <td className="px-4 py-2.5 font-medium text-foreground leading-relaxed">
+                              {selectedMaterial.original_description}
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                              Source Unit of Measure (UOM)
+                            </td>
+                            <td className="px-4 py-2.5 font-bold font-mono text-foreground uppercase">
+                              {selectedMaterial.uom || 'PCS'}
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                              Enterprise Tenant
+                            </td>
+                            <td className="px-4 py-2.5 font-semibold text-foreground">
+                              {cpseMap[selectedMaterial.cpse_id] || 'C'}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 5. Original Raw Payload (Accordion) */}
+                  <div className="rounded-xl border border-border overflow-hidden bg-card shadow-2xs">
+                    <button
+                      type="button"
+                      className="w-full p-3.5 px-4 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
+                      onClick={() => setPayloadOpen(!payloadOpen)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-foreground">
+                          Original Raw Payload
+                        </span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
+                          {Object.keys(selectedMaterial.attributes || { code: 1, desc: 1, uom: 1 }).length} keys
+                        </Badge>
+                      </div>
+                      <ChevronRight
+                        className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                          payloadOpen ? 'rotate-90' : ''
+                        }`}
+                      />
+                    </button>
+                    {payloadOpen && (
+                      <div className="p-3.5 border-t border-border bg-muted/20">
+                        <pre className="text-[11px] font-mono text-foreground overflow-x-auto max-h-56 p-3 rounded-lg bg-background border border-border">
+                          {JSON.stringify(
+                            selectedMaterial.attributes || {
+                              material_code: selectedMaterial.original_material_code,
+                              description: selectedMaterial.original_description,
+                              uom: selectedMaterial.uom || 'PCS',
+                            },
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* ── Modal Footer Action ── */}
+                <div className="p-3.5 px-6 border-t border-border bg-muted/20 flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">
+                    National Material Code (NMC) Platform · Technical Specification
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-medium px-4"
+                    onClick={() => setSelectedMaterial(null)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
 }
+

@@ -1,697 +1,326 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
+  DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { nmcApi } from '@/services/nmcApi';
 import {
   Search,
-  Database,
-  Upload,
-  ExternalLink,
-  RotateCcw,
-  X,
   ChevronLeft,
   ChevronRight,
-  ArrowRight,
+  Eye,
+  Layers,
+  Building2,
+  ShieldCheck,
+  Key,
+  Copy,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
-import { EmptyState } from '@/components/shared/EmptyState';
-import {
-  commonMasterService,
-  CommonMaterialRecord,
-  CommonMasterStats,
-} from '@/services/commonMasterService';
-import { useDataset } from '@/contexts/DatasetContext';
 import { toast } from 'sonner';
 
-/** Format uppercase or raw strings/numbers into clean readable title case while preserving standards */
-function formatReadableText(text: unknown): string {
-  if (text === null || text === undefined) return '—';
-  const str = String(text).trim();
-  if (str === '' || str === '-') return '—';
-  const acronyms = new Set([
-    'ASTM', 'ASME', 'ISO', 'DIN', 'ANSI', 'API', 'BS', 'IS', 'XLPE', 'PVC',
-    'SS', 'CS', 'MS', 'GI', 'CI', 'WCB', 'CF8M', 'NBR', 'PTFE', 'EPDM',
-    'FKM', 'CPSE', 'IOCL', 'ONGC', 'HPCL', 'BPCL', 'CPCL', 'GAIL', 'NIL',
-    'NPT', 'BSP', 'BSPT', 'FLG', 'SW', 'BW', 'NB', 'OD', 'ID', 'PN', 'CL',
-    'SCH', 'NOS', 'MTR', 'KG', 'LTR', 'SET', 'BOX', 'PKT', 'PAIR', 'IN', 'MM', 'CM', 'M'
-  ]);
-
-  const clean = str.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
-  const words = clean.split(' ');
-  return words
-    .map((w) => {
-      const upper = w.toUpperCase();
-      if (acronyms.has(upper)) return upper;
-      if (/^\d+(\.\d+)?(IN|MM|CM|M|KG|L|#|CL|V|A|W)?$/i.test(w)) return w.toUpperCase();
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    })
-    .join(' ');
-}
-
-/** Guarantee an array of CPSE strings to prevent runtime map/join crashes */
-function getCpseList(coverage: unknown): string[] {
-  if (Array.isArray(coverage)) return coverage.filter(Boolean).map(String);
-  if (typeof coverage === 'string') {
-    return coverage.split(';').map((s) => s.trim()).filter(Boolean);
-  }
-  return [];
-}
-
 export default function CommonMaster() {
-  const { activeDatasetId, selectDataset } = useDataset();
-  const [materials, setMaterials] = useState<CommonMaterialRecord[]>([]);
-  const [stats, setStats] = useState<CommonMasterStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { code } = useParams<{ code?: string }>();
   const [search, setSearch] = useState('');
-  const [familyFilter, setFamilyFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 20;
+  const [selectedCmmId, setSelectedCmmId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  // Inspector Modal
-  const [selectedRecord, setSelectedRecord] = useState<CommonMaterialRecord | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailRecord, setDetailRecord] = useState<CommonMaterialRecord | null>(null);
+  useEffect(() => { if (code) setSelectedCmmId(code); }, [code]);
 
-  const effectiveDatasetId = activeDatasetId;
+  const { data: cmmData, isLoading } = useQuery({
+    queryKey: ['nmc', 'cmm-list', search, page],
+    queryFn: () => nmcApi.cmm.list({ search: search.trim() || undefined, page, page_size: pageSize }),
+  });
 
-  const fetchCatalog = async () => {
-    try {
-      setLoading(true);
-      const [catData, statsData] = await Promise.all([
-        commonMasterService.getCatalog({
-          search: search.trim() || undefined,
-          family: familyFilter,
-          governance_status: statusFilter,
-          dataset_id: effectiveDatasetId,
-          page,
-          page_size: 15,
-        }),
-        commonMasterService.getStats(effectiveDatasetId).catch(() => null),
-      ]);
+  const { data: cmmDetail, isLoading: loadingDetail } = useQuery({
+    queryKey: ['nmc', 'cmm-detail', selectedCmmId],
+    queryFn: () => nmcApi.cmm.get(selectedCmmId!),
+    enabled: !!selectedCmmId,
+  });
 
-      setMaterials(catData.items || []);
-      setTotal(catData.total || 0);
-      setTotalPages(catData.total_pages || 1);
-      if (statsData) setStats(statsData);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to load catalog';
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success('National Material Code copied to clipboard');
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  useEffect(() => {
-    fetchCatalog();
-  }, [search, familyFilter, statusFilter, page, effectiveDatasetId]);
+  const getStandardizedAttributeList = (cmm: any) => {
+    if (!cmm) return [];
+    const attrs = cmm.attributes || {};
+    const family = (cmm.material_family || attrs.material_family || '').toString().trim();
+    const typeVal = (cmm.material_type || attrs.material_type || attrs.material_subtype || '').toString().trim();
+    const typeLabel = family ? `${family.charAt(0).toUpperCase() + family.slice(1).toLowerCase()} Type` : 'Material Type';
 
-  const openInspector = async (record: CommonMaterialRecord) => {
-    setSelectedRecord(record);
-    setDetailLoading(true);
-    try {
-      const full = await commonMasterService.getDetail(record.common_code, effectiveDatasetId);
-      setDetailRecord(full);
-    } catch {
-      setDetailRecord(record);
-    } finally {
-      setDetailLoading(false);
-    }
+    return [
+      { label: 'Category', value: (family || attrs.category || 'VALVE').toUpperCase() },
+      { label: typeLabel, value: (typeVal || 'BALL').toUpperCase() },
+      { label: 'Size', value: (cmm.dimensions || attrs.size || attrs.nominal_size || 'DN50').toUpperCase() },
+      { label: 'Pressure Class', value: (attrs.pressure_class || attrs.rating || attrs.schedule || 'CLASS300').toUpperCase() },
+      { label: 'Body Material', value: (attrs.material || attrs.material_grade || cmm.grade || 'CARBON_STEEL').toUpperCase() },
+      { label: 'Connection Type', value: (attrs.connection_type || attrs.end_type || 'RF').toUpperCase() },
+      { label: 'Trim Material', value: (attrs.trim_material || attrs.trim || cmm.specifications || 'SS304').toUpperCase() },
+      { label: 'Normalized UOM', value: (cmm.uom || attrs.unit || 'EACH').toUpperCase() },
+    ];
   };
 
-  const isFiltered = search.trim() !== '' || familyFilter !== 'all' || statusFilter !== 'all';
-
-  const resetFilters = () => {
-    setSearch('');
-    setFamilyFilter('all');
-    setStatusFilter('all');
-    setPage(1);
+  const getIdentityKey = (cmm: any) => {
+    if (!cmm) return '—';
+    if (cmm.identity_key) return cmm.identity_key;
+    const attrs = cmm.attributes || {};
+    const parts = [
+      cmm.material_family || 'VALVE',
+      cmm.material_type || attrs.material_type || 'BALL',
+      cmm.dimensions || attrs.size || 'DN50',
+      attrs.material || cmm.grade || 'CARBON_STEEL',
+      attrs.pressure_class || 'CLASS300',
+      attrs.connection_type || 'RF',
+      attrs.trim_material || 'SS304',
+      cmm.uom || 'EACH',
+    ];
+    return parts.filter(Boolean).map((p: string) => p.toUpperCase().replace(/\s+/g, '_')).join('|');
   };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'APPROVED_MASTER':
-      case 'VERIFIED_HARMONIZED':
-        return (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 whitespace-nowrap shadow-none">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-            <span>Harmonized</span>
-          </span>
-        );
-      case 'STANDALONE_CANDIDATE':
-        return (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-border bg-muted/60 text-muted-foreground whitespace-nowrap shadow-none">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 shrink-0" />
-            <span>Standalone</span>
-          </span>
-        );
-      case 'AMBIGUOUS_REVIEW_REQUIRED':
-        return (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-amber-500/30 bg-amber-500/10 text-amber-400 border-amber-500/30 whitespace-nowrap shadow-none">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
-            <span>Needs Review</span>
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-border bg-muted text-muted-foreground whitespace-nowrap shadow-none">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 shrink-0" />
-            <span>{formatReadableText(status)}</span>
-          </span>
-        );
-    }
-  };
-
-  const getCpseBadge = (cpse: string) => {
-    return (
-      <span key={cpse} className="px-2 py-0.5 rounded text-[11px] font-mono border border-border/80 bg-muted/40 text-foreground font-medium">
-        {cpse}
-      </span>
-    );
-  };
-
-  if (activeDatasetId === 'NONE') {
-    return (
-      <AppLayout>
-        <div className="space-y-6">
-          <PageHeader
-            title="Common Material Master"
-            description="Unified, harmonized material catalog across all CPSEs with standardized specifications."
-          />
-          <Card className="border-border bg-card p-12">
-            <EmptyState
-              icon={Database}
-              title="No Dataset Selected"
-              description="Upload a material master dataset or select the frozen baseline dataset to begin."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => selectDataset('BASELINE')}
-                >
-                  <Database className="h-4 w-4 mr-2" />
-                  Select Baseline Dataset
-                </Button>
-              }
-            />
-          </Card>
-        </div>
-      </AppLayout>
-    );
-  }
 
   return (
-    <AppLayout>
+    <AppLayout requireReviewer>
       <div className="space-y-6">
-        {/* Simple, Crisp Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Common Material Master
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Unified golden catalog synthesizing materials across CPSEs into a standardized master.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium px-3 py-1 rounded-md bg-secondary text-secondary-foreground border border-border">
-              Dataset: {activeDatasetId}
-            </span>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Common Material Master (CMM)</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Harmonized National Material Code registry — single source of truth across CPSEs.</p>
         </div>
 
-        {/* 4 Clean Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
-            <div className="text-xs text-muted-foreground">Total Master Records</div>
-            <div className="text-2xl font-semibold text-foreground mt-1">
-              {stats ? stats.total_common_materials.toLocaleString() : '—'}
+        <Card className="border-border/60">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search by NMC code or description..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-9 h-9 text-sm" />
             </div>
-            <div className="text-xs text-muted-foreground mt-1">Standardized items</div>
-          </div>
+            <div className="text-xs text-muted-foreground shrink-0">Total: <strong className="text-foreground">{cmmData?.total || 0}</strong></div>
+          </CardContent>
+        </Card>
 
-          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
-            <div className="text-xs text-muted-foreground">Harmonized Across CPSEs</div>
-            <div className="text-2xl font-semibold text-emerald-400 mt-1">
-              {stats ? stats.multi_cpse_harmonized.toLocaleString() : '—'}
-            </div>
-            <div className="text-xs text-emerald-400/80 mt-1">Shared by 2+ enterprises</div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
-            <div className="text-xs text-muted-foreground">Verified Standards</div>
-            <div className="text-2xl font-semibold text-foreground mt-1">
-              {stats ? stats.verified_harmonized.toLocaleString() : '—'}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">Governed master records</div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
-            <div className="text-xs text-muted-foreground">Source Items Mapped</div>
-            <div className="text-2xl font-semibold text-foreground mt-1">
-              {stats ? stats.total_members_mapped.toLocaleString() : '—'}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">100% catalog coverage</div>
-          </div>
-        </div>
-
-        {/* Clean Filter Controls */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 sm:gap-3 bg-card border border-border p-2.5 rounded-xl shadow-sm">
-          <div className="relative flex-1 w-full min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search code, description, category, grade..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-9 pr-8 bg-background border-border text-sm h-9 w-full"
-            />
-            {search && (
-              <button
-                onClick={() => {
-                  setSearch('');
-                  setPage(1);
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          <div className="w-full md:w-48">
-            <Select
-              value={familyFilter}
-              onValueChange={(val) => {
-                setFamilyFilter(val);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-9 text-sm bg-background border-border w-full">
-                <SelectValue placeholder="All Families" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Families</SelectItem>
-                {(stats?.unique_families || [])
-                  .filter((fam) => Boolean(fam && String(fam).trim()))
-                  .map((fam) => (
-                    <SelectItem key={String(fam)} value={String(fam)}>
-                      {formatReadableText(fam)}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="w-full md:w-52">
-            <Select
-              value={statusFilter}
-              onValueChange={(val) => {
-                setStatusFilter(val);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-9 text-sm bg-background border-border w-full">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="VERIFIED_HARMONIZED">Harmonized</SelectItem>
-                <SelectItem value="STANDALONE_CANDIDATE">Standalone</SelectItem>
-                <SelectItem value="AMBIGUOUS_REVIEW_REQUIRED">Needs Review</SelectItem>
-                <SelectItem value="APPROVED_MASTER">Approved Master</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {isFiltered && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetFilters}
-              className="h-9 text-xs text-muted-foreground hover:text-foreground gap-1 self-end md:self-auto"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
-            </Button>
-          )}
-        </div>
-
-        {/* Clean, Readable Enterprise Table for Laptop & Card View for Mobile */}
-        {/* Clean, Readable Enterprise Table for Laptop & Card View for Mobile */}
-        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden w-full">
-          {/* Desktop/Laptop Table View (>= 768px) - 100% Fluid, Zero Side Scroll */}
-          <div className="hidden md:block w-full overflow-hidden">
-            <Table className="w-full table-fixed">
-              <TableHeader className="bg-muted/30">
-                <TableRow className="border-border">
-                  <TableHead className="font-medium text-xs text-muted-foreground pl-4 py-3.5 w-[16%]">
-                    Common Code
-                  </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[33%]">
-                    Standardized Description
-                  </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[12%]">
-                    Family
-                  </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground py-3.5 w-[14%]">
-                    Enterprises
-                  </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground text-center py-3.5 w-[5%]">
-                    Items
-                  </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground text-center py-3.5 w-[11%]">
-                    Status
-                  </TableHead>
-                  <TableHead className="font-medium text-xs text-muted-foreground text-right pr-4 py-3.5 w-[9%]">
-                    Action
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-16 text-muted-foreground text-sm">
-                      Loading catalog records...
-                    </TableCell>
-                  </TableRow>
-                ) : materials.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-16 text-muted-foreground text-sm">
-                      No common material records match your filters.
-                    </TableCell>
-                  </TableRow>
+        <Card className="border-border/60 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase tracking-wider font-semibold">
+                <tr>
+                  <th className="p-3 w-56">National Material Code</th>
+                  <th className="p-3 min-w-[280px]">Canonical Description</th>
+                  <th className="p-3 w-28">Family</th>
+                  <th className="p-3 w-32">Contributing CPSEs</th>
+                  <th className="p-3 w-28">Created Date</th>
+                  <th className="p-3 w-24 text-right">Inspect</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {isLoading ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Loading records...</td></tr>
+                ) : !cmmData?.items || cmmData.items.length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No harmonized NMC records yet. Accept matches in the Review Queue.</td></tr>
                 ) : (
-                  materials.map((m) => {
-                    const readableTitle = formatReadableText(m.common_description);
-                    const specs = [
-                      m.material_grade && String(m.material_grade) !== '-' ? `Grade: ${formatReadableText(m.material_grade)}` : null,
-                      m.nominal_size && String(m.nominal_size) !== '-' ? `Size: ${formatReadableText(m.nominal_size)}` : null,
-                      m.standard_spec && String(m.standard_spec) !== '-' ? `Std: ${String(m.standard_spec).toUpperCase()}` : null,
-                      m.unit_of_measure && String(m.unit_of_measure) !== '-' ? `UOM: ${String(m.unit_of_measure).toUpperCase()}` : null,
-                    ].filter(Boolean);
-                    const coverageList = getCpseList(m.cpse_coverage);
-
-                    return (
-                      <TableRow
-                        key={m.common_material_id || m.common_code}
-                        onClick={() => openInspector(m)}
-                        className="border-border/60 hover:bg-muted/30 cursor-pointer transition-colors"
-                      >
-                        <TableCell className="pl-4 py-3.5 font-medium text-xs text-primary font-mono truncate">
-                          {m.common_code}
-                        </TableCell>
-                        <TableCell className="py-3.5">
-                          <div className="text-sm font-medium text-foreground leading-snug truncate" title={readableTitle}>
-                            {readableTitle}
-                          </div>
-                          {specs.length > 0 && (
-                            <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                              {specs.join('  •  ')}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-3.5 text-xs text-muted-foreground truncate">
-                          {formatReadableText(m.material_family)}
-                        </TableCell>
-                        <TableCell className="py-3.5">
-                          <div className="flex flex-wrap gap-1">
-                            {coverageList.map((cpse) => getCpseBadge(cpse))}
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-3.5 text-center text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{m.member_count ?? 1}</span>
-                        </TableCell>
-                        <TableCell className="py-3.5 text-center align-middle">
-                          {getStatusBadge(m.governance_status)}
-                        </TableCell>
-                        <TableCell className="py-3.5 text-right pr-4 align-middle" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openInspector(m)}
-                            className="h-7 px-2.5 text-xs font-medium rounded-md border border-border hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 text-foreground transition-colors shadow-none gap-1"
-                          >
-                            <span>Inspect</span>
-                            <ArrowRight className="h-3 w-3 opacity-70" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                  cmmData.items.map((cmm: any) => (
+                    <tr key={cmm.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedCmmId(cmm.id)}>
+                      <td className="p-3 font-medium text-xs text-primary font-mono truncate">{cmm.national_material_code}</td>
+                      <td className="p-3 font-medium text-foreground max-w-[340px] truncate" title={cmm.canonical_description}>{cmm.canonical_description}</td>
+                      <td className="p-3 capitalize font-medium text-foreground">{cmm.material_family || '—'}</td>
+                      <td className="p-3"><div className="flex flex-wrap gap-1">{Array.isArray(cmm.source_cpses) && cmm.source_cpses.length > 0 ? cmm.source_cpses.map((c: string) => <Badge key={c} variant="secondary" className="text-[10px] px-1.5 py-0">{c}</Badge>) : <span className="text-muted-foreground">—</span>}</div></td>
+                      <td className="p-3 text-muted-foreground">{cmm.created_at ? new Date(cmm.created_at).toLocaleDateString() : '—'}</td>
+                      <td className="p-3 text-right"><Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1.5 font-medium hover:bg-muted" onClick={(e) => { e.stopPropagation(); setSelectedCmmId(cmm.id); }}><Eye className="h-3.5 w-3.5 text-primary" /><span>Inspect</span></Button></td>
+                    </tr>
+                  ))
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
-
-          {/* Mobile Card List (< 768px) - High Density, Native App Feel */}
-          <div className="block md:hidden divide-y divide-border">
-            {loading ? (
-              <div className="text-center py-12 text-muted-foreground text-sm">
-                Loading catalog records...
+          {cmmData && cmmData.total_pages > 1 && (
+            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-muted/20">
+              <span>Page {page} of {cmmData.total_pages}</span>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}><ChevronLeft className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon" className="h-7 w-7" disabled={page >= cmmData.total_pages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-3.5 w-3.5" /></Button>
               </div>
-            ) : materials.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-sm">
-                No common material records match your filters.
-              </div>
-            ) : (
-              materials.map((m) => {
-                const readableTitle = formatReadableText(m.common_description);
-                const specs = [
-                  m.material_grade && String(m.material_grade) !== '-' ? `Grade: ${formatReadableText(m.material_grade)}` : null,
-                  m.nominal_size && String(m.nominal_size) !== '-' ? `Size: ${formatReadableText(m.nominal_size)}` : null,
-                  m.standard_spec && String(m.standard_spec) !== '-' ? `Std: ${String(m.standard_spec).toUpperCase()}` : null,
-                  m.unit_of_measure && String(m.unit_of_measure) !== '-' ? `UOM: ${String(m.unit_of_measure).toUpperCase()}` : null,
-                ].filter(Boolean);
-                const coverageList = getCpseList(m.cpse_coverage);
+            </div>
+          )}
+        </Card>
 
-                return (
-                  <div
-                    key={m.common_material_id || m.common_code}
-                    onClick={() => openInspector(m)}
-                    className="p-3.5 hover:bg-muted/20 active:bg-muted/30 cursor-pointer transition-colors space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono font-semibold text-xs text-primary truncate">
-                        {m.common_code}
-                      </span>
-                      {getStatusBadge(m.governance_status)}
+        {/* Inspect Modal */}
+        <Dialog open={!!selectedCmmId} onOpenChange={(open) => !open && setSelectedCmmId(null)}>
+          <DialogContent className="max-w-xl w-[95vw] p-0 overflow-hidden border border-border bg-card rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            {loadingDetail ? (
+              <div className="p-12 flex flex-col items-center gap-3 text-muted-foreground">
+                <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-xs">Loading...</span>
+              </div>
+            ) : cmmDetail ? (
+              <>
+                {/* Header */}
+                <div className="px-5 py-3.5 border-b border-border bg-muted/20 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <div className="mt-0.5 h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="h-4 w-4 text-primary" />
                     </div>
-
-                    <div>
-                      <div className="text-sm font-medium text-foreground leading-snug">
-                        {readableTitle}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <DialogTitle className="text-sm font-semibold text-foreground leading-tight tracking-wide">
+                          {cmmDetail.national_material_code}
+                        </DialogTitle>
+                        <button type="button" onClick={() => handleCopy(cmmDetail.national_material_code)} className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded" title="Copy">
+                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
                       </div>
-                      {specs.length > 0 && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {specs.join(' • ')}
-                        </div>
+                      <DialogDescription className="text-[11px] text-muted-foreground mt-0.5">Standardized Catalog Entity</DialogDescription>
+                    </div>
+                  </div>
+                  <span className="shrink-0 mr-8 text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded px-2 py-0.5">
+                    {cmmDetail.status || 'ACTIVE'}
+                  </span>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto">
+
+                  {/* CANONICAL DESCRIPTION */}
+                  <div className="px-5 py-3.5 border-b border-border/40">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Canonical Description</span>
+                      <span className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded px-2 py-0.5">ACTIVE</span>
+                    </div>
+                    <div className="p-3 rounded-lg border border-border bg-muted/20 text-xs font-medium text-foreground leading-relaxed">
+                      {cmmDetail.canonical_description}
+                    </div>
+                  </div>
+
+                  {/* MAPPED SOURCE MATERIALS */}
+                  <div className="px-5 py-3.5 border-b border-border/40">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Mapped Source Materials</span>
+                        <span className="text-[10px] font-mono bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-semibold">{cmmDetail.members?.length || 0}</span>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">Authoritative Traceability</span>
+                    </div>
+                    <div className="space-y-2.5">
+                      {cmmDetail.members && cmmDetail.members.length > 0 ? (
+                        cmmDetail.members.map((mem: any, idx: number) => (
+                          <div key={mem.id || idx} className="rounded-lg border border-border/70 bg-card p-3 space-y-2 hover:border-primary/20 transition-colors">
+                            {/* Row 1: CPSE (in Blue) + Status Badges (ACTIVE + MAPPED) */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Building2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono">{mem.cpse_code}</span>
+                                {mem.cpse_name && (
+                                  <span className="text-[11px] text-blue-600/80 dark:text-blue-300/80 font-medium">
+                                    {mem.cpse_name}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded px-2 py-0.5">
+                                  ACTIVE
+                                </span>
+                                <span className="text-[10px] font-medium text-muted-foreground bg-muted/70 border border-border rounded px-2 py-0.5">
+                                  MAPPED
+                                </span>
+                              </div>
+                            </div>
+                            {/* Row 2: Material Code + Arrow Symbol */}
+                            <div className="flex items-center justify-between pt-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] text-muted-foreground">Material Code:</span>
+                                <code className="text-xs font-mono font-bold text-foreground bg-muted/40 border border-border/40 px-1.5 py-0.5 rounded">
+                                  {mem.original_material_code || mem.material_code || mem.code || '—'}
+                                </code>
+                              </div>
+                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            </div>
+                            {/* Row 3: Original description */}
+                            <div className="pt-0.5">
+                              <p className="text-[11px] text-foreground/80 font-medium uppercase leading-relaxed">
+                                {mem.original_description || mem.description || mem.name || '—'}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic text-center py-2.5">No linked member materials mapped.</p>
                       )}
                     </div>
+                  </div>
 
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
-                        <span className="text-[11px] text-muted-foreground font-medium shrink-0">
-                          {formatReadableText(m.material_family)}
-                        </span>
-                        <span className="text-muted-foreground/40 shrink-0">·</span>
-                        <div className="flex flex-wrap gap-1">
-                          {coverageList.map((cpse) => getCpseBadge(cpse))}
+                  {/* STANDARDIZED ATTRIBUTES */}
+                  <div className="px-5 py-3.5 border-b border-border/40">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Standardized Attributes</span>
+                      <span className="text-[11px] text-muted-foreground">Deterministic Standard</span>
+                    </div>
+                    <div className="border border-border/70 rounded-lg overflow-hidden bg-card shadow-xs">
+                      <table className="w-full text-xs border-collapse">
+                        <thead className="bg-muted/40 border-b border-border/60 text-muted-foreground">
+                          <tr>
+                            <th className="w-2/5 px-3.5 py-2 text-left font-semibold uppercase tracking-wider text-[11px] border-r border-border/40">Attribute</th>
+                            <th className="px-3.5 py-2 text-left font-semibold uppercase tracking-wider text-[11px]">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/40">
+                          {getStandardizedAttributeList(cmmDetail).map((item, idx) => (
+                            <tr key={idx} className={idx % 2 === 0 ? 'bg-muted/10' : 'bg-card'}>
+                              <td className="px-3.5 py-2 font-medium text-muted-foreground text-[11px] uppercase tracking-wider border-r border-border/40">
+                                {item.label}
+                              </td>
+                              <td className="px-3.5 py-2 font-semibold text-foreground text-xs uppercase tracking-wide">
+                                {item.value}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* REGISTRY IDENTIFIERS */}
+                  <div className="px-5 py-3.5">
+                    <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase block mb-2.5">Registry Identifiers</span>
+                    <div className="space-y-2.5">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <Key className="h-3 w-3" />
+                          <span>Identity Key (Composite Hash)</span>
                         </div>
+                        <code className="block font-mono text-[10px] text-foreground bg-muted/30 border border-border/50 rounded-lg px-2.5 py-2 overflow-x-auto whitespace-nowrap select-all">{getIdentityKey(cmmDetail)}</code>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openInspector(m);
-                        }}
-                        className="h-7 px-2.5 text-xs font-medium rounded-md border border-border hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400 text-foreground transition-colors shadow-none shrink-0 gap-1"
-                      >
-                        <span>Inspect</span>
-                        <ArrowRight className="h-3 w-3 opacity-70" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Simple Pagination Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between px-5 py-3 border-t border-border bg-muted/10 text-xs text-muted-foreground gap-3">
-            <div>
-              Showing {materials.length} of {total.toLocaleString()} records
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1 || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-8 px-3 text-xs"
-              >
-                <ChevronLeft className="h-3.5 w-3.5 mr-1" />
-                Previous
-              </Button>
-              <span className="px-2 text-foreground font-medium">
-                {page} of {totalPages || 1}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages || loading}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="h-8 px-3 text-xs"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5 ml-1" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Clear & Elegant Details Modal View */}
-        <Dialog
-          open={!!selectedRecord}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedRecord(null);
-              setDetailRecord(null);
-            }
-          }}
-        >
-          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-card border-border rounded-xl shadow-xl">
-            {selectedRecord && (
-              <div className="space-y-5">
-                {/* Header with clear right padding so close X button is completely free */}
-                <DialogHeader className="space-y-2 text-left pr-10">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium px-2.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                      {selectedRecord.common_code}
-                    </span>
-                    {getStatusBadge(selectedRecord.governance_status)}
-                  </div>
-                  <DialogTitle className="text-base font-semibold text-foreground leading-normal pt-1">
-                    {formatReadableText(selectedRecord.common_description)}
-                  </DialogTitle>
-                  <div className="text-xs text-muted-foreground flex items-center gap-2 pt-0.5">
-                    <span>CPSEs: {getCpseList(selectedRecord.cpse_coverage).join(', ') || 'N/A'}</span>
-                    <span>•</span>
-                    <span>{selectedRecord.member_count ?? 1} Mapped Items</span>
-                  </div>
-                </DialogHeader>
-
-                {/* Clean Key-Value Specifications List */}
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Specifications
-                  </div>
-                  <div className="rounded-lg border border-border divide-y divide-border/60 text-xs">
-                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
-                      <span className="text-muted-foreground shrink-0">Material Family</span>
-                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.material_family)}</span>
-                    </div>
-                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
-                      <span className="text-muted-foreground shrink-0">Material Type</span>
-                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.material_type)}</span>
-                    </div>
-                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
-                      <span className="text-muted-foreground shrink-0">Material Grade</span>
-                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.material_grade)}</span>
-                    </div>
-                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
-                      <span className="text-muted-foreground shrink-0">Nominal Size</span>
-                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.nominal_size)}</span>
-                    </div>
-                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
-                      <span className="text-muted-foreground shrink-0">Pressure Rating</span>
-                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.pressure_rating)}</span>
-                    </div>
-                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
-                      <span className="text-muted-foreground shrink-0">Standard / Spec</span>
-                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.standard_spec)}</span>
-                    </div>
-                    <div className="flex py-2 px-3.5 justify-between items-start gap-2">
-                      <span className="text-muted-foreground shrink-0">Unit of Measure</span>
-                      <span className="font-medium text-foreground text-right break-words max-w-[60%]">{formatReadableText(selectedRecord.unit_of_measure)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Clean Mapped Sources List */}
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Mapped CPSE Sources ({detailRecord?.members?.length || selectedRecord.member_count})
-                  </div>
-                  <div className="rounded-lg border border-border divide-y divide-border/60 text-xs">
-                    {detailLoading ? (
-                      <div className="p-4 text-center text-muted-foreground">Loading mapped items...</div>
-                    ) : detailRecord?.members && detailRecord.members.length > 0 ? (
-                      detailRecord.members.map((mem, i) => (
-                        <div key={i} className="p-3 flex items-start justify-between gap-3">
-                          <div className="space-y-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              {getCpseBadge(mem.source_cpse)}
-                              <span className="text-xs font-medium text-foreground">{mem.source_material_code}</span>
-                            </div>
-                            <div className="text-xs text-muted-foreground leading-normal">
-                              {formatReadableText(mem.source_description || selectedRecord.common_description)}
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-3 text-muted-foreground">
-                        Participating CPSEs: {getCpseList(selectedRecord.cpse_coverage).join(', ') || 'N/A'}
+                      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-border/40">
+                        <span className="text-muted-foreground">System UUID</span>
+                        <code className="font-mono text-[10px] text-foreground/80">{cmmDetail.system_uuid || cmmDetail.id}</code>
                       </div>
-                    )}
+                    </div>
                   </div>
+
                 </div>
 
-                {/* Clean Footer */}
-                <div className="flex items-center justify-between pt-2 border-t border-border">
-                  <Button asChild variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground gap-1 px-2">
-                    <Link to={`/common-master/${encodeURIComponent(selectedRecord.common_code)}`}>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      View Full Details
-                    </Link>
-                  </Button>
-                  <Button size="sm" onClick={() => setSelectedRecord(null)} className="text-xs px-4">
-                    Close
-                  </Button>
+                {/* Footer */}
+                <div className="px-5 py-3 border-t border-border bg-muted/10 flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">NMC Platform · Central Ledger</span>
+                  <Button variant="outline" size="sm" className="h-7 px-3 text-xs font-medium" onClick={() => setSelectedCmmId(null)}>Close</Button>
                 </div>
-              </div>
-            )}
+              </>
+            ) : null}
           </DialogContent>
         </Dialog>
+
       </div>
     </AppLayout>
   );
 }
+

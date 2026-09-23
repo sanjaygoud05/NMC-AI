@@ -1,9 +1,11 @@
 """
+NMC — National Material Code Platform
 Application configuration
 """
 
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
 from typing import List, Union
 import json
 
@@ -12,8 +14,8 @@ class Settings(BaseSettings):
     """Application settings"""
 
     # API Settings
-    API_TITLE: str = "SIH26099 Material Harmonization API"
-    API_VERSION: str = "0.1.0"
+    API_TITLE: str = "NMC Material Harmonization API"
+    API_VERSION: str = "1.0.0"
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
@@ -42,20 +44,31 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in val.split(",") if origin.strip()]
         return self.ALLOWED_ORIGINS
 
-    # Database Settings (placeholder for future)
-    DATABASE_URL: str = "postgresql://user:password@localhost/sih26099"
+    # NMC Auth — simple credential-based (no Supabase)
+    ADMIN_PASSWORD: str = "nmc-admin-2026"
+    REVIEWER_KEY: str = "nmc-reviewer-key"
 
-    # Supabase Settings (placeholder for future)
-    SUPABASE_URL: str = ""
-    SUPABASE_KEY: str = ""
+    # Database
+    # If DATABASE_URL is set in env and points to PostgreSQL, use it.
+    # Otherwise fall back to a local SQLite DB.
+    DATABASE_URL: str = ""
 
-    # AI/ML Settings (placeholder for future)
-    GEMINI_API_KEY: str = ""
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    @property
+    def effective_db_url(self) -> str:
+        env_url = self.DATABASE_URL
+        if env_url and (env_url.startswith("postgresql") or env_url.startswith("postgres://")):
+            return env_url.replace("postgres://", "postgresql://", 1)
+        # SQLite fallback
+        data_dir = Path(__file__).resolve().parent.parent.parent / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return f"sqlite:///{data_dir / 'nmc.db'}"
+
+    # AI/ML
+    EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
 
     # Data Settings
     DATA_DIR: str = "data"
-    RAW_DATA_PATH: str = "data/raw/CPSE_Material_Master_cleaned.csv"
+    UPLOADS_DIR: str = "data/uploads"
 
     class Config:
         env_file = ".env"
@@ -63,3 +76,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
