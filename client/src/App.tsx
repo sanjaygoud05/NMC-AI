@@ -1,38 +1,28 @@
-import { useEffect } from "react";
-import { API_BASE } from "./services/apiConfig";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
-import { ThemeProvider } from "@/hooks/useTheme";
-import { DatasetProvider } from "@/contexts/DatasetContext";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
-import NotFound from "./pages/NotFound";
-import Ingest from "./pages/Ingest";
-import DatasetHistory from "./pages/DatasetHistory";
-import Materials from "./pages/Materials";
-import MaterialDetail from "./pages/MaterialDetail";
-import Matches from "./pages/Matches";
-import MatchDetail from "./pages/MatchDetail";
-import Review from "./pages/Review";
-import Standardization from "./pages/Standardization";
-import CommonMaster from "./pages/CommonMaster";
-import CommonMasterDetail from "./pages/CommonMasterDetail";
-import LegacyMapping from "./pages/LegacyMapping";
-import Procurement from "./pages/Procurement";
-import DataQuality from "./pages/DataQuality";
-import CPSEAnalytics from "./pages/CPSEAnalytics";
-import Evaluation from "./pages/Evaluation";
-import Jobs from "./pages/Jobs";
-import Settings from "./pages/Settings";
+import { useEffect } from 'react';
+import { API_BASE } from './services/apiConfig';
+import { Toaster as Sonner } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from '@/hooks/useAuth';
+import { ThemeProvider } from '@/hooks/useTheme';
+
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import ManageCPSE from './pages/ManageCPSE';
+import Materials from './pages/Materials';
+import FindMapping from './pages/FindMapping';
+import Review from './pages/Review';
+import MatchDetail from './pages/MatchDetail';
+import CommonMaster from './pages/CommonMaster';
+import Analytics from './pages/Analytics';
+import AuditTrail from './pages/AuditTrail';
+import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
+      staleTime: 5000,
       refetchOnWindowFocus: false,
       retry: 1,
     },
@@ -42,89 +32,64 @@ const queryClient = new QueryClient({
 const App = () => {
   // Force dark mode as default on initial load
   useEffect(() => {
-    const stored = localStorage.getItem("theme");
+    const stored = localStorage.getItem('theme');
     if (!stored) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
     }
   }, []);
 
-  // Keep-alive ping — prevents Render Free cold starts (30-60s delay)
-  // Pings /api/health every 9 minutes silently in the background
+  // Health ping
   useEffect(() => {
-    const ping = () => {
-      fetch(`${API_BASE}/api/health`, { method: "GET" }).catch(() => {
-        // silent — just keeping the server warm
-      });
-    };
-    // Ping immediately on app load to wake up sleeping server
-    ping();
-    // Then every 9 minutes (Render sleeps after ~15 min inactivity)
-    const interval = setInterval(ping, 9 * 60 * 1000);
-    return () => clearInterval(interval);
+    fetch(`${API_BASE}/api/health`, { method: 'GET' }).catch(() => {
+      // keep alive
+    });
   }, []);
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="theme">
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <DatasetProvider>
-            <TooltipProvider>
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  {/* Root redirect */}
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <TooltipProvider>
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                {/* Default */}
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-                  {/* Auth */}
-                  <Route path="/auth" element={<Auth />} />
+                {/* Authentication */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/auth" element={<Navigate to="/login" replace />} />
 
-                  {/* Core pages */}
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/ingest" element={<Ingest />} />
-                  <Route path="/dataset-history" element={<DatasetHistory />} />
-                  <Route path="/history" element={<Navigate to="/dataset-history" replace />} />
+                {/* Core NMC Platform Pages */}
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/manage-cpses" element={<ManageCPSE />} />
+                <Route path="/manage-cpse" element={<Navigate to="/manage-cpses" replace />} />
+                <Route path="/cpses" element={<Navigate to="/manage-cpses" replace />} />
+                <Route path="/cpse" element={<Navigate to="/manage-cpses" replace />} />
+                <Route path="/materials" element={<Materials />} />
+                <Route path="/materials/:id" element={<Materials />} />
 
-                  {/* Material Explorer */}
-                  <Route path="/materials" element={<Materials />} />
-                  <Route path="/materials/:id" element={<MaterialDetail />} />
+                {/* AI Matching & Review */}
+                <Route path="/find-mapping" element={<FindMapping />} />
+                <Route path="/matches" element={<Navigate to="/find-mapping" replace />} />
+                <Route path="/matches/:id" element={<MatchDetail />} />
+                <Route path="/review" element={<Review />} />
+                <Route path="/review/:id" element={<MatchDetail />} />
 
-                  {/* Standardization */}
-                  <Route path="/standardization" element={<Standardization />} />
+                {/* Common Material Master */}
+                <Route path="/common-master" element={<CommonMaster />} />
+                <Route path="/common-master/:code" element={<CommonMaster />} />
 
-                  {/* Matching & Harmonization */}
-                  <Route path="/matches" element={<Matches />} />
-                  <Route path="/matches/:id" element={<MatchDetail />} />
+                {/* Governance & Analytics */}
+                <Route path="/audit" element={<AuditTrail />} />
+                <Route path="/analytics" element={<Analytics />} />
 
-                  {/* Review Queue */}
-                  <Route path="/review" element={<Review />} />
-
-                  {/* Common Material Master */}
-                  <Route path="/common-master" element={<CommonMaster />} />
-                  <Route path="/common-master/:commonCode" element={<CommonMasterDetail />} />
-
-                  {/* Legacy Mapping */}
-                  <Route path="/legacy-mapping" element={<LegacyMapping />} />
-
-                  {/* Procurement */}
-                  <Route path="/procurement" element={<Procurement />} />
-
-                  {/* Analytics & Quality */}
-                  <Route path="/data-quality" element={<DataQuality />} />
-                  <Route path="/cpse-analytics" element={<CPSEAnalytics />} />
-                  <Route path="/evaluation" element={<Evaluation />} />
-
-                  {/* System */}
-                  <Route path="/jobs" element={<Jobs />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/settings" element={<Settings />} />
-
-                  {/* 404 */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </DatasetProvider>
+                {/* 404 */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

@@ -1,424 +1,442 @@
-/**
- * Match Detail Page
- * Deep dive into a specific pair candidate: side-by-side comparison,
- * attribute diffs, multi-model scoring explanation, and human decision actions.
- */
-
-import { useState } from 'react';
-import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { PageHeader } from '@/components/shared/PageHeader';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
-import { toast } from 'sonner';
+import { nmcApi } from '@/services/nmcApi';
 import {
   ArrowLeft,
-  GitCompare,
   CheckCircle2,
   XCircle,
-  AlertCircle,
+  Split,
+  ShieldAlert,
   Sparkles,
+  GitCompare,
   Building2,
-  Calendar,
-  Layers,
-  ArrowRight,
-  Loader2,
-  Package,
+  AlertTriangle,
+  Lock,
 } from 'lucide-react';
-import { useDataset } from '@/contexts/DatasetContext';
-import { matchingService } from '@/services/matchingService';
-import { materialService } from '@/services/materialService';
-import { reviewService } from '@/services/reviewService';
-import { useQuery } from '@tanstack/react-query';
-import type { MaterialMatch } from '@/types';
-import type { Material } from '@/types';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
-  const { activeDatasetId } = useDataset();
   const navigate = useNavigate();
-  const location = useLocation();
+  const queryClient = useQueryClient();
+  const { canSubmitDecisions, isAdmin } = useAuth();
 
-  // Determine where to go back: use query param ?from=, or router history (navigate(-1))
-  const fromParam = new URLSearchParams(location.search).get('from');
-  const handleBack = () => {
-    if (fromParam) {
-      navigate(fromParam);
-    } else {
-      navigate(-1);
-    }
-  };
+  const [decision, setDecision] = useState<'ACCEPT' | 'REJECT' | 'DIFFERENT' | 'OVERRIDE'>('ACCEPT');
+  const [overrideOutcome, setOverrideOutcome] = useState<'EQUIVALENT' | 'DIFFERENT' | null>(null);
+  const [reason, setReason] = useState('');
 
-  const { data: match, isLoading: matchLoading, error: matchError } = useQuery({
-    queryKey: ['match', id, activeDatasetId],
-    queryFn: () => matchingService.getMatchById(id!, activeDatasetId),
-    enabled: !!id && activeDatasetId !== 'NONE',
+  const { data: match, isLoading } = useQuery({
+    queryKey: ['nmc', 'match-detail', id],
+    queryFn: () => nmcApi.review.getMatch(id!),
+    enabled: !!id,
   });
 
-  const { data: sourceMaterial, isLoading: sourceLoading } = useQuery({
-    queryKey: ['material', match?.source_material_code, activeDatasetId],
-    queryFn: () => materialService.getMaterialById(match!.source_material_code, activeDatasetId),
-    enabled: !!match?.source_material_code && activeDatasetId !== 'NONE',
+  const decisionMutation = useMutation({
+    mutationFn: (data: {
+      decision: 'ACCEPT' | 'REJECT' | 'DIFFERENT' | 'OVERRIDE';
+      override_outcome?: 'EQUIVALENT' | 'DIFFERENT';
+      reason?: string;
+    }) =>
+      nmcApi.review.submitDecision(id!, {
+        decision: data.decision,
+        override_outcome: data.override_outcome,
+        reason: data.reason,
+        cpse_code: match?.source_material?.cpse_code,
+      }),
+    onSuccess: (res) => {
+      toast.success(res.message || 'Review decision submitted successfully');
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'match-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'review-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'dashboard-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'cmm-list'] });
+      navigate('/review');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to submit decision');
+    },
   });
 
-  const { data: candidateMaterial, isLoading: candidateLoading } = useQuery({
-    queryKey: ['material', match?.candidate_material_code, activeDatasetId],
-    queryFn: () => materialService.getMaterialById(match!.candidate_material_code, activeDatasetId),
-    enabled: !!match?.candidate_material_code && activeDatasetId !== 'NONE',
-  });
-
-  const [decision, setDecision] = useState<string>('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleAction = async (apiDecision: 'ACCEPT' | 'REJECT' | 'DEFER', label: string) => {
-    if (!id || submitting || decision) return;
-    setSubmitting(true);
-    try {
-      await reviewService.submitDecision(id, {
-        decision: apiDecision,
-        rationale: `${label} from Match Detail view`,
-      });
-      setDecision(apiDecision);
-      try {
-        const saved = JSON.parse(localStorage.getItem('nmi_match_decisions') || '{}');
-        saved[id] = apiDecision;
-        localStorage.setItem('nmi_match_decisions', JSON.stringify(saved));
-      } catch {}
-      toast.success(`Match #${id} — marked as ${label} ✓`);
-      // Navigate back after 1.2s to smoothly return with decision state
-      setTimeout(() => {
-        if (fromParam) {
-          navigate(fromParam, { state: { decidedId: id, decision: apiDecision } });
-        } else {
-          navigate(-1);
-        }
-      }, 1200);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to record decision';
-      toast.error(msg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (activeDatasetId === 'NONE') {
+  if (isLoading) {
     return (
-      <AppLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <Package className="h-12 w-12 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">No Dataset Selected</h2>
-          <p className="text-muted-foreground">Please select a dataset to view match details</p>
-          <Button variant="outline" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4 mr-2" />Go Back
-            </Button>
+      <AppLayout requireReviewer>
+        <div className="py-16 text-center text-sm text-muted-foreground">
+          Loading match evaluation details...
         </div>
       </AppLayout>
     );
   }
 
-  if (matchLoading || sourceLoading || candidateLoading) {
+  if (!match) {
     return (
-      <AppLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
-          <p className="text-muted-foreground">Loading match details...</p>
+      <AppLayout requireReviewer>
+        <div className="py-16 text-center text-sm text-muted-foreground">
+          Match record not found.
         </div>
       </AppLayout>
     );
   }
 
-  if (matchError || !match) {
-    return (
-      <AppLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Match pair not found.</p>
-          <Button className="mt-4" variant="outline" onClick={handleBack}>
-            Go Back
-          </Button>
-        </div>
-      </AppLayout>
-    );
-  }
+  const src = match.source_material;
+  const cand = match.candidate_material;
+  const explanation = match.explanation || {};
+  const confScore = match.final_confidence ? Math.round(match.final_confidence * 100) : 0;
+  const semScore = match.semantic_similarity ? Math.round(match.semantic_similarity * 100) : 0;
+  const txtScore = match.text_similarity ? Math.round(match.text_similarity * 100) : 0;
+  const attrScore = match.attribute_similarity ? Math.round(match.attribute_similarity * 100) : 0;
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        {/* Navigation back */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-muted-foreground"
-            onClick={handleBack}
-          >
+    <AppLayout requireReviewer>
+      <div className="space-y-6 max-w-6xl mx-auto">
+        {/* Navigation Bar */}
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/review')} className="gap-2 text-xs">
             <ArrowLeft className="h-4 w-4" />
-            Back
+            Back to Review Queue
           </Button>
-        </div>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <PageHeader
-            title={`Harmonization Pair #${match.candidate_id}`}
-            description={`Comparing ${sourceMaterial?.cpse || 'CPSE 1'} and ${candidateMaterial?.cpse || 'CPSE 2'} records`}
-          />
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Show persistent decision badge after action */}
-            {decision === 'ACCEPT' && (
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-3 py-1.5 rounded-full border border-emerald-500/30">
-                <CheckCircle2 className="h-4 w-4" /> Accepted ✓
-              </span>
-            )}
-            {decision === 'REJECT' && (
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-rose-700 dark:text-rose-400 bg-rose-500/15 px-3 py-1.5 rounded-full border border-rose-500/30">
-                <XCircle className="h-4 w-4" /> Rejected
-              </span>
-            )}
-            {decision === 'DEFER' && (
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/15 px-3 py-1.5 rounded-full border border-amber-500/30">
-                <AlertCircle className="h-4 w-4" /> Flagged for Review
-              </span>
-            )}
-            {!decision && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={submitting}
-                  className="gap-1.5 text-rose-500 hover:text-rose-600 border-rose-500/20"
-                  onClick={() => handleAction('REJECT', 'Rejected')}
-                >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-                  Reject
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={submitting}
-                  className="gap-1.5 text-amber-500 hover:text-amber-600 border-amber-500/20"
-                  onClick={() => handleAction('DEFER', 'Sent to Review Queue')}
-                >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertCircle className="h-4 w-4" />}
-                  Request Review
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={submitting}
-                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => handleAction('ACCEPT', 'Accepted')}
-                >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Accept Match
-                </Button>
-              </>
-            )}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              Status: <strong className="ml-1 text-foreground">{match.status}</strong>
+            </Badge>
+            <Badge
+              className={`text-xs ${
+                match.confidence_label === 'HIGH'
+                  ? 'bg-emerald-600 text-white'
+                  : match.confidence_label === 'MEDIUM'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {match.confidence_label || 'LOW'} CONFIDENCE ({confScore}%)
+            </Badge>
           </div>
         </div>
 
-        {/* Status & Overview Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          <Card className="border-border bg-card shadow-sm">
-            <CardContent className="p-5">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">Confidence Score</div>
-              <div className="text-2xl sm:text-3xl font-bold font-mono text-primary mt-1 tracking-tight">
-                {((match.final_match_score ?? 0) * 100).toFixed(1)}%
-              </div>
-              <Progress value={(match.final_match_score ?? 0) * 100} className="mt-3 h-1.5" />
-            </CardContent>
-          </Card>
-          <Card className="border-border bg-card shadow-sm">
-            <CardContent className="p-5">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">Semantic Cosine Score</div>
-              <div className="text-2xl sm:text-3xl font-bold font-mono text-foreground mt-1 tracking-tight">
-                {((match.embedding_similarity ?? 0) * 100).toFixed(1)}%
-              </div>
-              <Progress value={(match.embedding_similarity ?? 0) * 100} className="mt-3 h-1.5" />
-            </CardContent>
-          </Card>
-          <Card className="border-border bg-card shadow-sm">
-            <CardContent className="p-5">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">Fuzzy Token Overlap</div>
-              <div className="text-2xl sm:text-3xl font-bold font-mono text-foreground mt-1 tracking-tight">
-                {((match.description_similarity ?? 0) * 100).toFixed(1)}%
-              </div>
-              <Progress value={(match.description_similarity ?? 0) * 100} className="mt-3 h-1.5" />
-            </CardContent>
-          </Card>
-          <Card className="border-border bg-card shadow-sm">
-            <CardContent className="p-5">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">Decision Status</div>
-              <div className="mt-2">
-                <Badge
-                  variant={decision === 'ACCEPT' ? 'default' : decision === 'REJECT' ? 'destructive' : 'outline'}
-                  className="capitalize text-xs font-semibold px-2.5 py-0.5"
-                >
-                  {decision ? (decision === 'ACCEPT' ? 'Approved' : decision === 'REJECT' ? 'Rejected' : 'Review Deferred') : 'Pending Review'}
+        {/* Side-by-Side Comparison Header */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Source Material Card */}
+          <Card className="border-border/70 border-t-4 border-t-blue-500">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono text-xs">
+                  Source: {src?.cpse_code || 'CPSE 1'}
                 </Badge>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {src?.original_material_code || 'No Code'}
+                </span>
               </div>
-              <div className="text-[11px] text-muted-foreground mt-2">
-                Priority: {match.confidence_level ?? 'Automated Pipeline'}
+              <CardTitle className="text-base mt-2 leading-snug">
+                {src?.original_description}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Standardized: <span className="text-foreground font-medium">{src?.standardized_description || '—'}</span>
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="pt-2 space-y-2 text-xs divide-y divide-border/40">
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Material Family:</span>
+                <span className="font-semibold text-foreground capitalize">{src?.material_family || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Material Type:</span>
+                <span className="font-semibold text-foreground capitalize">{src?.material_type || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Material Grade:</span>
+                <span className="font-semibold text-foreground">{src?.grade || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Dimensions / Size:</span>
+                <span className="font-semibold text-foreground">{src?.dimensions || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Specification / Standard:</span>
+                <span className="font-semibold text-foreground">{src?.specifications || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Unit of Measurement (UOM):</span>
+                <span className="font-semibold text-foreground">{src?.uom || '—'}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Candidate Material Card */}
+          <Card className="border-border/70 border-t-4 border-t-indigo-500">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-mono text-xs">
+                  Candidate: {cand?.cpse_code || 'CPSE 2'}
+                </Badge>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {cand?.original_material_code || 'No Code'}
+                </span>
+              </div>
+              <CardTitle className="text-base mt-2 leading-snug">
+                {cand?.original_description}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Standardized: <span className="text-foreground font-medium">{cand?.standardized_description || '—'}</span>
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="pt-2 space-y-2 text-xs divide-y divide-border/40">
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Material Family:</span>
+                <span className="font-semibold text-foreground capitalize">{cand?.material_family || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Material Type:</span>
+                <span className="font-semibold text-foreground capitalize">{cand?.material_type || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Material Grade:</span>
+                <span className="font-semibold text-foreground">{cand?.grade || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Dimensions / Size:</span>
+                <span className="font-semibold text-foreground">{cand?.dimensions || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Specification / Standard:</span>
+                <span className="font-semibold text-foreground">{cand?.specifications || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Unit of Measurement (UOM):</span>
+                <span className="font-semibold text-foreground">{cand?.uom || '—'}</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Side-by-Side Comparison */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Source Material */}
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader className="border-b border-border/50 p-5 pb-4">
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 gap-1">
-                  <Building2 className="h-3 w-3" /> Source: {sourceMaterial?.cpse ?? 'CPSE-A'}
-                </Badge>
-                <span className="font-mono text-xs font-bold text-muted-foreground">{sourceMaterial?.material_code}</span>
-              </div>
-              <CardTitle className="text-base font-semibold mt-2.5 text-foreground leading-snug">{sourceMaterial?.description}</CardTitle>
-              {sourceMaterial?.standardized_description && (
-                <CardDescription className="text-emerald-500 font-mono text-xs mt-1 leading-relaxed">
-                  Std: {sourceMaterial.standardized_description}
-                </CardDescription>
-              )}
-            </CardHeader>
-            <CardContent className="p-5 pt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-3.5 text-xs">
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80 block mb-0.5">Category</span>
-                  <div className="font-medium text-foreground text-xs">{sourceMaterial?.category ?? '—'}</div>
-                </div>
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80 block mb-0.5">Unit of Measurement</span>
-                  <div className="font-medium text-foreground text-xs">{sourceMaterial?.unit_of_measure ?? '—'}</div>
-                </div>
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80 block mb-0.5">Manufacturer / Brand</span>
-                  <div className="font-medium text-foreground text-xs">{sourceMaterial?.manufacturer ?? 'Generic / OEM'}</div>
-                </div>
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80 block mb-0.5">Status</span>
-                  <div className="font-medium text-foreground text-xs capitalize">{sourceMaterial?.standardization_status ?? '—'}</div>
-                </div>
-              </div>
-
-              <Separator className="my-3" />
-              <div>
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2.5">
-                  Extracted Attributes
-                </span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {Object.entries(sourceMaterial?.attributes ?? {}).map(
-                    ([k, v]) => (
-                      <div key={k} className="p-2.5 rounded-lg bg-muted/20 border border-border/60">
-                        <div className="text-[10px] uppercase font-semibold text-muted-foreground/75">{k}</div>
-                        <div className="text-xs font-semibold text-foreground font-mono mt-0.5 truncate">{String(v)}</div>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Candidate Material */}
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader className="border-b border-border/50 p-5 pb-4">
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 gap-1">
-                  <Building2 className="h-3 w-3" /> Candidate: {candidateMaterial?.cpse ?? 'CPSE-B'}
-                </Badge>
-                <span className="font-mono text-xs font-bold text-muted-foreground">{candidateMaterial?.material_code}</span>
-              </div>
-              <CardTitle className="text-base font-semibold mt-2.5 text-foreground leading-snug">{candidateMaterial?.description}</CardTitle>
-              {candidateMaterial?.standardized_description && (
-                <CardDescription className="text-emerald-500 font-mono text-xs mt-1 leading-relaxed">
-                  Std: {candidateMaterial.standardized_description}
-                </CardDescription>
-              )}
-            </CardHeader>
-            <CardContent className="p-5 pt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-3.5 text-xs">
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80 block mb-0.5">Category</span>
-                  <div className="font-medium text-foreground text-xs">{candidateMaterial?.category ?? '—'}</div>
-                </div>
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80 block mb-0.5">Unit of Measurement</span>
-                  <div className="font-medium text-foreground text-xs">{candidateMaterial?.unit_of_measure ?? '—'}</div>
-                </div>
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80 block mb-0.5">Manufacturer / Brand</span>
-                  <div className="font-medium text-foreground text-xs">{candidateMaterial?.manufacturer ?? 'Generic / OEM'}</div>
-                </div>
-                <div>
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80 block mb-0.5">Status</span>
-                  <div className="font-medium text-foreground text-xs capitalize">{candidateMaterial?.standardization_status ?? '—'}</div>
-                </div>
-              </div>
-
-              <Separator className="my-3" />
-              <div>
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2.5">
-                  Extracted Attributes
-                </span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {Object.entries(candidateMaterial?.attributes ?? {}).map(
-                    ([k, v]) => (
-                      <div key={k} className="p-2.5 rounded-lg bg-muted/20 border border-border/60">
-                        <div className="text-[10px] uppercase font-semibold text-muted-foreground/75">{k}</div>
-                        <div className="text-xs font-semibold text-foreground font-mono mt-0.5 truncate">{String(v)}</div>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Explainability / AI Reasoning */}
-        <Card className="border-border bg-card shadow-sm">
-          <CardHeader className="p-5 pb-4">
-            <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+        {/* AI Similarity & Evidence Breakdown */}
+        <Card className="border-border/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
-              Harmonization Match Rationale
+              Composite AI Scoring & Engineering Evidence
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-5 pt-0 space-y-4">
-            <div className="p-4 rounded-xl bg-muted/20 border border-border text-sm text-foreground leading-relaxed font-normal">
-              {match.conflict_details ||
-                match.evidence_summary ||
-                'Candidate matches across semantic embeddings and key technical attributes with a confidence margin of over 85%.'}
+          <CardContent className="space-y-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
+                <div className="flex justify-between font-medium">
+                  <span>Semantic (Sentence-BERT)</span>
+                  <span className="text-primary font-bold">{semScore}%</span>
+                </div>
+                <Progress value={semScore} className="h-1.5" />
+              </div>
+
+              <div className="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
+                <div className="flex justify-between font-medium">
+                  <span>Text Description Similarity</span>
+                  <span className="text-primary font-bold">{txtScore}%</span>
+                </div>
+                <Progress value={txtScore} className="h-1.5" />
+              </div>
+
+              <div className="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-1">
+                <div className="flex justify-between font-medium">
+                  <span>Attribute Agreement</span>
+                  <span className="text-primary font-bold">{attrScore}%</span>
+                </div>
+                <Progress value={attrScore} className="h-1.5" />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
-              <div className="p-3.5 rounded-lg border border-border bg-card">
-                <div className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">Attribute Agreement</div>
-                <div className="text-xl font-bold font-mono text-foreground mt-1">
-                  {((match.attribute_agreement ?? 0) * 100).toFixed(0)}%
+            {explanation.evidence_summary && (
+              <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                <span className="font-semibold text-foreground">Evidence Summary:</span>
+                <p className="text-muted-foreground mt-0.5">{explanation.evidence_summary}</p>
+              </div>
+            )}
+
+            {explanation.conflict_details && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
+                <div className="flex items-center gap-2 font-semibold">
+                  <ShieldAlert className="h-4 w-4" />
+                  Engineering Variance / Conflict Identified:
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 leading-normal">
-                  Direct overlap on Grade, Size, and Base Material specifications.
-                </p>
+                <p className="mt-1 text-xs">{explanation.conflict_details}</p>
               </div>
-              <div className="p-3.5 rounded-lg border border-border bg-card">
-                <div className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">Syntactic Normalization</div>
-                <div className="text-xl font-bold font-mono text-foreground mt-1">High Overlap</div>
-                <p className="text-xs text-muted-foreground mt-1 leading-normal">
-                  Abbreviations expanded (e.g. MS &rarr; Mild Steel, PLT &rarr; Plate).
-                </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Review Action Form */}
+        <Card className="border-border/60">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Submit Reviewer Determination</CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Every action is recorded in the append-only audit trail and establishes or updates Common Material Master records.
+                </CardDescription>
               </div>
-              <div className="p-3.5 rounded-lg border border-border bg-card">
-                <div className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">Procurement Consolidation</div>
-                <div className="text-xl font-bold font-mono text-emerald-500 mt-1">Eligible</div>
-                <p className="text-xs text-muted-foreground mt-1 leading-normal">
-                  Consolidated common master code allocation recommended.
-                </p>
+              {!canSubmitDecisions && (
+                <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/10 text-[11px] gap-1">
+                  <Lock className="h-3 w-3" /> Read-Only (Admin)
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!canSubmitDecisions && (
+              <div className="p-3 rounded-lg bg-muted/60 border border-border flex items-center gap-2.5 text-xs text-muted-foreground">
+                <Lock className="h-4 w-4 text-amber-500 shrink-0" />
+                <span>
+                  <strong>Admin Read-Only:</strong> You can inspect match evidence, scores, and attributes. Decision actions (Accept, Reject, Mark Different, Override) are strictly reserved for verified Reviewers.
+                </span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-xs">Select Action</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <Button
+                  type="button"
+                  disabled={!canSubmitDecisions}
+                  variant={decision === 'ACCEPT' ? 'default' : 'outline'}
+                  onClick={() => setDecision('ACCEPT')}
+                  className={`text-xs h-9 gap-1.5 ${decision === 'ACCEPT' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Accept & Harmonize
+                </Button>
+
+                <Button
+                  type="button"
+                  disabled={!canSubmitDecisions}
+                  variant={decision === 'DIFFERENT' ? 'default' : 'outline'}
+                  onClick={() => setDecision('DIFFERENT')}
+                  className={`text-xs h-9 gap-1.5 ${decision === 'DIFFERENT' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}
+                >
+                  <Split className="h-3.5 w-3.5" />
+                  Mark as Different
+                </Button>
+
+                <Button
+                  type="button"
+                  disabled={!canSubmitDecisions}
+                  variant={decision === 'REJECT' ? 'default' : 'outline'}
+                  onClick={() => setDecision('REJECT')}
+                  className={`text-xs h-9 gap-1.5 ${decision === 'REJECT' ? 'bg-destructive hover:bg-destructive/90 text-white' : ''}`}
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Reject Match
+                </Button>
+
+                <Button
+                  type="button"
+                  disabled={!canSubmitDecisions}
+                  variant={decision === 'OVERRIDE' ? 'default' : 'outline'}
+                  onClick={() => setDecision('OVERRIDE')}
+                  className={`text-xs h-9 gap-1.5 ${decision === 'OVERRIDE' ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
+                >
+                  Override Rule
+                </Button>
               </div>
             </div>
+
+            {/* OVERRIDE Sub-choice panel */}
+            {decision === 'OVERRIDE' && (
+              <div className="p-4 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Override Determination Required:</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  When overriding automated rules, you must explicitly choose whether this pair is an <strong>Equivalent</strong> engineering match (which creates or updates the Common Material Master record and maps both items) or confirmed as <strong>Different</strong> materials (which records the decision without creating a mapping).
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={!canSubmitDecisions}
+                    variant={overrideOutcome === 'EQUIVALENT' ? 'default' : 'outline'}
+                    onClick={() => setOverrideOutcome('EQUIVALENT')}
+                    className={`text-xs h-8 gap-1.5 ${
+                      overrideOutcome === 'EQUIVALENT'
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'border-purple-500/30 hover:bg-purple-500/10'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Equivalent (Harmonize & Map to CMM)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={!canSubmitDecisions}
+                    variant={overrideOutcome === 'DIFFERENT' ? 'default' : 'outline'}
+                    onClick={() => setOverrideOutcome('DIFFERENT')}
+                    className={`text-xs h-8 gap-1.5 ${
+                      overrideOutcome === 'DIFFERENT'
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                        : 'border-amber-500/30 hover:bg-amber-500/10'
+                    }`}
+                  >
+                    <Split className="h-3.5 w-3.5" />
+                    Different (Record Decision, Do Not Map)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="review-reason" className="text-xs">
+                Engineering Rationale / Notes (Optional)
+              </Label>
+              <Textarea
+                id="review-reason"
+                placeholder="Document justification for acceptance, rejection, or technical differences..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={2}
+                disabled={!canSubmitDecisions}
+                className="text-xs"
+              />
+            </div>
           </CardContent>
+
+          <CardFooter className="pt-2 flex justify-between border-t border-border/40">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/review')} className="text-xs">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={
+                decisionMutation.isPending ||
+                !canSubmitDecisions ||
+                (decision === 'OVERRIDE' && !overrideOutcome)
+              }
+              onClick={() =>
+                decisionMutation.mutate({
+                  decision,
+                  override_outcome: decision === 'OVERRIDE' ? overrideOutcome! : undefined,
+                  reason,
+                })
+              }
+              className="gap-2"
+            >
+              {decisionMutation.isPending
+                ? 'Recording Decision...'
+                : decision === 'OVERRIDE'
+                ? overrideOutcome
+                  ? `Confirm Override (${overrideOutcome})`
+                  : 'Select Override Outcome Above'
+                : `Confirm Decision (${decision})`}
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     </AppLayout>

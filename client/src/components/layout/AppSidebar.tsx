@@ -1,22 +1,15 @@
+import React from 'react';
 import {
   LayoutDashboard,
-  Upload,
+  Building2,
   Search,
-  GitMerge,
   CheckSquare,
   Database,
+  ShieldCheck,
   BarChart3,
-  Settings,
+  LogIn,
   LogOut,
-  Activity,
-  History,
-  Layers,
-  FlaskConical,
-  Map,
-  ShoppingCart,
-  Sliders,
-  Plug,
-  FileBarChart,
+  GitCompare,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Link } from 'react-router-dom';
@@ -35,129 +28,24 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 interface NavItem {
   title: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
 }
 
 interface NavGroup {
   label: string;
   items: NavItem[];
+  /** If set, only show this group when the predicate is true */
+  showWhen?: boolean;
 }
 
-const navGroups: NavGroup[] = [
-  {
-    label: 'OVERVIEW',
-    items: [
-      {
-        title: 'Dashboard',
-        url: '/dashboard',
-        icon: LayoutDashboard,
-      },
-    ],
-  },
-  {
-    label: 'DATA PIPELINE',
-    items: [
-      {
-        title: 'Data Ingestion',
-        url: '/ingest',
-        icon: Upload,
-      },
-      {
-        title: 'Dataset History',
-        url: '/dataset-history',
-        icon: History,
-      },
-      {
-        title: 'Material Explorer',
-        url: '/materials',
-        icon: Search,
-      },
-      {
-        title: 'Standardization',
-        url: '/standardization',
-        icon: Sliders,
-      },
-      {
-        title: 'Data Quality',
-        url: '/data-quality',
-        icon: BarChart3,
-      },
-    ],
-  },
-  {
-    label: 'AI INTELLIGENCE',
-    items: [
-      {
-        title: 'AI Matching',
-        url: '/matches',
-        icon: GitMerge,
-      },
-      {
-        title: 'Review Queue',
-        url: '/review',
-        icon: CheckSquare,
-      },
-    ],
-  },
-  {
-    label: 'MASTER DATA',
-    items: [
-      {
-        title: 'Common Material Master',
-        url: '/common-master',
-        icon: Database,
-      },
-      {
-        title: 'Legacy Mapping',
-        url: '/legacy-mapping',
-        icon: Map,
-      },
-    ],
-  },
-  {
-    label: 'ANALYTICS & INSIGHTS',
-    items: [
-      {
-        title: 'Procurement Intelligence',
-        url: '/procurement',
-        icon: ShoppingCart,
-      },
-      {
-        title: 'CPSE Analytics',
-        url: '/cpse-analytics',
-        icon: Activity,
-      },
-      {
-        title: 'Evaluation',
-        url: '/evaluation',
-        icon: FlaskConical,
-      },
-    ],
-  },
-  {
-    label: 'SYSTEM',
-    items: [
-      {
-        title: 'SAP / ERP Integration',
-        url: '/settings',
-        icon: Plug,
-      },
-      {
-        title: 'Settings',
-        url: '/settings',
-        icon: Settings,
-      },
-    ],
-  },
-];
-
 export function AppSidebar() {
-  const { profile, role, signOut } = useAuth();
+  const { role, isAdmin, isReviewer, canViewReviewQueue, canSubmitDecisions, isAuthenticated, logout } = useAuth();
   const { isMobile, setOpenMobile } = useSidebar();
 
   const handleNavClick = () => {
@@ -166,114 +54,172 @@ export function AppSidebar() {
     }
   };
 
-  const localProfile = (() => {
-    try {
-      const stored = localStorage.getItem('user_profile_data');
-      if (stored) return JSON.parse(stored);
-    } catch {
-      // ignore
-    }
-    return null;
-  })();
-
-  const displayName = localProfile?.firstName && localProfile?.lastName
-    ? `${localProfile.firstName} ${localProfile.lastName}`
-    : profile?.first_name && profile?.last_name
-    ? `${profile.first_name} ${profile.last_name}`
-    : localProfile?.email || profile?.email || 'Admin Officer';
-
-  const userInitials = localProfile?.firstName && localProfile?.lastName
-    ? `${localProfile.firstName.charAt(0)}${localProfile.lastName.charAt(0)}`.toUpperCase()
-    : displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'AD';
-
-  const roleLabel = localProfile?.role
-    ? localProfile.role.charAt(0).toUpperCase() + localProfile.role.slice(1)
-    : role
+  const roleLabel = role
     ? role.charAt(0).toUpperCase() + role.slice(1)
-    : 'Admin';
+    : 'Unauthenticated';
+
+  // ----- Admin-only navigation -----
+  const adminGroups: NavGroup[] = [
+    {
+      label: 'PLATFORM',
+      showWhen: isAdmin,
+      items: [
+        { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+        { title: 'Manage CPSEs', url: '/manage-cpses', icon: Building2 },
+        { title: 'Material Explorer', url: '/materials', icon: Search },
+      ],
+    },
+    {
+      label: 'AI HARMONIZATION',
+      showWhen: isAdmin,
+      items: [
+        { title: 'Find Mapping', url: '/find-mapping', icon: GitCompare },
+        { title: 'Common Material Master', url: '/common-master', icon: Database },
+      ],
+    },
+    {
+      label: 'GOVERNANCE & INSIGHTS',
+      showWhen: isAdmin,
+      items: [
+        { title: 'Audit Trail', url: '/audit', icon: ShieldCheck },
+        { title: 'Analytics', url: '/analytics', icon: BarChart3 },
+      ],
+    },
+  ];
+
+  // ----- Reviewer-only navigation -----
+  const reviewerGroups: NavGroup[] = [
+    {
+      label: 'REVIEW WORKFLOW',
+      showWhen: isReviewer,
+      items: [
+        { title: 'Review Queue', url: '/review', icon: CheckSquare },
+        { title: 'Common Material Master', url: '/common-master', icon: Database },
+        { title: 'Material Explorer', url: '/materials', icon: Search },
+      ],
+    },
+    {
+      label: 'GOVERNANCE',
+      showWhen: isReviewer,
+      items: [
+        { title: 'Audit Trail', url: '/audit', icon: ShieldCheck },
+      ],
+    },
+  ];
+
+  // Pick the correct group list based on role
+  const navGroups = isAdmin ? adminGroups : isReviewer ? reviewerGroups : [];
 
   return (
-    <Sidebar className="bg-sidebar-background">
-      <SidebarHeader className="h-14 px-4 flex items-center justify-start border-b border-sidebar-border w-full">
-        <div className="flex items-center gap-3">
-          <img
-            src="/favicon.png"
-            alt="NMC Logo"
-            className="h-10 w-10 object-contain"
-          />
-          <div>
-            <h1 className="font-semibold text-sidebar-foreground leading-tight">NMC-AI</h1>
-            <p className="text-xs text-muted-foreground leading-tight">Material Harmonization</p>
+    <Sidebar className="bg-sidebar border-r border-sidebar-border">
+      <SidebarHeader className="h-16 px-4 flex items-center justify-start border-b border-sidebar-border w-full">
+        <Link to={isAdmin ? '/dashboard' : isReviewer ? '/review' : '/login'} className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary">
+            NMC
           </div>
-        </div>
+          <div>
+            <h1 className="font-bold text-sm tracking-wide text-sidebar-foreground leading-tight">
+              NMC PLATFORM
+            </h1>
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              National Material Code
+            </p>
+          </div>
+        </Link>
       </SidebarHeader>
 
-      <SidebarContent className="px-0 overflow-y-auto">
-        {navGroups.map((group) => (
-          <SidebarGroup key={group.label} className="py-0">
-            <SidebarGroupLabel className="text-[10px] font-semibold tracking-widest text-muted-foreground px-5 pt-4 pb-1">
-              {group.label}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-0">
-                {group.items.map((item, index) => (
-                  <SidebarMenuItem
-                    key={item.title}
-                    className="animate-slide-in-left opacity-0 [animation-fill-mode:forwards] m-0 p-0"
-                    style={{ animationDelay: `${index * 40}ms` }}
-                  >
-                    <SidebarMenuButton asChild className="h-9 m-0 p-0">
-                      <NavLink
-                        to={item.url}
-                        onClick={handleNavClick}
-                        className="flex items-center justify-start gap-3 px-5 h-9 w-full rounded-none text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200"
-                        activeClassName="bg-sidebar-accent text-primary font-medium border-l-2 border-primary"
-                      >
-                        <item.icon className="h-4 w-4 flex-shrink-0" />
-                        <span className="text-sm">{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-            <div className="mx-5 border-b border-sidebar-border mt-2" />
-          </SidebarGroup>
-        ))}
+      <SidebarContent className="px-0 overflow-y-auto py-2">
+        {navGroups
+          .filter((group) => group.showWhen !== false)
+          .map((group) => (
+            <SidebarGroup key={group.label} className="py-1">
+              <SidebarGroupLabel className="text-[10px] font-semibold tracking-wider text-muted-foreground px-4 py-1.5 uppercase">
+                {group.label}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5 px-2">
+                  {group.items.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild className="h-9 px-3 rounded-md">
+                        <NavLink
+                          to={item.url}
+                          onClick={handleNavClick}
+                          className="flex items-center justify-between w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                          activeClassName="bg-primary/10 text-primary font-medium"
+                        >
+                          <div className="flex items-center gap-3">
+                            <item.icon className="h-4 w-4 shrink-0" />
+                            <span className="text-sm">{item.title}</span>
+                          </div>
+                          {item.badge && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                              {item.badge}
+                            </Badge>
+                          )}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
+
+        {/* Show login prompt if not authenticated */}
+        {!isAuthenticated && (
+          <div className="px-4 py-6 text-center">
+            <p className="text-xs text-muted-foreground mb-3">
+              Sign in to access the platform.
+            </p>
+            <Link to="/login">
+              <Button size="sm" variant="outline" className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10">
+                <LogIn className="h-3.5 w-3.5" />
+                Sign In
+              </Button>
+            </Link>
+          </div>
+        )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-0">
-        <Link
-          to="/profile"
-          onClick={handleNavClick}
-          className="flex items-center gap-3 p-4 hover:bg-sidebar-accent transition-colors"
-        >
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-              {userInitials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-sm font-medium text-sidebar-foreground truncate">
-              {displayName}
+      <SidebarFooter className="border-t border-sidebar-border p-3">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex flex-col">
+            <span className="text-xs font-medium text-sidebar-foreground">
+              {isAuthenticated ? `${roleLabel} Access` : 'Not Signed In'}
             </span>
-            <span className="text-xs text-muted-foreground">{roleLabel}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {isAuthenticated
+                ? isAdmin
+                  ? 'Admin — Full Platform'
+                  : 'Reviewer — Review Workflow'
+                : 'Please sign in'}
+            </span>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.preventDefault();
-              signOut();
-            }}
-            className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent shrink-0"
-            aria-label="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </Link>
+
+          {isAuthenticated ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
+              className="h-8 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign Out
+            </Button>
+          ) : (
+            <Link to="/login">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                Sign In
+              </Button>
+            </Link>
+          )}
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
 }
-
