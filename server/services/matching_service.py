@@ -162,6 +162,97 @@ class MatchingService:
         if typ1 and typ2 and typ1.upper() != typ2.upper():
             return HARD_INCOMPATIBLE, [f"Material type mismatch: '{typ1}' vs '{typ2}'"]
 
+        # Text-based domain engineering conflict checks on full descriptions
+        raw1 = str(rec1.get("Material_Description") or rec1.get("Standardized_Description") or "").upper()
+        raw2 = str(rec2.get("Material_Description") or rec2.get("Standardized_Description") or "").upper()
+
+        if raw1 and raw2:
+            # Conductor / Electrical metallurgy
+            metals = ["COPPER", "ALUMINIUM", "ALUMINUM"]
+            m1 = next((m for m in metals if m in raw1), None)
+            m2 = next((m for m in metals if m in raw2), None)
+            if m1 and m2:
+                n1 = "AL" if "ALUM" in m1 else "CU"
+                n2 = "AL" if "ALUM" in m2 else "CU"
+                if n1 != n2:
+                    return HARD_INCOMPATIBLE, [f"Incompatible conductor metallurgy: {m1} vs {m2}"]
+
+            # Casting / Steel metallurgy
+            cast_grades = ["WCB", "LCB", "LCC", "WC6", "WC9", "C5", "C12", "CF8", "CF8M", "CF3", "CF3M"]
+            cg1 = next((g for g in cast_grades if re.search(r"\b" + g + r"\b", raw1)), None)
+            cg2 = next((g for g in cast_grades if re.search(r"\b" + g + r"\b", raw2)), None)
+            if cg1 and cg2 and cg1 != cg2:
+                return HARD_INCOMPATIBLE, [f"Incompatible casting metallurgy: {cg1} vs {cg2}"]
+
+            # Sealing elastomer / Gasket materials
+            gaskets = ["VITON", "NBR", "NITRILE", "PTFE", "TEFLON", "EPDM", "GRAPHITE", "NEOPRENE", "SILICONE"]
+            gk1 = next((g for g in gaskets if re.search(r"\b" + g + r"\b", raw1)), None)
+            gk2 = next((g for g in gaskets if re.search(r"\b" + g + r"\b", raw2)), None)
+            if gk1 and gk2 and gk1 != gk2:
+                return HARD_INCOMPATIBLE, [f"Incompatible sealing elastomer: {gk1} vs {gk2}"]
+
+            # Valve types
+            valve_types = [
+                "GATE VALVE", "GLOBE VALVE", "BALL VALVE", "CHECK VALVE",
+                "BUTTERFLY VALVE", "PLUG VALVE", "NEEDLE VALVE", "CONTROL VALVE",
+                "RELIEF VALVE", "SAFETY VALVE"
+            ]
+            vt1 = next((v for v in valve_types if v in raw1), None)
+            vt2 = next((v for v in valve_types if v in raw2), None)
+            if vt1 and vt2 and vt1 != vt2:
+                return HARD_INCOMPATIBLE, [f"Incompatible valve type: {vt1} vs {vt2}"]
+
+            # Fastener types
+            fasteners = ["HEX BOLT", "ANCHOR BOLT", "STUD BOLT", "EYE BOLT", "U-BOLT", "HEX NUT", "WASHER"]
+            f1 = next((f for f in fasteners if f in raw1), None)
+            f2 = next((f for f in fasteners if f in raw2), None)
+            if f1 and f2 and f1 != f2:
+                return HARD_INCOMPATIBLE, [f"Incompatible fastener type: {f1} vs {f2}"]
+
+            # Pressure ratings
+            p_pat = r"(\b\d{3,4}#|\bCLASS\s*\d{3,4}|\bPN\s*\d{1,3})"
+            p1 = re.findall(p_pat, raw1)
+            p2 = re.findall(p_pat, raw2)
+            if p1 and p2:
+                norm_p1 = re.sub(r"\D", "", p1[0])
+                norm_p2 = re.sub(r"\D", "", p2[0])
+                if norm_p1 != norm_p2:
+                    return HARD_INCOMPATIBLE, [f"Incompatible pressure rating: {p1[0]} vs {p2[0]}"]
+
+            # Fastener grade / metallurgy
+            ss_pat = r"\b(SS\s*304L?|SS\s*316L?|GRADE\s*8\.8|GRADE\s*10\.9|GRADE\s*4\.6|A2-70|A4-70|A4-80)\b"
+            ss1 = re.findall(ss_pat, raw1)
+            ss2 = re.findall(ss_pat, raw2)
+            if ss1 and ss2:
+                n1 = ss1[0].replace(" ", "").replace("GRADE", "GR")
+                n2 = ss2[0].replace(" ", "").replace("GRADE", "GR")
+                if n1 != n2 and not (("304" in n1 and "304" in n2) or ("316" in n1 and "316" in n2)):
+                    return HARD_INCOMPATIBLE, [f"Incompatible fastener grade: {ss1[0]} vs {ss2[0]}"]
+
+            # Cable cross-section
+            cs1 = re.findall(r"(\d+(?:\.\d+)?)\s*(?:SQ\.?\s*MM|SQMM)", raw1)
+            cs2 = re.findall(r"(\d+(?:\.\d+)?)\s*(?:SQ\.?\s*MM|SQMM)", raw2)
+            if cs1 and cs2 and cs1[0] != cs2[0]:
+                return HARD_INCOMPATIBLE, [f"Incompatible cable cross-section: {cs1[0]} sq mm vs {cs2[0]} sq mm"]
+
+            # Cable core count
+            cc1 = re.findall(r"\b(\d+(?:\.5)?)\s*C\b", raw1)
+            cc2 = re.findall(r"\b(\d+(?:\.5)?)\s*C\b", raw2)
+            if cc1 and cc2 and cc1[0] != cc2[0]:
+                return HARD_INCOMPATIBLE, [f"Incompatible cable core count: {cc1[0]}C vs {cc2[0]}C"]
+
+            # Metric bolt diameter
+            mb1 = re.findall(r"\bM(\d+)\b", raw1)
+            mb2 = re.findall(r"\bM(\d+)\b", raw2)
+            if mb1 and mb2 and mb1[0] != mb2[0]:
+                return HARD_INCOMPATIBLE, [f"Incompatible bolt diameter: M{mb1[0]} vs M{mb2[0]}"]
+
+            # Inch size
+            in1 = re.findall(r"(\d+(?:/\d+)?)\s*(?:IN\b|INCH\b)", raw1)
+            in2 = re.findall(r"(\d+(?:/\d+)?)\s*(?:IN\b|INCH\b)", raw2)
+            if in1 and in2 and in1[0] != in2[0]:
+                return HARD_INCOMPATIBLE, [f"Incompatible nominal pipe/valve size: {in1[0]} in vs {in2[0]} in"]
+
         # Metallurgy grade hard incompatibilities
         if grd1 and grd2:
             g1, g2 = grd1.upper(), grd2.upper()
@@ -317,13 +408,27 @@ class MatchingService:
         cpse1 = str(rec1.get("CPSE", ""))
         cpse2 = str(rec2.get("CPSE", ""))
 
-        key1 = str(rec1.get("Canonical_Material_Key", "") or "")
-        key2 = str(rec2.get("Canonical_Material_Key", "") or "")
-        canonical_key_exact = 1.0 if (key1 and key2 and key1 == key2) else 0.0
+        raw1 = str(rec1.get("Material_Description", "") or "")
+        raw2 = str(rec2.get("Material_Description", "") or "")
+        raw_sim = (fuzz.token_sort_ratio(raw1.upper(), raw2.upper()) / 100.0) if (raw1 and raw2) else 0.0
 
         desc1 = str(rec1.get("Standardized_Description", "") or "")
         desc2 = str(rec2.get("Standardized_Description", "") or "")
-        desc_sim = (fuzz.token_sort_ratio(desc1.upper(), desc2.upper()) / 100.0) if (desc1 and desc2) else 0.0
+        std_sim = (fuzz.token_sort_ratio(desc1.upper(), desc2.upper()) / 100.0) if (desc1 and desc2) else 0.0
+
+        # Description similarity combines raw and standardized text
+        if raw1 and raw2 and desc1 and desc2:
+            desc_sim = round(0.35 * std_sim + 0.65 * raw_sim, 4)
+        else:
+            desc_sim = raw_sim if raw1 and raw2 else std_sim
+
+        # Engineering conflict classification
+        conflict_class, conflict_reasons = self.classify_engineering_conflict(rec1, rec2)
+        is_hard_incompatible = (conflict_class == HARD_INCOMPATIBLE)
+
+        key1 = str(rec1.get("Canonical_Material_Key", "") or "")
+        key2 = str(rec2.get("Canonical_Material_Key", "") or "")
+        canonical_key_exact = 1.0 if (key1 and key2 and key1 == key2 and not is_hard_incompatible) else 0.0
 
         # Embedding similarity
         if emb1 is not None and emb2 is not None:
@@ -334,38 +439,45 @@ class MatchingService:
 
         # Attribute similarities
         attr_sims, agreement_score, evaluated_count = self.compare_attributes(rec1, rec2)
+        coverage_factor = min(1.0, evaluated_count / 4.0) if evaluated_count > 0 else 0.0
+        effective_agreement = agreement_score * (0.6 + 0.4 * coverage_factor)
 
-        # Engineering conflict classification
-        conflict_class, conflict_reasons = self.classify_engineering_conflict(rec1, rec2)
-
-        # Base composite score
-        w = self.weights
+        # Base composite score with balanced weights
         base_score = (
-            w.get("canonical_key_exact", 0.30) * canonical_key_exact
-            + w.get("embedding_similarity", 0.20) * emb_sim
-            + w.get("description_similarity", 0.10) * desc_sim
-            + w.get("attribute_agreement", 0.40) * agreement_score
+            0.25 * canonical_key_exact
+            + 0.20 * emb_sim
+            + 0.25 * desc_sim
+            + 0.30 * effective_agreement
         )
 
-        # Apply penalty
-        penalty = self.penalties.get(conflict_class, 0.0)
-        final_score = max(0.0, base_score - penalty)
-
-        # Hard incompatibility cap
-        if conflict_class == HARD_INCOMPATIBLE:
-            final_score = min(final_score, self.hard_incompatible_max_score)
-
-        final_score = round(final_score, 4)
-
-        # Confidence level
-        high_th = self.thresholds.get("high", 0.85)
-        med_th = self.thresholds.get("medium", 0.65)
-        if final_score >= high_th and conflict_class != HARD_INCOMPATIBLE:
-            confidence = "HIGH"
-        elif final_score >= med_th:
-            confidence = "MEDIUM"
-        else:
+        if is_hard_incompatible:
+            # Strictly cap hard incompatible pairs to low score
+            penalty = 0.65
+            final_score = min(0.25, max(0.05, round(base_score - penalty, 4)))
             confidence = "LOW"
+        else:
+            penalty = self.penalties.get(conflict_class, 0.0)
+            final_score = max(0.0, round(base_score - penalty, 4))
+
+            # Guard against blindly assigning 1.0 (100%):
+            # Only exact identical raw description + exact key + high attribute agreement can ever reach 1.0
+            is_exact_raw = (raw1.strip().upper() == raw2.strip().upper()) and bool(raw1.strip())
+            if not is_exact_raw:
+                final_score = min(final_score, 0.94)
+                if raw_sim < 0.85:
+                    final_score = min(final_score, 0.82)
+                if raw_sim < 0.70:
+                    final_score = min(final_score, 0.68)
+                if raw_sim < 0.50:
+                    final_score = min(final_score, 0.45)
+
+            # Confidence level
+            if final_score >= 0.80 and canonical_key_exact:
+                confidence = "HIGH"
+            elif final_score >= 0.60:
+                confidence = "MEDIUM"
+            else:
+                confidence = "LOW"
 
         # Preserved Phase 3/4 conflict details
         conf_detail = []

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import create_engine, select, func, and_, or_, desc, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, aliased
 
 try:
     from app.models.nmc_models import (
@@ -430,7 +430,7 @@ class NMCRepository:
                 confidence_label=data.get("confidence_label"),
                 match_category=data.get("match_category", "POTENTIALLY_SAME"),
                 explanation=data.get("explanation"),
-                status="PENDING_REVIEW",
+                status=data.get("status", "PENDING_REVIEW"),
             )
             session.add(m)
             session.commit()
@@ -451,7 +451,7 @@ class NMCRepository:
                     confidence_label=data.get("confidence_label"),
                     match_category=data.get("match_category", "POTENTIALLY_SAME"),
                     explanation=data.get("explanation"),
-                    status="PENDING_REVIEW",
+                    status=data.get("status", "PENDING_REVIEW"),
                 )
                 objs.append(m)
             session.bulk_save_objects(objs)
@@ -463,22 +463,27 @@ class NMCRepository:
             m = session.get(MaterialMatch, match_id)
             if not m:
                 return None
-            d = m.to_dict()
-            # Attach source and candidate material details
             src = session.get(Material, m.source_material_id)
             cand = session.get(Material, m.candidate_material_id)
-            if src:
-                src_cpse = session.get(CPSE, src.cpse_id)
-                src_d = src.to_dict()
-                src_d["cpse_code"] = src_cpse.code if src_cpse else None
-                src_d["cpse_name"] = src_cpse.name if src_cpse else None
-                d["source_material"] = src_d
-            if cand:
-                cand_cpse = session.get(CPSE, cand.cpse_id)
-                cand_d = cand.to_dict()
-                cand_d["cpse_code"] = cand_cpse.code if cand_cpse else None
-                cand_d["cpse_name"] = cand_cpse.name if cand_cpse else None
-                d["candidate_material"] = cand_d
+            if not src or not cand:
+                return None
+            if not src.original_description or not src.original_description.strip():
+                return None
+            if not cand.original_description or not cand.original_description.strip():
+                return None
+
+            d = m.to_dict()
+            src_cpse = session.get(CPSE, src.cpse_id)
+            src_d = src.to_dict()
+            src_d["cpse_code"] = src_cpse.code if src_cpse else None
+            src_d["cpse_name"] = src_cpse.name if src_cpse else None
+            d["source_material"] = src_d
+
+            cand_cpse = session.get(CPSE, cand.cpse_id)
+            cand_d = cand.to_dict()
+            cand_d["cpse_code"] = cand_cpse.code if cand_cpse else None
+            cand_d["cpse_name"] = cand_cpse.name if cand_cpse else None
+            d["candidate_material"] = cand_d
 
             # For accepted/overridden matches, attach the CMM/NMC code
             if m.status in ("ACCEPTED", "OVERRIDDEN"):
@@ -522,7 +527,24 @@ class NMCRepository:
         page_size: int = 50,
     ) -> Dict[str, Any]:
         with self.get_session() as session:
-            stmt = select(MaterialMatch)
+            SrcMat = aliased(Material)
+            CandMat = aliased(Material)
+
+            # Strictly join real materials with non-empty descriptions
+            stmt = (
+                select(MaterialMatch)
+                .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+                .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+                .where(
+                    and_(
+                        SrcMat.original_description.isnot(None),
+                        func.trim(SrcMat.original_description) != "",
+                        CandMat.original_description.isnot(None),
+                        func.trim(CandMat.original_description) != "",
+                    )
+                )
+            )
+
             if status:
                 if "," in status:
                     status_list = [s.strip() for s in status.split(",") if s.strip()]
@@ -534,11 +556,10 @@ class NMCRepository:
 
             # CPSE filter: show matches where source OR candidate belongs to that CPSE
             if cpse_id:
-                src_sub = select(Material.id).where(Material.cpse_id == cpse_id)
                 stmt = stmt.where(
                     or_(
-                        MaterialMatch.source_material_id.in_(src_sub),
-                        MaterialMatch.candidate_material_id.in_(src_sub),
+                        SrcMat.cpse_id == cpse_id,
+                        CandMat.cpse_id == cpse_id,
                     )
                 )
 
@@ -548,19 +569,22 @@ class NMCRepository:
 
             items = []
             for m in rows:
-                d = m.to_dict()
                 src = session.get(Material, m.source_material_id)
                 cand = session.get(Material, m.candidate_material_id)
-                if src:
-                    src_cpse = session.get(CPSE, src.cpse_id)
-                    d["source_cpse_code"] = src_cpse.code if src_cpse else None
-                    d["source_code"] = src.original_material_code
-                    d["source_description"] = src.original_description
-                if cand:
-                    cand_cpse = session.get(CPSE, cand.cpse_id)
-                    d["candidate_cpse_code"] = cand_cpse.code if cand_cpse else None
-                    d["candidate_code"] = cand.original_material_code
-                    d["candidate_description"] = cand.original_description
+                if not src or not cand or not src.original_description or not cand.original_description:
+                    continue
+
+                d = m.to_dict()
+                src_cpse = session.get(CPSE, src.cpse_id)
+                d["source_cpse_code"] = src_cpse.code if src_cpse else None
+                d["source_code"] = src.original_material_code
+                d["source_description"] = src.original_description
+
+                cand_cpse = session.get(CPSE, cand.cpse_id)
+                d["candidate_cpse_code"] = cand_cpse.code if cand_cpse else None
+                d["candidate_code"] = cand.original_material_code
+                d["candidate_description"] = cand.original_description
+
                 # For accepted/overridden, attach NMC code for "Already Mapped" tab
                 if m.status in ("ACCEPTED", "OVERRIDDEN"):
                     mapping = None
@@ -610,16 +634,29 @@ class NMCRepository:
         - mapped: ACCEPTED + OVERRIDDEN (Already Mapped tab)
         """
         with self.get_session() as session:
+            SrcMat = aliased(Material)
+            CandMat = aliased(Material)
+
             def _count(statuses):
-                stmt = select(func.count(MaterialMatch.id)).where(
-                    MaterialMatch.status.in_(statuses)
+                stmt = (
+                    select(func.count(MaterialMatch.id))
+                    .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+                    .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+                    .where(
+                        and_(
+                            MaterialMatch.status.in_(statuses),
+                            SrcMat.original_description.isnot(None),
+                            func.trim(SrcMat.original_description) != "",
+                            CandMat.original_description.isnot(None),
+                            func.trim(CandMat.original_description) != "",
+                        )
+                    )
                 )
                 if cpse_id:
-                    src_sub = select(Material.id).where(Material.cpse_id == cpse_id)
                     stmt = stmt.where(
                         or_(
-                            MaterialMatch.source_material_id.in_(src_sub),
-                            MaterialMatch.candidate_material_id.in_(src_sub),
+                            SrcMat.cpse_id == cpse_id,
+                            CandMat.cpse_id == cpse_id,
                         )
                     )
                 return session.execute(stmt).scalar() or 0
