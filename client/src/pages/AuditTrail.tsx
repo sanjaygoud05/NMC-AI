@@ -13,12 +13,20 @@ import {
 import { nmcApi } from '@/services/nmcApi';
 import { Filter, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
 
-function formatAuditTimestamp(dateStr?: string): string {
-  if (!dateStr) return '—';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
+function parseUtcDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  let str = dateStr.trim();
+  // If the ISO string doesn't have a timezone designator, append 'Z' so it parses as UTC
+  if (!str.endsWith('Z') && !str.includes('+') && !str.includes('-', 10)) {
+    str = str + 'Z';
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
 
+function formatAuditTimestamp(d: Date | null, rawFallback: string): string {
+  if (!d) return rawFallback || '—';
+  try {
     const monthNames = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
@@ -36,8 +44,22 @@ function formatAuditTimestamp(dateStr?: string): string {
 
     return `${month} ${day}, ${year} at ${hours}:${minutes}:${seconds} ${ampm}`;
   } catch {
-    return dateStr;
+    return rawFallback || '—';
   }
+}
+
+function getRelativeTime(d: Date | null): string {
+  if (!d) return '';
+  const now = new Date();
+  const diffSec = Math.max(0, Math.floor((now.getTime() - d.getTime()) / 1000));
+  if (diffSec < 10) return 'just now';
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDays = Math.floor(diffHour / 24);
+  return `${diffDays}d ago`;
 }
 
 function normalizeActor(actor?: string): string {
@@ -197,6 +219,7 @@ export default function AuditTrail() {
         page,
         page_size: pageSize,
       }),
+    refetchInterval: 10000, // live polling every 10 seconds
   });
 
   const handleApply = () => {
@@ -217,9 +240,15 @@ export default function AuditTrail() {
         {/* Header */}
         <div className="flex items-center justify-between pb-2">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
-              Audit Trail
-            </h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">
+                Audit Trail
+              </h1>
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                LIVE
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               System and governance history
             </p>
@@ -289,7 +318,7 @@ export default function AuditTrail() {
               <thead>
                 <tr className="bg-muted/30 border-b border-border text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
                   <th className="py-2.5 px-3 w-10 text-center">#</th>
-                  <th className="py-2.5 px-3 w-52">TIMESTAMP</th>
+                  <th className="py-2.5 px-3 w-56">TIMESTAMP</th>
                   <th className="py-2.5 px-3 w-44">ACTOR</th>
                   <th className="py-2.5 px-3 w-48">ACTION</th>
                   <th className="py-2.5 px-3 w-56">ENTITY TYPE</th>
@@ -315,6 +344,9 @@ export default function AuditTrail() {
                 ) : (
                   auditData.items.map((log: any, idx: number) => {
                     const rowIndex = (page - 1) * pageSize + idx + 1;
+                    const parsedDate = parseUtcDate(log.timestamp);
+                    const formattedTimestamp = formatAuditTimestamp(parsedDate, log.timestamp);
+                    const relativeTime = getRelativeTime(parsedDate);
                     const actorName = normalizeActor(log.actor);
                     const { displayAction, badgeStyle } = resolveAction(log.action);
                     const entityType = resolveEntityType(log.action, log.metadata || log.extra_metadata);
@@ -328,8 +360,17 @@ export default function AuditTrail() {
                         <td className="py-2.5 px-3 text-center text-muted-foreground/70 font-mono text-[11px]">
                           {rowIndex}
                         </td>
-                        <td className="py-2.5 px-3 text-muted-foreground font-sans whitespace-nowrap">
-                          {formatAuditTimestamp(log.timestamp)}
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-sans text-foreground/90 font-medium">
+                              {formattedTimestamp}
+                            </span>
+                            {relativeTime && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted/70 text-muted-foreground font-mono">
+                                {relativeTime}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-2.5 px-3 font-mono text-foreground/80 font-medium whitespace-nowrap">
                           {actorName}
