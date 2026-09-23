@@ -36,3 +36,13 @@ def get_cpse_analytics(role: str = Depends(verify_reviewer_access)):
     Accessible to Admin and Reviewer.
     """
     return nmc_repo.get_cpse_analytics()
+
+
+@router.get("/match-stats")
+def get_match_stats(role: str = Depends(verify_reviewer_access)):
+    """
+    Returns match breakdown by status:
+    - Total, pending, accepted, rejected, different
+    Used for pie/donut charts on the analytics page.
+    """
+    return nmc_repo.get_match_stats()
