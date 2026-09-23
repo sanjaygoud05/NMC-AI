@@ -264,6 +264,7 @@ export const nmcApi = {
         rejected: number;
         different: number;
       }>('/api/nmc/analytics/match-stats'),
+    getFullAnalytics: () => request<any>('/api/nmc/analytics/full'),
   },
 
   // Audit Trail
