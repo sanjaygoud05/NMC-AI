@@ -2,17 +2,19 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { nmcApi } from '@/services/nmcApi';
+import { DashboardAnalyticsOverview } from '@/components/dashboard/DashboardAnalyticsOverview';
 import {
-  Building2,
-  Layers,
-  ShieldCheck,
-  GitMerge,
-  Clock,
   Database,
+  Building2,
+  CheckCircle2,
+  Box,
+  Clock,
+  GitFork,
+  Layers,
+  BarChart3,
   ArrowRight,
 } from 'lucide-react';
 
@@ -28,124 +30,123 @@ export default function Dashboard() {
     queryFn: () => nmcApi.cpses.list(),
   });
 
-  const totalMaterials = metrics?.total_materials || 0;
+  const { data: cpseAnalytics } = useQuery({
+    queryKey: ['nmc', 'cpse-analytics'],
+    queryFn: () => nmcApi.analytics.getCPSEAnalytics(),
+  });
+
+  const kpis = [
+    {
+      title: 'Total Materials',
+      value: metrics?.total_materials != null ? Number(metrics.total_materials).toLocaleString() : '0',
+      icon: Database,
+      subtext: 'All CPSEs combined',
+      trend: null,
+    },
+    {
+      title: 'CPSEs Integrated',
+      value: metrics?.total_cpses != null ? metrics.total_cpses : (metrics?.total_cpsEs != null ? metrics.total_cpsEs : '0'),
+      icon: Building2,
+      subtext: 'Active public enterprises',
+      trend: null,
+    },
+    {
+      title: 'Standardized Records',
+      value: metrics?.standardized_records != null ? Number(metrics.standardized_records).toLocaleString() : (metrics?.normalized_materials != null ? Number(metrics.normalized_materials).toLocaleString() : '0'),
+      icon: CheckCircle2,
+      subtext: `${metrics?.total_materials ? Math.round(((metrics.standardized_records ?? metrics.normalized_materials ?? 0) / metrics.total_materials) * 100) : 100}% catalog standardized`,
+      trend: 'up',
+    },
+    {
+      title: 'Harmonized Groups',
+      value: metrics?.harmonized_groups != null ? Number(metrics.harmonized_groups).toLocaleString() : (metrics?.total_national_codes != null ? Number(metrics.total_national_codes).toLocaleString() : '0'),
+      icon: Box,
+      subtext: 'Golden common master records',
+      trend: 'up',
+    },
+    {
+      title: 'Pending Reviews',
+      value: metrics?.pending_reviews != null ? Number(metrics.pending_reviews).toLocaleString() : '0',
+      icon: Clock,
+      subtext: 'Awaiting human decision',
+      trend: 'down',
+    },
+    {
+      title: 'High Confidence Matches',
+      value: metrics?.high_confidence_matches != null ? Number(metrics.high_confidence_matches).toLocaleString() : '0',
+      icon: GitFork,
+      subtext: 'AI consensus verified',
+      trend: 'up',
+    },
+    {
+      title: 'Match Candidates',
+      value: metrics?.match_candidates != null ? Number(metrics.match_candidates).toLocaleString() : '0',
+      icon: Layers,
+      subtext: 'Cross-CPSE candidate pairs',
+      trend: null,
+    },
+    {
+      title: 'Data Quality Score',
+      value: metrics?.data_quality_score != null ? `${metrics.data_quality_score}%` : '0%',
+      icon: BarChart3,
+      subtext: 'Overall completeness & validity',
+      trend: 'up',
+    },
+  ];
 
   return (
     <AppLayout requireAdmin>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Material Harmonization Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Cross-CPSE National Material Code (NMC) Governance &amp; Standardization Hub
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-sans">
+              Material Harmonization Dashboard
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Overview of cross-enterprise material deduplication, quality health, and harmonization pipeline.
+            </p>
+          </div>
         </div>
 
-        {/* KPI Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <Card className="border-border/60">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5 text-primary" />
-                Active CPSEs
-              </CardDescription>
-              <CardTitle className="text-2xl font-bold">
-                {metrics?.total_cpsEs ?? 0}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <p className="text-[11px] text-muted-foreground">Registered enterprises</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/60">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5 text-primary" />
-                Total Materials
-              </CardDescription>
-              <CardTitle className="text-2xl font-bold">
-                {totalMaterials.toLocaleString()}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <p className="text-[11px] text-muted-foreground">Raw catalog items</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/60">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                Decisions Recorded
-              </CardDescription>
-              <CardTitle className="text-2xl font-bold">
-                {metrics?.decisions_recorded ?? 0}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <Link
-                to="/audit"
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+        {/* 8 KPI Cards Grid - Theme Adaptive (Pure black in dark mode, light card in light mode) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {kpis.map((kpi, idx) => {
+            const Icon = kpi.icon;
+            return (
+              <div
+                key={idx}
+                className="bg-card dark:bg-black border border-border dark:border-zinc-800/90 rounded-lg p-5 flex flex-col justify-between hover:border-foreground/20 dark:hover:border-zinc-700/80 transition-colors shadow-xs"
               >
-                <span>Governance Log</span>
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/60">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-amber-500" />
-                Pending Review
-              </CardDescription>
-              <CardTitle className="text-2xl font-bold">
-                {metrics?.pending_reviews ?? 0}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <Link
-                to="/review"
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:underline"
-              >
-                <span>Review Queue</span>
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/60">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs flex items-center gap-1.5">
-                <GitMerge className="h-3.5 w-3.5 text-blue-500" />
-                Mapped Items
-              </CardDescription>
-              <CardTitle className="text-2xl font-bold">
-                {metrics?.mapped_materials ?? 0}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <p className="text-[11px] text-muted-foreground">Mapped to Common Master</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/60">
-            <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-xs flex items-center gap-1.5">
-                <Database className="h-3.5 w-3.5 text-indigo-500" />
-                NMC Master Codes
-              </CardDescription>
-              <CardTitle className="text-2xl font-bold text-primary">
-                {metrics?.total_national_codes ?? 0}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <p className="text-[11px] text-muted-foreground">Harmonized identities</p>
-            </CardContent>
-          </Card>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-medium text-muted-foreground">{kpi.title}</span>
+                  <Icon className="h-4 w-4 text-muted-foreground stroke-[1.5]" />
+                </div>
+                <div className="my-2.5">
+                  <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
+                    {kpi.value}
+                  </span>
+                </div>
+                <div>
+                  {kpi.trend === 'up' ? (
+                    <div className="text-xs font-normal text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <span className="text-[11px] leading-none">↑</span>
+                      <span>{kpi.subtext}</span>
+                    </div>
+                  ) : kpi.trend === 'down' ? (
+                    <div className="text-xs font-normal text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                      <span className="text-[11px] leading-none">↓</span>
+                      <span>{kpi.subtext}</span>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground font-normal">
+                      {kpi.subtext}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* CPSE Catalog Breakdown */}
@@ -255,6 +256,9 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* Harmonization Analytics & Distribution Overview */}
+        <DashboardAnalyticsOverview metrics={metrics} cpses={cpses} cpseAnalytics={cpseAnalytics} />
       </div>
     </AppLayout>
   );

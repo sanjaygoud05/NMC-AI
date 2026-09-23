@@ -210,33 +210,59 @@ def get_full_analytics(role: str = Depends(verify_reviewer_access)):
             select(func.count(MaterialMapping.id))
         ).scalar() or 0
 
+        import json
+
+        def _clean_cpses_list(raw):
+            if not raw:
+                return []
+            if isinstance(raw, list):
+                return [str(x).strip() for x in raw if str(x).strip()]
+            if isinstance(raw, str):
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        return [str(x).strip() for x in parsed if str(x).strip()]
+                except Exception:
+                    pass
+                return [x.strip() for x in raw.replace('[', '').replace(']', '').replace('"', '').split(",") if x.strip()]
+            return []
+
+        # Mapping counts per CMM
+        map_counts_rows = s.execute(
+            select(MaterialMapping.cmm_id, func.count()).group_by(MaterialMapping.cmm_id)
+        ).all()
+        cmm_map_count = {r[0]: r[1] for r in map_counts_rows}
+
         # CMM by number of source CPSEs
         cmm_rows = s.execute(select(NMCCommonMaterial)).scalars().all()
         cpse_count_dist: dict = {}
         for cmm in cmm_rows:
-            n = len(cmm.source_cpses) if cmm.source_cpses else 0
+            cpses = _clean_cpses_list(cmm.source_cpses)
+            n = len(cpses)
             cpse_count_dist[str(n)] = cpse_count_dist.get(str(n), 0) + 1
 
-        # Top shared CMMs (all, sorted by number of source CPSEs descending)
-        sorted_cmm_rows = sorted(cmm_rows, key=lambda x: len(x.source_cpses or []), reverse=True)
-        shared_cmms = [
-            {
+        # Shared CMMs with canonical material, CPSEs and mapped count
+        shared_cmms = []
+        for c in cmm_rows:
+            cpses = _clean_cpses_list(c.source_cpses)
+            m_count = cmm_map_count.get(c.id, 0)
+            shared_cmms.append({
                 "nmc_code": c.national_material_code,
-                "description": c.canonical_description[:80] if c.canonical_description else "",
+                "description": c.canonical_description or "",
                 "material_family": c.material_family,
-                "source_cpses": c.source_cpses,
-                "cpse_count": len(c.source_cpses) if c.source_cpses else 0,
-            }
-            for c in sorted_cmm_rows
-            if c.source_cpses and len(c.source_cpses) >= 1
-        ][:20]
+                "source_cpses": cpses,
+                "cpse_count": len(cpses),
+                "mapped_materials": m_count if m_count > 0 else max(len(cpses), 1),
+            })
+        shared_cmms = sorted(shared_cmms, key=lambda x: (x["mapped_materials"], x["cpse_count"]), reverse=True)[:50]
 
         # Average CPSEs per CMM
         avg_cpses_per_cmm = (
-            round(sum(len(c.source_cpses or []) for c in cmm_rows) / len(cmm_rows), 1)
+            round(sum(len(_clean_cpses_list(c.source_cpses)) for c in cmm_rows) / len(cmm_rows), 1)
             if cmm_rows else 0
         )
-        multi_cpse_cmm_count = sum(1 for c in cmm_rows if len(c.source_cpses or []) >= 2)
+        multi_cpse_cmm_count = sum(1 for c in cmm_rows if len(_clean_cpses_list(c.source_cpses)) >= 2)
+
 
         # ── Audit events ──────────────────────────────────────────────
         audit_total = s.execute(select(func.count(AuditLog.id))).scalar() or 0
@@ -320,3 +346,157 @@ def get_full_analytics(role: str = Depends(verify_reviewer_access)):
             "audit_total": audit_total,
             "audit_by_action": audit_by_action,
         }
+
+
+@router.get("/topology")
+def get_topology_data(role: str = Depends(verify_reviewer_access)):
+    """
+    Returns all data needed for the Verified Multi-CPSE Harmonization Topology visualization.
+    """
+    import json
+    with nmc_repo.get_session() as s:
+        from sqlalchemy import select, func, text as sa_text
+
+        def _clean_cpses(raw):
+            if not raw:
+                return []
+            if isinstance(raw, list):
+                return [str(x).strip() for x in raw if str(x).strip()]
+            if isinstance(raw, str):
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        return [str(x).strip() for x in parsed if str(x).strip()]
+                except Exception:
+                    pass
+                return [x.strip() for x in raw.replace('[', '').replace(']', '').replace('"', '').split(",") if x.strip()]
+            return []
+
+        # CMMs
+        cmms = s.execute(
+            select(NMCCommonMaterial).where(NMCCommonMaterial.status == "ACTIVE")
+        ).scalars().all()
+        total_cmm = len(cmms)
+
+        # CPSEs
+        cpse_rows = s.execute(select(CPSE)).scalars().all()
+        active_cpses = sum(1 for c in cpse_rows if c.status == "ACTIVE")
+        cpse_lookup = {c.id: c.code for c in cpse_rows}
+
+        # Total mappings
+        total_mappings = s.execute(select(func.count(MaterialMapping.id))).scalar() or 0
+
+        # Accepted matches
+        accepted_matches = s.execute(
+            select(func.count(MaterialMatch.id)).where(MaterialMatch.status == "ACCEPTED")
+        ).scalar() or 0
+
+        # Per-CPSE material counts
+        cpse_mat_rows = s.execute(
+            select(Material.cpse_id, func.count()).group_by(Material.cpse_id)
+        ).all()
+        cpse_mat = {cpse_lookup.get(r[0], r[0]): r[1] for r in cpse_mat_rows}
+
+        # Cross-CPSE match pairs with avg confidence
+        pair_sql = """
+            SELECT c1.code, c2.code, COUNT(DISTINCT mm.id) as pairs,
+                   AVG(mm.final_confidence) as avg_conf
+            FROM material_matches mm
+            JOIN materials src ON src.id = mm.source_material_id
+            JOIN materials cand ON cand.id = mm.candidate_material_id
+            JOIN cpses c1 ON c1.id = src.cpse_id
+            JOIN cpses c2 ON c2.id = cand.cpse_id
+            WHERE src.cpse_id != cand.cpse_id
+            GROUP BY c1.code, c2.code
+            ORDER BY pairs DESC
+        """
+        pair_rows = s.execute(sa_text(pair_sql)).all()
+        cpse_pairs = [
+            {
+                "source": r[0],
+                "target": r[1],
+                "match_count": r[2],
+                "avg_confidence": round(r[3] * 100, 1) if r[3] else None,
+            }
+            for r in pair_rows
+        ]
+
+        seen = set()
+        unique_pairs = []
+        for p in cpse_pairs:
+            key = tuple(sorted([p["source"], p["target"]]))
+            if key not in seen:
+                seen.add(key)
+                unique_pairs.append(p)
+
+        pair_cmm = {}
+        for cmm in cmms:
+            cpses = sorted(list(set(_clean_cpses(cmm.source_cpses))))
+            for i in range(len(cpses)):
+                for j in range(i + 1, len(cpses)):
+                    key = f"{cpses[i]} & {cpses[j]}"
+                    pair_cmm[key] = pair_cmm.get(key, 0) + 1
+
+        overlap_pairs = sorted(
+            [{"pair": k, "shared_cmms": v} for k, v in pair_cmm.items()],
+            key=lambda x: x["shared_cmms"],
+            reverse=True,
+        )
+
+        cmm_sql = """
+            SELECT cmm.national_material_code, cmm.source_cpses,
+                   cmm.canonical_description, cmm.material_family,
+                   AVG(mm.final_confidence) as avg_conf,
+                   COUNT(DISTINCT mp.id) as mapping_count
+            FROM nmc_common_materials cmm
+            LEFT JOIN material_mappings mp ON mp.cmm_id = cmm.id
+            LEFT JOIN material_matches mm ON (
+                mm.source_material_id = mp.material_id
+                OR mm.candidate_material_id = mp.material_id
+            )
+            WHERE cmm.status = 'ACTIVE'
+            GROUP BY cmm.id
+            ORDER BY mapping_count DESC, avg_conf DESC
+        """
+        cmm_detail = s.execute(sa_text(cmm_sql)).all()
+        cmm_list = []
+        for r in cmm_detail:
+            cpses = _clean_cpses(r[1])
+            avg_c = round(r[4] * 100, 1) if r[4] is not None else None
+            status = "VERIFIED" if (avg_c is not None and avg_c >= 30) or (len(cpses) >= 2) else ("MAPPED" if r[5] > 0 else "DRAFT")
+            cmm_list.append({
+                "nmc_code": r[0],
+                "source_cpses": cpses,
+                "description": (r[2] or "")[:120],
+                "material_family": r[3],
+                "avg_confidence": avg_c,
+                "mapping_count": r[5],
+                "cpse_count": len(cpses),
+                "status": status,
+            })
+
+        multi_cpse_clusters = sum(1 for c in cmm_list if c["cpse_count"] >= 2)
+        verified_count = sum(1 for c in cmm_list if c["status"] == "VERIFIED")
+        all_connected = set(list(cpse_mat.keys()))
+        for p in unique_pairs:
+            all_connected.add(p["source"])
+            all_connected.add(p["target"])
+        for c in cmm_list:
+            for s_cpse in c["source_cpses"]:
+                all_connected.add(s_cpse)
+
+        return {
+            "multi_cpse_clusters": multi_cpse_clusters,
+            "verified_harmonized": verified_count if verified_count > 0 else accepted_matches,
+            "total_source_members": total_mappings,
+            "connected_cpses": len(all_connected) if all_connected else active_cpses,
+            "total_cmm": total_cmm,
+            "total_mappings": total_mappings,
+            "accepted_matches": accepted_matches,
+            "active_cpses": active_cpses,
+            "cpse_pairs": unique_pairs,
+            "cpse_material_counts": cpse_mat,
+            "overlap_pairs": overlap_pairs,
+            "cmm_list": cmm_list,
+        }
+

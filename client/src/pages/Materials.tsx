@@ -263,7 +263,7 @@ export default function Materials() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <AppLayout requireReviewer>
+    <AppLayout>
       <div className="space-y-4">
         {/* ── Back Navigation Button ── */}
         <div>

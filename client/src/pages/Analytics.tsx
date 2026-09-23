@@ -1,48 +1,81 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { nmcApi } from '@/services/nmcApi';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LineChart, Line,
+  PieChart, Pie, Cell, AreaChart, Area, LabelList,
 } from 'recharts';
 import {
-  Building2, Database, CheckCircle2, GitMerge, Layers, ClipboardList,
-  RotateCw, TrendingUp, ShieldCheck, ArrowRight, Link2, ExternalLink,
-  AlertCircle,
+  Building2, Database, GitMerge, Layers,
+  RotateCw, ArrowRight, Search, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
-// ─── Palette ──────────────────────────────────────────────────────────────────
+// ─── Color Palette ────────────────────────────────────────────────────────────
 const C = {
-  pending:   '#f59e0b',
-  accepted:  '#10b981',
-  rejected:  '#ef4444',
-  different: '#6366f1',
-  mapped:    '#3b82f6',
-  unmapped:  '#e2e8f0',
-  high:      '#22c55e',
-  medium:    '#f59e0b',
-  low:       '#ef4444',
+  blue:    '#3b82f6',
+  emerald: '#10b981',
+  amber:   '#f59e0b',
+  indigo:  '#6366f1',
+  cyan:    '#06b6d4',
+  purple:  '#8b5cf6',
+  orange:  '#f97316',
+  slate:   '#64748b',
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const pct = (num: number, den: number) =>
-  den > 0 ? `${Math.round((num / den) * 100)}%` : '0%';
+// Truly distinct vivid colors — one per bar
+const CPSE_BAR_COLORS = [
+  '#3b82f6', // blue
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#ef4444', // rose
+  '#8b5cf6', // violet
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#6366f1', // indigo
+];
 
+// ─── Recharts requires hard-coded hex (CSS vars don't work in SVG) ────────────
+const TICK_COLOR   = '#94a3b8'; // slate-400 — muted text
+const AXIS_COLOR   = '#334155'; // slate-700 — subtle axis line
+const LABEL_COLOR  = '#64748b'; // slate-500 — axis title
+const FG_COLOR     = '#f1f5f9'; // slate-100 — foreground / value labels
+
+// ─── Custom Tooltip ───────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-xl text-xs space-y-1">
-      {label !== undefined && <p className="font-semibold text-foreground mb-1">{label}</p>}
+    <div
+      style={{
+        background: 'rgba(15,23,42,0.95)',
+        border: '1px solid rgba(51,65,85,0.8)',
+        borderRadius: 8,
+        padding: '8px 12px',
+        fontSize: 12,
+        minWidth: 140,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+      }}
+    >
+      {label !== undefined && (
+        <p style={{ color: FG_COLOR, fontWeight: 600, marginBottom: 4 }}>{label}</p>
+      )}
       {payload.map((e: any, i: number) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: e.color || e.fill }} />
-          <span className="text-muted-foreground">{e.name}:</span>
-          <span className="font-semibold text-foreground">
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+          <span
+            style={{
+              display: 'inline-block',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: e.color || e.fill || '#3b82f6',
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ color: TICK_COLOR }}>{e.name}:</span>
+          <span style={{ color: FG_COLOR, fontWeight: 600 }}>
             {typeof e.value === 'number' ? e.value.toLocaleString() : e.value}
           </span>
         </div>
@@ -51,677 +84,705 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-function KpiCard({
-  label, value, sub, icon: Icon, accent,
-}: {
-  label: string; value: string | number; sub?: string;
-  icon: React.ElementType; accent: string;
-}) {
+// ─── Pie Tooltip (pie slices have different payload structure) ────────────────
+const PieTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) return null;
+  const slice = payload[0];
+  const name  = slice.name  || slice.payload?.name  || '';
+  const value = Number(slice.value  ?? slice.payload?.value ?? 0);
+  const color = slice.payload?.color || slice.color || slice.fill || '#10b981';
+  const total = slice.payload?._total ?? 0;
+  const pct   = total > 0 ? Math.round((value / total) * 100) : null;
   return (
-    <Card className="border-border/60 hover:shadow-md transition-shadow">
-      <CardContent className="p-4 flex items-start gap-3">
-        <div className={`mt-0.5 rounded-lg p-2 shrink-0 ${accent}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide leading-none">{label}</p>
-          <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">{value ?? '—'}</p>
-          {sub && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{sub}</p>}
-        </div>
-      </CardContent>
-    </Card>
+    <div
+      style={{
+        background: 'rgba(15,23,42,0.97)',
+        border: `1.5px solid ${color}66`,
+        borderRadius: 8,
+        padding: '8px 14px',
+        fontSize: 12,
+        minWidth: 160,
+        boxShadow: `0 8px 28px rgba(0,0,0,0.5), 0 0 0 1px ${color}22`,
+        pointerEvents: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
+        <span style={{ color: FG_COLOR, fontWeight: 700, fontSize: 13 }}>{name}</span>
+      </div>
+      <div style={{ paddingLeft: 18, fontSize: 12 }}>
+        <span style={{ color: FG_COLOR, fontWeight: 700 }}>{value.toLocaleString()}</span>
+        <span style={{ color: TICK_COLOR }}> pairs</span>
+        {pct !== null && (
+          <span style={{ marginLeft: 6, color, fontWeight: 600 }}>({pct}%)</span>
+        )}
+      </div>
+    </div>
   );
-}
+};
 
-// ─── Section wrapper ──────────────────────────────────────────────────────────
-function Section({
-  title, description, children, action,
-}: {
-  title: string; description?: string; children: React.ReactNode; action?: React.ReactNode;
-}) {
+// ─── Loading Skeleton ─────────────────────────────────────────────────────────
+function Spinner({ color = 'text-blue-500' }: { color?: string }) {
   return (
-    <Card className="border-border/60">
-      <CardHeader className="pb-2 flex-row items-start justify-between gap-2">
-        <div>
-          <CardTitle className="text-sm font-semibold text-foreground">{title}</CardTitle>
-          {description && <CardDescription className="text-xs mt-0.5">{description}</CardDescription>}
-        </div>
-        {action}
-      </CardHeader>
-      <CardContent className="pt-0">{children}</CardContent>
-    </Card>
-  );
-}
-
-// ─── Empty / Loading states ───────────────────────────────────────────────────
-const Loading = () => (
-  <div className="h-32 flex items-center justify-center text-xs text-muted-foreground gap-2">
-    <RotateCw className="h-3.5 w-3.5 animate-spin" /> Loading…
-  </div>
-);
-const Empty = ({ msg = 'No data available yet.' }: { msg?: string }) => (
-  <div className="h-32 flex items-center justify-center text-xs text-muted-foreground gap-2">
-    <AlertCircle className="h-3.5 w-3.5" /> {msg}
-  </div>
-);
-
-// ─── Pipeline Funnel ──────────────────────────────────────────────────────────
-function PipelineFunnel({ stages }: { stages: { stage: string; count: number; color: string }[] }) {
-  if (!stages?.length) return <Empty />;
-  const max = Math.max(...stages.map(s => s.count), 1);
-  return (
-    <div className="space-y-2 py-2">
-      {stages.map((s, i) => {
-        const widthPct = Math.max(20, Math.round((s.count / max) * 100));
-        return (
-          <div key={i} className="flex items-center gap-3">
-            <div className="text-[11px] text-muted-foreground w-44 text-right shrink-0 font-medium">{s.stage}</div>
-            <div className="flex-1 relative h-7 bg-muted/30 rounded overflow-hidden">
-              <div
-                className="absolute left-0 top-0 h-full rounded flex items-center px-2 transition-all"
-                style={{ width: `${widthPct}%`, background: s.color, opacity: 0.9 }}
-              />
-              <span className="absolute left-3 top-0 h-full flex items-center text-[11px] font-bold text-white z-10">
-                {s.count.toLocaleString()}
-              </span>
-            </div>
-            {i < stages.length - 1 && (
-              <ArrowRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-            )}
-          </div>
-        );
-      })}
+    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-8">
+      <RotateCw className={`h-4 w-4 animate-spin ${color}`} />
+      Loading...
     </div>
   );
 }
 
-// ─── Network Graph (SVG-based, no extra library) ──────────────────────────────
-function CpseNetworkGraph({
-  pairs,
-  cpseMatDist,
-}: {
-  pairs: { source_cpse: string; target_cpse: string; match_count: number; avg_confidence: number | null }[];
-  cpseMatDist: { cpse_code: string; material_count: number }[];
-}) {
-  const nodes = useMemo(() => {
-    const codes = new Set<string>();
-    pairs.forEach(p => { codes.add(p.source_cpse); codes.add(p.target_cpse); });
-    cpseMatDist.forEach(d => codes.add(d.cpse_code));
-    const matMap = Object.fromEntries(cpseMatDist.map(d => [d.cpse_code, d.material_count]));
-    const arr = Array.from(codes);
-    const maxMat = Math.max(...arr.map(c => matMap[c] || 0), 1);
-    const cx = 300, cy = 160, r = 120;
-    return arr.map((code, i) => {
-      const angle = (2 * Math.PI * i) / arr.length - Math.PI / 2;
-      const matCount = matMap[code] || 0;
-      const nodeR = 22 + Math.round((matCount / maxMat) * 18);
-      return {
-        code,
-        x: arr.length === 1 ? cx : cx + r * Math.cos(angle),
-        y: arr.length === 1 ? cy : cy + r * Math.sin(angle),
-        matCount,
-        nodeR,
-      };
-    });
-  }, [pairs, cpseMatDist]);
-
-  const maxMatch = Math.max(...pairs.map(p => p.match_count), 1);
-
-  if (!pairs.length && !cpseMatDist.length) return <Empty msg="No cross-CPSE relationships yet." />;
-
-  const nodeMap = Object.fromEntries(nodes.map(n => [n.code, n]));
-
-  return (
-    <div className="flex flex-col items-center">
-      <svg width="100%" viewBox="0 0 600 320" className="max-w-2xl">
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-
-        {/* Edges */}
-        {pairs.map((p, i) => {
-          const src = nodeMap[p.source_cpse];
-          const tgt = nodeMap[p.target_cpse];
-          if (!src || !tgt) return null;
-          const strokeW = 1.5 + Math.round((p.match_count / maxMatch) * 6);
-          return (
-            <g key={i}>
-              <line
-                x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
-                stroke="#6366f1" strokeWidth={strokeW} strokeOpacity={0.45}
-                strokeDasharray={p.match_count < 10 ? '4 4' : undefined}
-              />
-              <text
-                x={(src.x + tgt.x) / 2} y={(src.y + tgt.y) / 2 - 6}
-                textAnchor="middle" fontSize="10" fill="var(--muted-foreground)"
-                className="font-mono"
-              >
-                {p.match_count.toLocaleString()} pairs
-              </text>
-              {p.avg_confidence !== null && (
-                <text
-                  x={(src.x + tgt.x) / 2} y={(src.y + tgt.y) / 2 + 8}
-                  textAnchor="middle" fontSize="9" fill="var(--muted-foreground)"
-                >
-                  avg {p.avg_confidence}% conf
-                </text>
-              )}
-            </g>
-          );
-        })}
-
-        {/* Nodes */}
-        {nodes.map(n => (
-          <g key={n.code} filter="url(#glow)">
-            <circle cx={n.x} cy={n.y} r={n.nodeR} fill="#6366f1" fillOpacity={0.15}
-              stroke="#6366f1" strokeWidth={1.5} />
-            <text x={n.x} y={n.y - 2} textAnchor="middle" fontSize="12"
-              fontWeight="bold" fill="var(--foreground)">{n.code}</text>
-            <text x={n.x} y={n.y + 13} textAnchor="middle" fontSize="9"
-              fill="var(--muted-foreground)">{n.matCount.toLocaleString()} mat.</text>
-          </g>
-        ))}
-      </svg>
-      <p className="text-[11px] text-muted-foreground mt-1">
-        Node size = material count · Edge thickness = match count
-      </p>
-    </div>
-  );
-}
-
-// ─── Main Analytics Page ───────────────────────────────────────────────────────
+// ─── Main Analytics Page ──────────────────────────────────────────────────────
 export default function Analytics() {
-  const navigate = useNavigate();
+  const [cmmSearch, setCmmSearch] = useState('');
+  const [cmmPage, setCmmPage] = useState(1);
+  const cmmPageSize = 8;
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  // ── Primary full analytics query (rich data) ─────────────────────────────
+  const {
+    data: fullData,
+    isLoading: fullLoading,
+    isFetching: fullFetching,
+    refetch: refetchFull,
+    isError: fullError,
+  } = useQuery({
     queryKey: ['nmc', 'analytics-full'],
     queryFn: () => nmcApi.analytics.getFullAnalytics(),
     refetchInterval: 30000,
+    retry: 2,
   });
 
-  const d = data as any;
+  // ── Dashboard metrics as secondary source for KPIs ───────────────────────
+  const { data: dashData, refetch: refetchDash } = useQuery({
+    queryKey: ['nmc', 'dashboard-metrics'],
+    queryFn: () => nmcApi.analytics.getDashboardMetrics(),
+    refetchInterval: 30000,
+  });
 
-  // ── Derived values ──────────────────────────────────────────────────────────
-  const totalMat   = d?.total_materials    || 0;
-  const normMat    = d?.normalized_materials || 0;
-  const mappedMat  = d?.mapped_materials   || 0;
-  const totalCMM   = d?.total_cmm          || 0;
-  const totalMatch = d?.total_matches      || 0;
-  const pending    = d?.match_by_status?.PENDING_REVIEW || 0;
+  const isLoading = fullLoading;
+  const isFetching = fullFetching;
 
-  // Match status donut data
-  const matchDonut = useMemo(() => {
-    if (!d?.match_by_status) return [];
+  const handleRefresh = () => { refetchFull(); refetchDash(); };
+
+  // Merge: prefer fullData, fallback to dashData for KPI fields
+  const d = fullData as any;
+  const dd = dashData as any;
+
+  // ── KPI Values ───────────────────────────────────────────────────────────
+  const totalCpses     = d?.active_cpses ?? d?.total_cpses ?? dd?.total_cpsEs ?? 0;
+  const totalMaterials = d?.total_materials ?? dd?.total_materials ?? 0;
+  const totalMatches   = d?.total_matches ?? 0;
+  const totalCmm       = d?.total_cmm ?? dd?.total_national_codes ?? 0;
+
+  // ── Materials by CPSE ────────────────────────────────────────────────────
+  const materialsByCpse: { cpse_code: string; material_count: number }[] = useMemo(() => {
+    if (!d?.cpse_material_distribution?.length) return [];
+    return [...d.cpse_material_distribution].sort(
+      (a: any, b: any) => b.material_count - a.material_count
+    );
+  }, [d]);
+
+  const maxCpseCount = Math.max(...(materialsByCpse.length ? materialsByCpse.map((c: any) => c.material_count) : [0]), 1);
+  const cpseYMax = (() => {
+    const ceil = maxCpseCount * 1.4;
+    if (ceil <= 10) return 10;
+    const mag = Math.pow(10, Math.floor(Math.log10(ceil)));
+    return Math.ceil(ceil / mag) * mag;
+  })();
+  const cpseYTicks = [0, Math.round(cpseYMax * 0.25), Math.round(cpseYMax * 0.5), Math.round(cpseYMax * 0.75), cpseYMax];
+
+  // ── Harmonization Status Donut ───────────────────────────────────────────
+  const harmonizationStatusData = useMemo(() => {
+    if (!d) return [];
+    const ms = d?.match_by_status || {};
+    const mc = d?.match_by_category || {};
     return [
-      { name: 'Pending Review', value: d.match_by_status.PENDING_REVIEW || 0, fill: C.pending   },
-      { name: 'Accepted',       value: d.match_by_status.ACCEPTED        || 0, fill: C.accepted  },
-      { name: 'Different',      value: d.match_by_status.DIFFERENT       || 0, fill: C.different },
-      { name: 'Rejected',       value: d.match_by_status.REJECTED        || 0, fill: C.rejected  },
-    ].filter(x => x.value > 0);
+      { name: 'Potentially Same',      value: mc.POTENTIALLY_SAME || 0,  color: C.amber   },
+      { name: 'Accepted / Harmonized', value: ms.ACCEPTED || 0,          color: C.emerald },
+      { name: 'Different',             value: ms.DIFFERENT || 0,         color: C.indigo  },
+      { name: 'Pending Review',        value: ms.PENDING_REVIEW || 0,    color: C.cyan    },
+    ].filter(item => item.value > 0);
   }, [d]);
 
-  // Review decisions donut
-  const reviewDonut = useMemo(() => {
-    if (!d?.decisions_by_type) return [];
-    const map: Record<string, { color: string; label: string }> = {
-      ACCEPT:   { color: C.accepted,  label: 'Accept'   },
-      REJECT:   { color: C.rejected,  label: 'Reject'   },
-      DIFFERENT:{ color: C.different, label: 'Different' },
-      OVERRIDE: { color: '#a855f7',   label: 'Override' },
-    };
-    return Object.entries(d.decisions_by_type).map(([k, v]) => ({
-      name:  map[k]?.label || k,
-      value: v as number,
-      fill:  map[k]?.color || '#94a3b8',
-    })).filter(x => x.value > 0);
-  }, [d]);
+  const totalStatusCount = harmonizationStatusData.reduce((s, i) => s + i.value, 0);
 
-  // CMM by CPSE count bar
-  const cmmCpseBar = useMemo(() => {
-    if (!d?.cmm_by_cpse_count) return [];
-    return d.cmm_by_cpse_count.map((r: any) => ({
-      name:  `${r.cpse_count} CPSE${r.cpse_count !== 1 ? 's' : ''}`,
-      count: r.cmm_count,
+  // ── AI Confidence Distribution ───────────────────────────────────────────
+  const confidenceData = useMemo(() => {
+    if (!d?.confidence_distribution?.length) return [];
+    const colors = [C.emerald, C.cyan, C.amber, C.orange, C.slate];
+    return d.confidence_distribution.map((item: any, idx: number) => ({
+      range: item.range,
+      count: item.count,
+      color: colors[idx] ?? C.blue,
     }));
   }, [d]);
 
-  // Audit summary
-  const auditSummary = useMemo(() => {
-    if (!d?.audit_by_action) return [];
-    const groups: Record<string, string[]> = {
-      'Dataset Events':   ['DATASET_UPLOADED', 'DATASET_VALIDATED', 'DATASET_NORMALIZED', 'DATASET_PROCESSING_STARTED'],
-      'Matching Events':  ['MATCHING_STARTED', 'MATCHING_COMPLETED'],
-      'Review Events':    ['MATCH_ACCEPTED', 'MATCH_REJECTED', 'MATCH_DIFFERENT', 'MATCH_OVERRIDDEN'],
-      'CMM Events':       ['CMM_CREATED', 'CMM_UPDATED'],
-      'CPSE Events':      ['CPSE_CREATED', 'CPSE_DELETED'],
-      'Auth Events':      ['ADMIN_LOGIN', 'REVIEWER_LOGIN'],
-    };
-    return Object.entries(groups).map(([label, actions]) => ({
-      label,
-      count: actions.reduce((sum, a) => sum + (d.audit_by_action[a] || 0), 0),
-    })).filter(g => g.count > 0);
-  }, [d]);
+  const maxConfCount = Math.max(...confidenceData.map((c: any) => c.count), 1);
+  // Use a visible floor — scale Y so smallest bar is at least 10% of chart height
+  const minConfCount = Math.min(...(confidenceData.length ? confidenceData.map((c: any) => c.count) : [0]));
+  const confFloor = minConfCount > 0 ? Math.floor(minConfCount * 0.5) : 0;
+  const confYMax = (() => {
+    const ceil = maxConfCount * 1.25;
+    if (ceil <= 10) return 10;
+    const mag = Math.pow(10, Math.floor(Math.log10(ceil)));
+    return Math.ceil(ceil / mag) * mag;
+  })();
+  const confYTicks = (() => {
+    const step = confYMax / 4;
+    return [0, Math.round(step), Math.round(step * 2), Math.round(step * 3), confYMax];
+  })();
+  // If data is very skewed (max > 20x min), use a "floor" domain so small bars still render visibly
+  const confDomainMin = (maxConfCount / Math.max(minConfCount, 1)) > 20 ? Math.floor(minConfCount * 0.5) : 0;
+
+  // ── Harmonization Progress (funnel) ─────────────────────────────────────
+  const progressData = useMemo(() => [
+    { stage: 'Processed',  count: d?.total_materials          ?? dd?.total_materials ?? 0 },
+    { stage: 'Matched',    count: d?.total_matches            ?? 0 },
+    { stage: 'Reviewed',   count: d?.total_review_decisions   ?? dd?.decisions_recorded ?? 0 },
+    { stage: 'Harmonized', count: d?.mapped_materials         ?? dd?.mapped_materials ?? 0 },
+  ], [d, dd]);
+
+  // ── CMM Table ────────────────────────────────────────────────────────────
+  const cmmRecords = useMemo(() => {
+    let list: any[] = d?.shared_cmms ?? [];
+    if (cmmSearch.trim()) {
+      const q = cmmSearch.toLowerCase();
+      list = list.filter((r: any) =>
+        r.nmc_code?.toLowerCase().includes(q) ||
+        r.description?.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [d, cmmSearch]);
+
+  const totalCmmPages = Math.ceil(cmmRecords.length / cmmPageSize) || 1;
+  const paginatedCmm = useMemo(() => {
+    const start = (cmmPage - 1) * cmmPageSize;
+    return cmmRecords.slice(start, start + cmmPageSize);
+  }, [cmmRecords, cmmPage, cmmPageSize]);
 
   return (
     <AppLayout requireAdmin>
-      <div className="space-y-5">
+      <div className="space-y-6">
 
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-4">
+        {/* ── Header ────────────────────────────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">Analytics</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Material standardization, cross-CPSE harmonization, review, and NMC insights
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Platform Harmonization Analytics
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Overview of cross-CPSE material standardization and harmonization
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}
-            className="h-8 gap-1.5 text-xs border-border/70 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isFetching}
+            className="h-8 gap-1.5 text-xs border-border/70 shrink-0 self-start sm:self-auto"
+          >
             <RotateCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
 
-        {isError && (
-          <div className="rounded-md border border-rose-400/30 bg-rose-50/60 dark:bg-rose-950/20 px-4 py-3 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            Unable to load analytics. Please refresh and try again.
+        {/* ── Error Banner ──────────────────────────────────────────────────── */}
+        {fullError && (
+          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-400 flex items-center gap-2">
+            <RotateCw className="h-3.5 w-3.5 shrink-0" />
+            Could not load full analytics data. Showing partial data from dashboard endpoint.
           </div>
         )}
 
-        {/* ── KPI Row 1 ──────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <KpiCard label="Total CPSEs"    value={d?.total_cpses ?? '—'}
-            sub={`${d?.active_cpses ?? '—'} active`}
-            icon={Building2} accent="bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400" />
-          <KpiCard label="Total Datasets" value={d?.total_datasets ?? '—'}
-            sub="uploaded datasets"
-            icon={Database} accent="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
-          <KpiCard label="Total Materials" value={totalMat.toLocaleString()}
-            sub="across all CPSEs"
-            icon={Database} accent="bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400" />
-          <KpiCard label="Normalized" value={normMat.toLocaleString()}
-            sub={`${pct(normMat, totalMat)} of materials`}
-            icon={CheckCircle2} accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400" />
-          <KpiCard label="Cross-CPSE Matches" value={totalMatch.toLocaleString()}
-            sub="AI-generated pairs"
-            icon={GitMerge} accent="bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400" />
+        {/* ── ROW 1: 4 KPI Cards (Dashboard-style compact) ──────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+          <Card className="border-border/60">
+            <CardHeader className="p-4 pb-2">
+              <CardDescription className="text-xs flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                Total CPSEs
+              </CardDescription>
+              <CardTitle className="text-2xl font-bold tabular-nums">
+                {isLoading ? <span className="opacity-40">—</span> : totalCpses}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-[11px] text-muted-foreground">Active enterprises</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60">
+            <CardHeader className="p-4 pb-2">
+              <CardDescription className="text-xs flex items-center gap-1.5">
+                <Database className="h-3.5 w-3.5 text-purple-500" />
+                Total Materials
+              </CardDescription>
+              <CardTitle className="text-2xl font-bold tabular-nums">
+                {isLoading ? <span className="opacity-40">—</span> : totalMaterials.toLocaleString()}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-[11px] text-muted-foreground">Raw catalog items</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60">
+            <CardHeader className="p-4 pb-2">
+              <CardDescription className="text-xs flex items-center gap-1.5">
+                <GitMerge className="h-3.5 w-3.5 text-amber-500" />
+                Cross-CPSE Matches
+              </CardDescription>
+              <CardTitle className="text-2xl font-bold tabular-nums">
+                {isLoading ? <span className="opacity-40">—</span> : totalMatches.toLocaleString()}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-[11px] text-muted-foreground">AI match pairs found</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60">
+            <CardHeader className="p-4 pb-2">
+              <CardDescription className="text-xs flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5 text-emerald-500" />
+                Common Material Masters
+              </CardDescription>
+              <CardTitle className="text-2xl font-bold tabular-nums">
+                {isLoading ? <span className="opacity-40">—</span> : totalCmm.toLocaleString()}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-[11px] text-muted-foreground">NMC canonical records</p>
+            </CardContent>
+          </Card>
+
         </div>
 
-        {/* ── KPI Row 2 ──────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          <KpiCard label="Pending Reviews"   value={pending.toLocaleString()}
-            sub="awaiting reviewer decision"
-            icon={ClipboardList} accent="bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" />
-          <KpiCard label="Common Material Masters" value={totalCMM.toLocaleString()}
-            sub={`${d?.multi_cpse_cmm_count ?? 0} shared across CPSEs`}
-            icon={Layers} accent="bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400" />
-          <KpiCard label="NMC Mappings"  value={(d?.total_mappings ?? 0).toLocaleString()}
-            sub={`${pct(mappedMat, totalMat)} materials mapped`}
-            icon={Link2} accent="bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400" />
-          <KpiCard label="Review Decisions" value={(d?.total_review_decisions ?? 0).toLocaleString()}
-            sub={`${d?.review_completion_pct ?? 0}% of reviewable matches`}
-            icon={ShieldCheck} accent="bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400" />
-        </div>
+        {/* ── ROW 2: Materials by CPSE + Harmonization Status ───────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-        {/* ── Processing Pipeline ────────────────────────────────────────── */}
-        <Section title="Material Processing Pipeline"
-          description="End-to-end NMC workflow — actual record counts at each stage">
-          {isLoading ? <Loading /> : <PipelineFunnel stages={d?.pipeline_stages || []} />}
-        </Section>
-
-        {/* ── Row: CPSE Distribution + Match Outcome ──────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Section title="CPSE Material Distribution"
-            description="Number of materials uploaded per enterprise">
-            {isLoading ? <Loading /> : !d?.cpse_material_distribution?.length ? <Empty /> : (
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={d.cpse_material_distribution} layout="vertical" barSize={20}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="cpse_code" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} width={60} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
-                    <Bar dataKey="material_count" name="Materials" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </Section>
-
-          <Section title="Harmonization Results"
-            description="Current status distribution of all AI-generated match pairs">
-            {isLoading ? <Loading /> : !matchDonut.length ? <Empty /> : (
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={matchDonut} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={2} dataKey="value">
-                      {matchDonut.map((e, i) => <Cell key={i} fill={e.fill} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <p className="text-center text-xs text-muted-foreground -mt-1">
-                  <strong className="text-foreground">{totalMatch.toLocaleString()}</strong> total pairs evaluated
-                </p>
-              </div>
-            )}
-          </Section>
-        </div>
-
-        {/* ── CPSE Harmonization Network ──────────────────────────────────── */}
-        <Section title="CPSE Harmonization Network"
-          description="Actual cross-CPSE material match relationships — node size = material count, edge = matched pairs">
-          {isLoading ? <Loading /> : (
-            <CpseNetworkGraph
-              pairs={d?.cpse_pairs || []}
-              cpseMatDist={d?.cpse_material_distribution || []}
-            />
-          )}
-        </Section>
-
-        {/* ── AI Confidence Distribution + Score Breakdown ─────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Section title="AI Matching Confidence Distribution"
-            description={`Persisted final_confidence scores — avg: ${d?.avg_final_confidence ?? '—'}%`}>
-            {isLoading ? <Loading /> : !d?.confidence_distribution?.some((c: any) => c.count > 0)
-              ? <Empty msg="No match confidence data." />
-              : (
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={d.confidence_distribution} barSize={36}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="range" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
-                    <Bar dataKey="count" name="Matches" radius={[4, 4, 0, 0]}>
-                      {(d.confidence_distribution || []).map((_: any, i: number) => (
-                        <Cell key={i} fill={[C.high, C.high, C.medium, C.medium, C.low][i] || '#94a3b8'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </Section>
-
-          <Section title="AI Score Breakdown"
-            description="Average persisted scores across all match pairs — from the matching engine">
-            {isLoading ? <Loading /> : (() => {
-              const scores = [
-                { name: 'Semantic Similarity', value: d?.avg_semantic_similarity ?? 0,  fill: '#6366f1' },
-                { name: 'Text Similarity',      value: d?.avg_text_similarity     ?? 0,  fill: '#3b82f6' },
-                { name: 'Attribute Similarity', value: d?.avg_attribute_similarity ?? 0, fill: '#06b6d4' },
-                { name: 'Final Confidence',     value: d?.avg_final_confidence    ?? 0,  fill: '#10b981' },
-              ];
-              return (
-                <div className="space-y-3 pt-1">
-                  {scores.map(s => (
-                    <div key={s.name}>
-                      <div className="flex justify-between text-[11px] mb-1">
-                        <span className="text-muted-foreground">{s.name}</span>
-                        <span className="font-bold" style={{ color: s.fill }}>{s.value}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${s.value}%`, background: s.fill }} />
-                      </div>
-                    </div>
-                  ))}
-                  <p className="text-[10px] text-muted-foreground pt-1">
-                    Values are averages across <strong className="text-foreground">{totalMatch.toLocaleString()}</strong> AI-generated match pairs
-                  </p>
+          {/* Left: Materials by CPSE (Vertical Bar Chart with labels) */}
+          <Card className="border-border/60">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-bold text-foreground">Materials by CPSE</CardTitle>
+              <CardDescription className="text-xs">
+                Material catalog distribution across participating enterprises
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-2">
+              {isLoading ? (
+                <Spinner color="text-blue-500" />
+              ) : materialsByCpse.length === 0 ? (
+                <div className="flex items-center justify-center h-44 text-xs text-muted-foreground">
+                  No CPSE distribution data available.
                 </div>
-              );
-            })()}
-          </Section>
-        </div>
-
-        {/* ── Review Analytics + Trend ─────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Section title="Review Analytics"
-            description={`Review completion: ${d?.review_completion_pct ?? 0}% of potentially-same pairs`}>
-            {isLoading ? <Loading /> : (() => {
-              const total = d?.total_review_decisions || 0;
-              const items = [
-                { label: 'Accepted (Same)',    count: d?.decisions_by_type?.ACCEPT    || 0, color: C.accepted,  bg: 'bg-emerald-500/10 border-emerald-400/30' },
-                { label: 'Rejected',           count: d?.decisions_by_type?.REJECT    || 0, color: C.rejected,  bg: 'bg-rose-500/10 border-rose-400/30'     },
-                { label: 'Marked Different',   count: d?.decisions_by_type?.DIFFERENT || 0, color: C.different, bg: 'bg-indigo-500/10 border-indigo-400/30'  },
-                { label: 'Override',           count: d?.decisions_by_type?.OVERRIDE  || 0, color: '#a855f7',   bg: 'bg-purple-500/10 border-purple-400/30'  },
-              ];
-              if (!total) return <Empty msg="No reviewer decisions recorded yet." />;
-              return (
-                <div className="space-y-2">
-                  {items.map(item => (
-                    <div key={item.label} className={`rounded-lg border p-2.5 ${item.bg}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
-                        <span className="text-sm font-bold" style={{ color: item.color }}>{item.count.toLocaleString()}</span>
-                      </div>
-                      <div className="mt-1.5 h-1.5 rounded-full bg-white/30 dark:bg-black/20 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${total > 0 ? Math.round(item.count/total*100) : 0}%`, background: item.color }} />
-                      </div>
-                    </div>
-                  ))}
+              ) : (
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={materialsByCpse}
+                      margin={{ top: 26, right: 20, left: 20, bottom: 40 }}
+                      barSize={42}
+                      barCategoryGap="30%"
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLOR} opacity={0.6} />
+                      <XAxis
+                        dataKey="cpse_code"
+                        tick={{ fontSize: 12, fontWeight: 700, fill: FG_COLOR }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                        label={{
+                          value: 'CPSE Code',
+                          position: 'insideBottom',
+                          offset: -24,
+                          fill: LABEL_COLOR,
+                          fontSize: 11,
+                          fontWeight: 500,
+                        }}
+                      />
+                      <YAxis
+                        domain={[0, cpseYMax]}
+                        ticks={cpseYTicks}
+                        tick={{ fontSize: 10, fill: TICK_COLOR }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                        tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                        width={52}
+                        label={{
+                          value: 'No. of Materials',
+                          angle: -90,
+                          position: 'insideLeft',
+                          offset: 12,
+                          fill: LABEL_COLOR,
+                          fontSize: 10,
+                          fontWeight: 400,
+                        }}
+                      />
+                      <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={false}
+                      />
+                      <Bar dataKey="material_count" name="Materials" radius={[5, 5, 0, 0]}>
+                        {materialsByCpse.map((_, idx) => (
+                          <Cell key={idx} fill={CPSE_BAR_COLORS[idx % CPSE_BAR_COLORS.length]} />
+                        ))}
+                        <LabelList
+                          dataKey="material_count"
+                          position="top"
+                          formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
+                          style={{ fontSize: 11, fill: TICK_COLOR, fontWeight: 500 }}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              );
-            })()}
-          </Section>
+              )}
+            </CardContent>
+          </Card>
 
-          <Section title="Review Decision Trend"
-            description="Daily reviewer activity from actual ReviewDecision timestamps">
-            {isLoading ? <Loading /> : !d?.review_trend?.length
-              ? <Empty msg="Not enough timestamp data to generate trend." />
-              : (
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={d.review_trend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Line type="monotone" dataKey="decisions" name="Decisions" stroke="#6366f1" strokeWidth={2} dot={{ r: 4, fill: '#6366f1' }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </Section>
-        </div>
-
-        {/* ── CMM / NMC Analytics ─────────────────────────────────────────── */}
-        <Section title="Common Material Master (NMC) Analytics"
-          description="Consolidation achieved — how many CMMs span multiple CPSEs">
-          {isLoading ? <Loading /> : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'Total CMMs Created',          value: totalCMM },
-                  { label: 'Total NMC Mappings',          value: d?.total_mappings || 0 },
-                  { label: 'Materials Mapped to NMC',     value: mappedMat },
-                  { label: 'Avg CPSEs per CMM',           value: d?.avg_cpses_per_cmm || 0 },
-                  { label: 'Multi-CPSE CMMs',             value: d?.multi_cpse_cmm_count || 0 },
-                  { label: 'Consolidation %',             value: pct(mappedMat, totalMat) },
-                ].map(item => (
-                  <div key={item.label} className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center">
-                    <p className="text-xl font-bold text-foreground tabular-nums">{typeof item.value === 'number' ? item.value.toLocaleString() : item.value}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{item.label}</p>
-                  </div>
-                ))}
-              </div>
-              {/* Bar: CMMs by CPSE count */}
-              <div>
-                <p className="text-xs text-muted-foreground mb-2">CMMs by number of source CPSEs</p>
-                {!cmmCpseBar.length ? <Empty msg="No CMM data yet." /> : (
-                  <div className="h-40">
+          {/* Right: Harmonization Status Donut */}
+          <Card className="border-border/60">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-bold text-foreground">Harmonization Status</CardTitle>
+              <CardDescription className="text-xs">
+                Candidate pair evaluation and review status breakdown
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-2">
+              {isLoading ? (
+                <Spinner color="text-emerald-500" />
+              ) : harmonizationStatusData.length === 0 ? (
+                <div className="flex items-center justify-center h-44 text-xs text-muted-foreground">
+                  No harmonization status data. Run AI matching first.
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center gap-5 min-h-[200px]">
+                  {/* Donut */}
+                  <div className="relative w-40 h-40 shrink-0">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={cmmCpseBar} barSize={32}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
-                        <Bar dataKey="count" name="CMMs" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                      </BarChart>
+                      <PieChart>
+                      {harmonizationStatusData.map((item) => ({
+                            ...item,
+                            _total: totalStatusCount,
+                          })).length && null}
+                        <Pie
+                          data={harmonizationStatusData.map(item => ({ ...item, _total: totalStatusCount }))}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={46}
+                          outerRadius={70}
+                          paddingAngle={3}
+                          dataKey="value"
+                          strokeWidth={0}
+                        >
+                          {harmonizationStatusData.map((entry, idx) => (
+                            <Cell key={idx} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={<PieTooltip />}
+                          wrapperStyle={{ outline: 'none', zIndex: 50 }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Total</span>
+                      <span className="text-base font-extrabold text-foreground tabular-nums">
+                        {totalStatusCount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Legend */}
+                  <div className="flex-1 w-full space-y-2.5">
+                    {harmonizationStatusData.map((item) => {
+                      const pct = totalStatusCount > 0 ? Math.round((item.value / totalStatusCount) * 100) : 0;
+                      return (
+                        <div key={item.name} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: item.color }} />
+                            <span className="text-foreground font-medium truncate">{item.name}</span>
+                          </div>
+                          <div className="shrink-0 text-right font-mono text-[11px]">
+                            <span className="font-bold text-foreground mr-1">{item.value.toLocaleString()}</span>
+                            <span className="text-muted-foreground">({pct}%)</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* ── ROW 3: AI Match Confidence + Harmonization Progress ───────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {/* Left: AI Match Confidence — vertical bar chart */}
+          <Card className="border-border/60">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-bold text-foreground">AI Match Confidence</CardTitle>
+              <CardDescription className="text-xs">
+                Confidence score tier distribution across matched material pairs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-2">
+              {isLoading ? (
+                <Spinner color="text-amber-500" />
+              ) : confidenceData.length === 0 ? (
+                <div className="flex items-center justify-center h-40 text-xs text-muted-foreground">
+                  No confidence data. Run AI matching first.
+                </div>
+              ) : (
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={confidenceData}
+                      margin={{ top: 26, right: 20, left: 20, bottom: 40 }}
+                      barSize={38}
+                      barCategoryGap="28%"
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLOR} opacity={0.6} />
+                      <XAxis
+                        dataKey="range"
+                        tick={{ fontSize: 11, fill: TICK_COLOR, fontWeight: 400 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                        label={{
+                          value: 'Confidence Tier',
+                          position: 'insideBottom',
+                          offset: -24,
+                          fill: LABEL_COLOR,
+                          fontSize: 11,
+                          fontWeight: 500,
+                        }}
+                      />
+                      <YAxis
+                        domain={[confDomainMin, confYMax]}
+                        ticks={confYTicks}
+                        tick={{ fontSize: 10, fill: TICK_COLOR }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                        tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                        width={52}
+                        label={{
+                          value: 'Match Count',
+                          angle: -90,
+                          position: 'insideLeft',
+                          offset: 12,
+                          fill: LABEL_COLOR,
+                          fontSize: 10,
+                          fontWeight: 400,
+                        }}
+                      />
+                      <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={false}
+                      />
+                      <Bar dataKey="count" name="Matches" radius={[4, 4, 0, 0]}>
+                        {confidenceData.map((tier: any, idx: number) => (
+                          <Cell key={idx} fill={tier.color} />
+                        ))}
+                        <LabelList
+                          dataKey="count"
+                          position="top"
+                          formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
+                          style={{ fontSize: 11, fill: TICK_COLOR, fontWeight: 400 }}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Right: Harmonization Progress area chart */}
+          <Card className="border-border/60">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-bold text-foreground">Harmonization Progress</CardTitle>
+              <CardDescription className="text-xs">
+                Pipeline: Processed → Matched → Reviewed → Harmonized
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-2">
+              {isLoading ? (
+                <Spinner color="text-blue-500" />
+              ) : (
+                <>
+                  <div className="h-36 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={progressData} margin={{ top: 10, right: 20, left: 10, bottom: 4 }}>
+                        <defs>
+                          <linearGradient id="progressGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor={C.blue} stopOpacity={0.35} />
+                            <stop offset="95%" stopColor={C.blue} stopOpacity={0.0}  />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={AXIS_COLOR} opacity={0.5} />
+                        <XAxis
+                          dataKey="stage"
+                          tick={{ fontSize: 11, fontWeight: 600, fill: FG_COLOR }}
+                          axisLine={{ stroke: AXIS_COLOR }}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10, fill: TICK_COLOR }}
+                          axisLine={{ stroke: AXIS_COLOR }}
+                          tickLine={false}
+                          tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
+                          width={44}
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: AXIS_COLOR, strokeWidth: 1, strokeDasharray: '4 3' }} />
+                        <Area
+                          type="monotone"
+                          dataKey="count"
+                          name="Records"
+                          stroke={C.blue}
+                          strokeWidth={2.5}
+                          fillOpacity={1}
+                          fill="url(#progressGrad)"
+                        />
+                      </AreaChart>
                     </ResponsiveContainer>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-        </Section>
-
-        {/* ── Shared CMMs ──────────────────────────────────────────────────── */}
-        <Section title="Multi-CPSE Common Materials"
-          description="NMC codes shared across multiple enterprises — demonstrating consolidation">
-          {isLoading ? <Loading /> : !d?.shared_cmms?.length ? <Empty /> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="bg-muted/30 border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-                    <th className="px-3 py-2 text-left">NMC Code</th>
-                    <th className="px-3 py-2 text-left">Description</th>
-                    <th className="px-3 py-2 text-left">Family</th>
-                    <th className="px-3 py-2 text-left">Source CPSEs</th>
-                    <th className="px-3 py-2 text-center w-20">CPSE Count</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {d.shared_cmms.map((c: any) => (
-                    <tr key={c.nmc_code} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-3 py-2 font-mono font-bold text-foreground whitespace-nowrap">{c.nmc_code}</td>
-                      <td className="px-3 py-2 text-muted-foreground max-w-xs truncate" title={c.description}>{c.description}</td>
-                      <td className="px-3 py-2">
-                        {c.material_family && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 capitalize">{c.material_family}</Badge>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-1">
-                          {(c.source_cpses || []).map((cpse: string) => (
-                            <Badge key={cpse} variant="outline" className="text-[10px] px-1.5 py-0 font-mono">{cpse}</Badge>
-                          ))}
+                  {/* Step summary strip */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[11px]">
+                    {progressData.map((step, idx) => (
+                      <React.Fragment key={step.stage}>
+                        <div className="flex flex-col items-center text-center">
+                          <span className="font-bold text-foreground tabular-nums">
+                            {step.count.toLocaleString()}
+                          </span>
+                          <span className="text-muted-foreground">{step.stage}</span>
                         </div>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <Badge className={`text-[10px] px-1.5 ${c.cpse_count >= 2 ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-300/50' : 'bg-muted text-muted-foreground border-border'}`}>
-                          {c.cpse_count}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Section>
-
-        {/* ── CPSE Cross-CPSE Pair Table ────────────────────────────────────── */}
-        <Section title="Top Cross-CPSE Match Relationships"
-          description="Actual MaterialMatch records grouped by CPSE pair — sorted by match count">
-          {isLoading ? <Loading /> : !d?.cpse_pairs?.length ? <Empty msg="No cross-CPSE matches found." /> : (
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-muted/30 border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-                  <th className="px-3 py-2 text-left">CPSE Pair</th>
-                  <th className="px-3 py-2 text-right w-36">Matched Pairs</th>
-                  <th className="px-3 py-2 text-right w-36">Avg Confidence</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {d.cpse_pairs.map((p: any, i: number) => (
-                  <tr key={i} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-3 py-2 font-mono font-bold text-foreground">
-                      {p.source_cpse} ↔ {p.target_cpse}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold text-foreground">{p.match_count.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right">
-                      <Badge variant="secondary" className={`text-[10px] ${
-                        (p.avg_confidence || 0) >= 70 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                        : (p.avg_confidence || 0) >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                        : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
-                      }`}>
-                        {p.avg_confidence !== null ? `${p.avg_confidence}%` : 'N/A'}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Section>
-
-        {/* ── Material Type Distribution ─────────────────────────────────────── */}
-        <Section title="Material Type Distribution"
-          description="Actual material_type values extracted from normalized descriptions">
-          {isLoading ? <Loading /> : !d?.material_type_distribution?.length
-            ? <Empty msg="No material-type analytics available yet." />
-            : (
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={d.material_type_distribution} layout="vertical" barSize={14}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="type" width={120} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--muted)', opacity: 0.4 }} />
-                  <Bar dataKey="count" name="Materials" fill="#06b6d4" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Section>
-
-        {/* ── Harmonization Impact ──────────────────────────────────────────── */}
-        <Section title="Harmonization Impact Summary"
-          description="The story of fragmented data consolidated into National Material Codes">
-          {isLoading ? <Loading /> : (
-            <div className="flex flex-wrap items-center justify-center gap-2 py-3">
-              {[
-                { label: 'Materials Processed',        value: totalMat,                         color: '#6366f1' },
-                { label: 'Pairs AI-Evaluated',          value: totalMatch,                        color: '#3b82f6' },
-                { label: 'Potentially Same',            value: d?.match_by_category?.POTENTIALLY_SAME || 0, color: '#f59e0b' },
-                { label: 'Human-Reviewed',              value: d?.total_review_decisions || 0,    color: '#8b5cf6' },
-                { label: 'CMMs Created',                value: totalCMM,                          color: '#10b981' },
-                { label: 'Mapped to NMC',               value: mappedMat,                         color: '#22c55e' },
-              ].map((step, i, arr) => (
-                <React.Fragment key={step.label}>
-                  <div className="flex flex-col items-center text-center min-w-[100px]">
-                    <div className="rounded-xl px-3 py-2 border-2" style={{ borderColor: step.color, background: `${step.color}15` }}>
-                      <p className="text-xl font-bold tabular-nums" style={{ color: step.color }}>{step.value.toLocaleString()}</p>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-1 max-w-[90px] leading-tight">{step.label}</p>
+                        {idx < progressData.length - 1 && (
+                          <ArrowRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                        )}
+                      </React.Fragment>
+                    ))}
                   </div>
-                  {i < arr.length - 1 && <ArrowRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
-                </React.Fragment>
-              ))}
-            </div>
-          )}
-        </Section>
+                </>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* ── Governance / Audit Summary ────────────────────────────────────── */}
-        <Section
-          title="Governance & Audit Summary"
-          description={`${d?.audit_total ?? 0} total audit events — full traceability of the NMC workflow`}
-          action={
-            <Button variant="outline" size="sm" onClick={() => navigate('/audit')}
-              className="h-7 gap-1.5 text-xs border-border/70 shrink-0">
-              <ExternalLink className="h-3 w-3" /> View Audit Trail
-            </Button>
-          }
-        >
-          {isLoading ? <Loading /> : !auditSummary.length ? <Empty /> : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {auditSummary.map(g => (
-                <div key={g.label} className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">{g.label}</p>
-                  <p className="text-xl font-bold text-foreground mt-1 tabular-nums">{g.count.toLocaleString()}</p>
-                </div>
-              ))}
+        </div>
+
+        {/* ── ROW 4: Common National Material Master Table ───────────────────── */}
+        <Card className="border-border/60">
+          <CardHeader className="p-4 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm font-bold text-foreground">
+                Common National Material Master
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Canonical material master records consolidated across CPSE enterprises
+              </CardDescription>
             </div>
-          )}
-        </Section>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Filter by NMC Code or Material…"
+                value={cmmSearch}
+                onChange={(e) => { setCmmSearch(e.target.value); setCmmPage(1); }}
+                className="h-8 pl-8 text-xs bg-background/50 border-border/70"
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="border-t border-border/60 overflow-hidden rounded-b-lg">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-muted/40 border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="py-2.5 px-4">NMC Code</th>
+                      <th className="py-2.5 px-4">Canonical Material</th>
+                      <th className="py-2.5 px-4 text-center">CPSEs</th>
+                      <th className="py-2.5 px-4 text-right">Mapped Materials</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={4} className="py-10 text-center text-xs text-muted-foreground">
+                          <RotateCw className="h-4 w-4 animate-spin inline mr-2 text-indigo-500" />
+                          Loading common material masters…
+                        </td>
+                      </tr>
+                    ) : paginatedCmm.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-10 text-center text-xs text-muted-foreground">
+                          {cmmSearch
+                            ? 'No records matching the filter.'
+                            : 'No Common Material Master records found. Ensure materials have been matched and harmonized.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedCmm.map((c: any, idx: number) => (
+                        <tr key={c.nmc_code ?? idx} className="hover:bg-muted/30 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-indigo-500 whitespace-nowrap">
+                            {c.nmc_code || '—'}
+                          </td>
+                          <td className="py-3 px-4 text-foreground font-medium max-w-xs">
+                            <span className="line-clamp-1" title={c.description}>
+                              {c.description || 'Standard Engineering Material Record'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
+                              title={(c.source_cpses || []).join(', ')}
+                              style={{
+                                background: (c.cpse_count || 1) >= 2 ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.10)',
+                                color:      (c.cpse_count || 1) >= 2 ? C.emerald : C.blue,
+                                border:     `1px solid ${(c.cpse_count || 1) >= 2 ? 'rgba(16,185,129,0.28)' : 'rgba(59,130,246,0.22)'}`,
+                              }}
+                            >
+                              {c.cpse_count ?? (c.source_cpses?.length ?? 1)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-foreground tabular-nums">
+                            {c.mapped_materials ?? c.mapping_count ?? 1}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {!isLoading && totalCmmPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-2 border-t border-border/50 bg-muted/20 text-xs text-muted-foreground">
+                  <span>
+                    Showing {(cmmPage - 1) * cmmPageSize + 1}–{Math.min(cmmPage * cmmPageSize, cmmRecords.length)} of {cmmRecords.length}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline" size="icon" className="h-7 w-7"
+                      disabled={cmmPage <= 1}
+                      onClick={() => setCmmPage(p => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="font-semibold text-foreground px-1">{cmmPage} / {totalCmmPages}</span>
+                    <Button
+                      variant="outline" size="icon" className="h-7 w-7"
+                      disabled={cmmPage >= totalCmmPages}
+                      onClick={() => setCmmPage(p => Math.min(totalCmmPages, p + 1))}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
       </div>
     </AppLayout>

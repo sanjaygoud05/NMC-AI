@@ -12,7 +12,7 @@ import {
   GitCompare,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Sidebar,
@@ -47,6 +47,12 @@ interface NavGroup {
 export function AppSidebar() {
   const { role, isAdmin, isReviewer, canViewReviewQueue, canSubmitDecisions, isAuthenticated, logout } = useAuth();
   const { isMobile, setOpenMobile } = useSidebar();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   const handleNavClick = () => {
     if (isMobile) {
@@ -67,14 +73,14 @@ export function AppSidebar() {
         { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
         { title: 'Manage CPSEs', url: '/manage-cpses', icon: Building2 },
         { title: 'Material Explorer', url: '/materials', icon: Search },
+        { title: 'Common Material Master', url: '/common-master', icon: Database },
       ],
     },
     {
-      label: 'AI HARMONIZATION',
+      label: 'REVIEW WORKFLOW',
       showWhen: isAdmin,
       items: [
-        { title: 'Find Mapping', url: '/find-mapping', icon: GitCompare },
-        { title: 'Common Material Master', url: '/common-master', icon: Database },
+        { title: 'Review Queue', url: '/review', icon: CheckSquare },
       ],
     },
     {
@@ -200,7 +206,7 @@ export function AppSidebar() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={logout}
+              onClick={handleLogout}
               className="h-8 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
             >
               <LogOut className="h-3.5 w-3.5" />

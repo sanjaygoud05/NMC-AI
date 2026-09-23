@@ -483,10 +483,13 @@ export default function ManageCPSE() {
                 <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{matchResult.matches_created ?? 0}</p>
               </div>
             </div>
-            <div className="flex justify-end">
-              <Link to="/review">
-                <button className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline">
-                  Go to Review Queue
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] text-muted-foreground">
+                Queued for certified Reviewer evaluation.
+              </span>
+              <Link to="/find-mapping">
+                <button className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+                  View AI Matching Engine
                   <ArrowRight className="h-3 w-3" />
                 </button>
               </Link>
