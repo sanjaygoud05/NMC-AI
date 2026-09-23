@@ -258,7 +258,11 @@ export default function ManageCPSE() {
       setDeleteTarget(null);
       if (selectedId === deleteTarget?.id) setSelectedId(null);
       queryClient.invalidateQueries({ queryKey: ['nmc', 'cpses-list'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'matching-readiness'] });
       queryClient.invalidateQueries({ queryKey: ['nmc', 'dashboard-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'review-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'review-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'materials'] });
     },
     onError: (err: any) => toast.error(err.message || 'Failed to delete CPSE'),
   });
@@ -668,16 +672,27 @@ export default function ManageCPSE() {
                             <div className="flex items-center gap-1.5 justify-end">
                               {isSelected ? (
                                 !hasDataset ? (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs gap-1"
-                                    onClick={() => openUpload(c)}
-                                    disabled={uploadMutation.isPending}
-                                  >
-                                    <Upload className="h-3 w-3" />
-                                    Upload File
-                                  </Button>
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs gap-1"
+                                      onClick={() => openUpload(c)}
+                                      disabled={uploadMutation.isPending}
+                                    >
+                                      <Upload className="h-3 w-3" />
+                                      Upload File
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                      onClick={() => openDelete(c)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                      Delete
+                                    </Button>
+                                  </>
                                 ) : (
                                   <>
                                     <Button
@@ -700,14 +715,25 @@ export default function ManageCPSE() {
                                   </>
                                 )
                               ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                                  onClick={() => setSelectedId(c.id)}
-                                >
-                                  Select
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => openDelete(c)}
+                                    title={`Delete ${c.name}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                                    onClick={() => setSelectedId(c.id)}
+                                  >
+                                    Select
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </td>

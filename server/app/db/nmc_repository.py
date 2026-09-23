@@ -128,8 +128,53 @@ class NMCRepository:
             if not cpse:
                 return False
             code = cpse.code
-            session.execute(text("DELETE FROM materials WHERE cpse_id=:cid"), {"cid": cpse.id})
-            session.execute(text("DELETE FROM datasets WHERE cpse_id=:cid"), {"cid": cpse.id})
+            cid = cpse.id
+
+            # 1. Delete review decisions for any matches involving materials from this CPSE
+            session.execute(
+                text("""
+                    DELETE FROM review_decisions
+                    WHERE match_id IN (
+                        SELECT id FROM material_matches
+                        WHERE source_material_id IN (SELECT id FROM materials WHERE cpse_id=:cid)
+                           OR candidate_material_id IN (SELECT id FROM materials WHERE cpse_id=:cid)
+                    )
+                """),
+                {"cid": cid},
+            )
+
+            # 2. Delete material matches involving materials from this CPSE
+            session.execute(
+                text("""
+                    DELETE FROM material_matches
+                    WHERE source_material_id IN (SELECT id FROM materials WHERE cpse_id=:cid)
+                       OR candidate_material_id IN (SELECT id FROM materials WHERE cpse_id=:cid)
+                """),
+                {"cid": cid},
+            )
+
+            # 3. Delete material mappings for materials from this CPSE
+            session.execute(
+                text("""
+                    DELETE FROM material_mappings
+                    WHERE material_id IN (SELECT id FROM materials WHERE cpse_id=:cid)
+                """),
+                {"cid": cid},
+            )
+
+            # 4. Delete materials
+            session.execute(text("DELETE FROM materials WHERE cpse_id=:cid"), {"cid": cid})
+
+            # 5. Delete datasets
+            session.execute(text("DELETE FROM datasets WHERE cpse_id=:cid"), {"cid": cid})
+
+            # 6. Clean up CMM source_cpses
+            cmms = session.execute(select(NMCCommonMaterial)).scalars().all()
+            for cmm in cmms:
+                if cmm.source_cpses and (code in cmm.source_cpses or cpse.name in cmm.source_cpses):
+                    cmm.source_cpses = [c for c in cmm.source_cpses if c != code and c != cpse.name]
+
+            # 7. Delete the CPSE record
             session.delete(cpse)
             session.commit()
             self.log_action("Admin", code, "CPSE_DELETED")
