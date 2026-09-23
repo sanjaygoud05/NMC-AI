@@ -1,12 +1,12 @@
 import React, { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Moon, Sun, Shield, UserCheck, AlertCircle } from 'lucide-react';
+import { Moon, Sun, Shield, UserCheck, AlertCircle, LogOut } from 'lucide-react';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,9 +15,15 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayoutProps) {
-  const { role, isAdmin, isReviewer, canViewReviewQueue, isAuthenticated, isLoading } = useAuth();
+  const { role, isAdmin, isReviewer, canViewReviewQueue, isAuthenticated, isLoading, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   if (isLoading) {
     return (
@@ -75,11 +81,20 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
                   The Review Queue requires a valid Reviewer Key to evaluate candidate pairs and confirm harmonized Common Material Master records.
                 </p>
               </div>
-              <Link to="/login" state={{ from: location.pathname }}>
-                <Button className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
-                  Enter Reviewer Key
-                </Button>
-              </Link>
+              <div className="flex items-center gap-3">
+                {isAdmin && (
+                  <Link to="/dashboard">
+                    <Button variant="outline" className="gap-2">
+                      Return to Dashboard
+                    </Button>
+                  </Link>
+                )}
+                <Link to="/login" state={{ from: location.pathname }}>
+                  <Button className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
+                    Enter Reviewer Key
+                  </Button>
+                </Link>
+              </div>
             </div>
           </main>
         </div>
@@ -93,7 +108,7 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
         <AppSidebar />
         <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden max-w-full">
           {/* Header */}
-          <header className="h-14 border-b border-border bg-card/60 backdrop-blur-md flex items-center justify-between px-4 z-10 shrink-0">
+          <header className="h-16 border-b border-border bg-card/60 backdrop-blur-md flex items-center justify-between px-4 z-10 shrink-0">
             <div className="flex items-center gap-3">
               <SidebarTrigger />
               <div className="hidden sm:flex items-center gap-2">
@@ -130,6 +145,19 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
               >
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
+
+              {isAuthenticated && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLogout}
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  title="Sign Out"
+                  aria-label="Sign Out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </header>
 

@@ -256,15 +256,8 @@ export const nmcApi = {
         decisions_recorded?: number;
       }>('/api/nmc/analytics/dashboard'),
     getCPSEAnalytics: () => request<any[]>('/api/nmc/analytics/cpses'),
-    getMatchStats: () =>
-      request<{
-        total: number;
-        pending_review: number;
-        accepted: number;
-        rejected: number;
-        different: number;
-      }>('/api/nmc/analytics/match-stats'),
     getFullAnalytics: () => request<any>('/api/nmc/analytics/full'),
+    getTopologyData: () => request<any>('/api/nmc/analytics/topology'),
   },
 
   // Audit Trail
@@ -296,3 +289,4 @@ export const nmcApi = {
     },
   },
 };
+

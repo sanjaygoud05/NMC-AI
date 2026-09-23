@@ -201,13 +201,23 @@ export default function FindMapping() {
                 </p>
               </div>
             </CardContent>
-            <CardFooter className="pt-2 flex justify-end">
-              <Link to="/review">
-                <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
-                  Proceed to Review Queue
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+            <CardFooter className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">
+                Matches saved. Pending evaluation by certified Reviewers in the Review Queue.
+              </span>
+              <div className="flex items-center gap-2">
+                <Link to="/common-master">
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                    Common Master
+                  </Button>
+                </Link>
+                <Link to="/analytics">
+                  <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs">
+                    Harmonization Analytics
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              </div>
             </CardFooter>
           </Card>
         )}
