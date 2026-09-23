@@ -131,6 +131,11 @@ def run_cross_cpse_matching() -> Dict[str, Any]:
         if row1["cpse_id"] == row2["cpse_id"]:
             continue
 
+        desc1_clean = str(row1.get("Material_Description") or "").strip()
+        desc2_clean = str(row2.get("Material_Description") or "").strip()
+        if not desc1_clean or not desc2_clean:
+            continue
+
         emb1 = embeddings[idx1]
         emb2 = embeddings[idx2]
 
@@ -147,15 +152,19 @@ def run_cross_cpse_matching() -> Dict[str, Any]:
         canonical_key_exact = res.get("canonical_key_exact", False)
         is_hard_incompatible = res.get("engineering_incompatibility", False)
 
-        # Categorization rule
-        if is_hard_incompatible:
+        # Categorization rule: strict and honest
+        if is_hard_incompatible or score < 0.55:
             category = "DIFFERENT"
-        elif canonical_key_exact or score >= 0.70:
+            conf_label = "LOW"
+        elif score >= 0.75 and canonical_key_exact and not is_hard_incompatible:
             category = "POTENTIALLY_SAME"
-        elif score >= 0.50:
+            conf_label = "HIGH"
+        elif score >= 0.60 and not is_hard_incompatible:
             category = "POTENTIALLY_SAME"
+            conf_label = "MEDIUM"
         else:
             category = "DIFFERENT"
+            conf_label = "LOW"
 
         explanation = {
             "evidence_summary": res.get("evidence_summary"),
@@ -177,6 +186,7 @@ def run_cross_cpse_matching() -> Dict[str, Any]:
             "final_confidence": float(score),
             "confidence_label": conf_label,
             "match_category": category,
+            "status": "DIFFERENT" if category == "DIFFERENT" else "PENDING_REVIEW",
             "explanation": explanation,
         })
 
