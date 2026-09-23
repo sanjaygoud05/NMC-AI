@@ -438,9 +438,19 @@ class AuditLog(Base):
     extra_metadata = Column("metadata", JSON, nullable=True)
 
     def to_dict(self):
+        ts_iso = None
+        if self.timestamp:
+            ts = self.timestamp
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            ts_iso = ts.isoformat()
+            if not ts_iso.endswith("Z") and "+00:00" in ts_iso:
+                ts_iso = ts_iso.replace("+00:00", "Z")
+            elif not ts_iso.endswith("Z") and "+" not in ts_iso:
+                ts_iso = ts_iso + "Z"
         return {
             "id": self.id,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": ts_iso,
             "actor": self.actor,
             "cpse_code": self.cpse_code,
             "action": self.action,
@@ -450,3 +460,4 @@ class AuditLog(Base):
             "reason": self.reason,
             "metadata": self.extra_metadata,
         }
+
