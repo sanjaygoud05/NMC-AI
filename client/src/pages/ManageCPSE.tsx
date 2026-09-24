@@ -340,29 +340,32 @@ export default function ManageCPSE() {
               {readiness && (
                 <Badge
                   variant="outline"
-                  className={`text-xs gap-1 px-2 py-0.5 ${allReady
+                  className={`text-xs gap-1.5 px-2.5 py-0.5 font-normal transition-colors ${
+                    allReady
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                    }`}
+                      : 'bg-muted/70 text-muted-foreground border-border/80 hover:bg-muted'
+                  }`}
                 >
                   {allReady ? (
-                    <CheckCircle2 className="h-3 w-3" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                   ) : (
-                    <Clock className="h-3 w-3" />
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
-                  Normalization: {normalizedCount} / {totalMaterials} materials ready
+                  <span>
+                    Normalization: <span className="font-semibold text-foreground">{normalizedCount}/{totalMaterials}</span> ready
+                  </span>
                 </Badge>
               )}
             </div>
           </div>
 
-          {/* Right: Action buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Find Matches button + inline hint */}
-            <div className="flex flex-col items-end gap-0.5">
+          {/* Right: Action buttons - aligned on the same horizontal axis */}
+          <div className="flex items-start gap-2 flex-wrap">
+            {/* Action button + red message directly below */}
+            <div className="flex flex-col items-start gap-1">
               <Button
                 size="sm"
-                className="h-8 text-xs gap-1.5"
+                className="h-8 text-xs gap-1.5 shadow-sm"
                 disabled={!allReady || isMatchingRunning}
                 onClick={startMatching}
                 title={allReady ? 'Run cross-CPSE matching' : 'Normalize all CPSE materials before matching'}
@@ -386,25 +389,25 @@ export default function ManageCPSE() {
               )}
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-              onClick={handleRefresh}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={handleRefresh}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </Button>
 
-            {/* Add CPSE dialog trigger */}
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="h-8 text-xs gap-1.5">
-                  <Plus className="h-3.5 w-3.5" />
-                  Add CPSE
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
+              {/* Add CPSE dialog trigger */}
+              <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="default" className="h-8 text-xs gap-1.5">
+                    <Plus className="h-3.5 w-3.5" />
+                    Add CPSE
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Register CPSE Enterprise</DialogTitle>
                   <DialogDescription>
@@ -500,32 +503,54 @@ export default function ManageCPSE() {
         {/* ── Upload Dataset Dialog ── */}
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
           <DialogContent>
-            <DialogHeader>
+            <DialogHeader className="space-y-2">
               <DialogTitle>
                 {targetCpse?.active_dataset ? 'Replace Dataset' : 'Upload Dataset'} for{' '}
                 {targetCpse?.name}
               </DialogTitle>
-              <DialogDescription>
-                Upload a CSV (.csv) or Excel (.xlsx) file. Required columns: Material Code and
-                Description.
+              <DialogDescription className="space-y-1.5 text-xs text-muted-foreground pt-1">
+                <p>Upload a CSV (.csv) or Excel (.xlsx) file.</p>
+                <p className="font-medium text-foreground/90">
+                  Required columns: Material Code and Description.
+                </p>
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleUploadSubmit} className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="file-input">Select File</Label>
-                <Input
-                  id="file-input"
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
+
+            <form onSubmit={handleUploadSubmit} className="space-y-4 pt-3 pb-2">
+              <div className="space-y-2.5">
+                <Label htmlFor="file-input" className="text-xs font-medium">Select File</Label>
+
+                {/* Only 'Choose File' button — no browser default 'No file chosen' text */}
+                <div className="flex items-center gap-3">
+                  <input
+                    id="file-input"
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    required
+                  />
+                  <label
+                    htmlFor="file-input"
+                    className="inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-medium border border-border bg-background hover:bg-muted text-foreground rounded-md cursor-pointer transition-colors shadow-2xs"
+                  >
+                    <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+                    Choose File
+                  </label>
+                  {selectedFile && (
+                    <span className="text-xs text-foreground font-medium truncate max-w-[220px]">
+                      {selectedFile.name}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground pt-1">
                   Accepted formats: CSV, XLSX. Duplicate records will be pruned automatically.
                 </p>
               </div>
+
               {selectedFile && (
-                <div className="p-3 rounded-lg bg-muted/60 flex items-center gap-3 text-xs">
+                <div className="p-3 rounded-lg bg-muted/60 flex items-center gap-3 text-xs border border-border/50">
                   <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-foreground truncate">{selectedFile.name}</p>

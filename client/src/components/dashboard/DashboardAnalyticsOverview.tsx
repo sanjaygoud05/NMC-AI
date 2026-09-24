@@ -55,9 +55,12 @@ export function DashboardAnalyticsOverview({
       return cpseAnalytics.map((c: any, idx: number) => {
         const count = c.total_materials ?? 0;
         const pctNum = sum > 0 ? (count / sum) * 100 : 0;
-        const name = c.cpse_code?.toUpperCase() === 'ONGC' ? 'ONGC' : (c.cpse_name || c.cpse_code || `CPSE ${idx + 1}`);
+        const code = (c.cpse_code || `CPSE ${idx + 1}`).toUpperCase();
+        const fullName = c.cpse_name || c.cpse_code || code;
         return {
-          name,
+          name: code,
+          code,
+          fullName,
           count,
           pct: `${pctNum.toFixed(1)}%`,
           pctNum,
@@ -71,8 +74,12 @@ export function DashboardAnalyticsOverview({
       return cpses.map((c: any, idx: number) => {
         const count = c.active_dataset?.record_count ?? 0;
         const pctNum = sum > 0 ? (count / sum) * 100 : 0;
+        const code = (c.code || `CPSE ${idx + 1}`).toUpperCase();
+        const fullName = c.name || c.code || code;
         return {
-          name: c.name || c.code || `CPSE ${idx + 1}`,
+          name: code,
+          code,
+          fullName,
           count,
           pct: `${pctNum.toFixed(1)}%`,
           pctNum,
@@ -286,20 +293,20 @@ export function DashboardAnalyticsOverview({
             Interactive distribution of material catalog volume across participating enterprises
           </p>
 
-          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 overflow-hidden">
             {/* Donut Chart with visible outline and clean hover message outside the pie */}
-            <div className="flex flex-col items-center">
-              <div className="relative w-[210px] h-[210px] shrink-0 flex items-center justify-center">
+            <div className="flex flex-col items-center shrink-0">
+              <div className="relative w-[190px] h-[190px] flex items-center justify-center">
                 {/* SVG Outline Rings around the donut */}
                 <svg
                   className="absolute inset-0 w-full h-full pointer-events-none"
-                  viewBox="0 0 210 210"
+                  viewBox="0 0 190 190"
                 >
                   {/* Outer circle boundary outline */}
                   <circle
-                    cx="105"
-                    cy="105"
-                    r="89"
+                    cx="95"
+                    cy="95"
+                    r="80"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.5"
@@ -307,9 +314,9 @@ export function DashboardAnalyticsOverview({
                   />
                   {/* Inner circle boundary outline */}
                   <circle
-                    cx="105"
-                    cy="105"
-                    r="57"
+                    cx="95"
+                    cy="95"
+                    r="50"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.5"
@@ -323,8 +330,8 @@ export function DashboardAnalyticsOverview({
                       data={cpseDistribution}
                       cx="50%"
                       cy="50%"
-                      innerRadius={58}
-                      outerRadius={88}
+                      innerRadius={52}
+                      outerRadius={79}
                       paddingAngle={2}
                       dataKey="count"
                       stroke="#000000"
@@ -356,7 +363,7 @@ export function DashboardAnalyticsOverview({
                         {hoveredSlice.count.toLocaleString()}
                       </span>
                       <span
-                        className="text-[11px] font-semibold truncate max-w-[90px] block"
+                        className="text-[11px] font-semibold truncate max-w-[80px] block"
                         style={{ color: hoveredSlice.color }}
                       >
                         {hoveredSlice.name}
@@ -375,17 +382,17 @@ export function DashboardAnalyticsOverview({
                 </div>
               </div>
 
-              {/* Hover message displayed clearly NOT on top of the pie chart */}
-              <div className="h-6 mt-1 flex items-center justify-center text-xs">
+              {/* Hover message displayed below the pie chart */}
+              <div className="h-6 mt-1 flex items-center justify-center text-xs w-[190px]">
                 {hoveredSlice ? (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-muted/60 dark:bg-zinc-900 border border-border dark:border-zinc-800 text-[11px]">
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 dark:bg-zinc-900 border border-border dark:border-zinc-800 text-[10px] max-w-full">
                     <span
                       className="w-2 h-2 rounded-full shrink-0"
                       style={{ backgroundColor: hoveredSlice.color }}
                     />
                     <span className="font-semibold text-foreground">{hoveredSlice.name}:</span>
                     <span className="text-muted-foreground font-mono">
-                      {hoveredSlice.count.toLocaleString()} items ({hoveredSlice.pct})
+                      {hoveredSlice.count.toLocaleString()} ({hoveredSlice.pct})
                     </span>
                   </div>
                 ) : (
@@ -397,7 +404,7 @@ export function DashboardAnalyticsOverview({
             </div>
 
             {/* Enterprise Legend Column List */}
-            <div className="flex-1 w-full space-y-1.5">
+            <div className="flex-1 min-w-0 w-full space-y-1">
               {cpseDistribution.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">
                   No CPSE dataset records available.
@@ -410,25 +417,25 @@ export function DashboardAnalyticsOverview({
                       key={idx}
                       onMouseEnter={() => setHoveredSlice(item)}
                       onMouseLeave={() => setHoveredSlice(null)}
-                      className={`flex items-center justify-between text-xs py-1 px-2 rounded cursor-pointer transition-colors ${
+                      className={`flex items-center gap-2 text-xs py-1.5 px-2 rounded cursor-pointer transition-colors ${
                         isHovered
                           ? 'bg-muted/80 dark:bg-zinc-850 border border-border/80 dark:border-zinc-700'
                           : 'hover:bg-muted/40 dark:hover:bg-zinc-900/60 border border-transparent'
                       }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="font-semibold text-foreground truncate">
-                          {item.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-muted-foreground tabular-nums shrink-0 font-mono text-[11px]">
-                        <span className="w-12 text-right">{item.count.toLocaleString()}</span>
-                        <span className="w-12 text-right">{item.pct}</span>
-                      </div>
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="font-semibold text-foreground truncate flex-1 min-w-0">
+                        {item.fullName}
+                      </span>
+                      <span className="text-muted-foreground font-mono text-[11px] shrink-0 whitespace-nowrap">
+                        {item.count.toLocaleString()}
+                      </span>
+                      <span className="text-muted-foreground font-mono text-[11px] w-[42px] text-right shrink-0">
+                        {item.pct}
+                      </span>
                     </div>
                   );
                 })

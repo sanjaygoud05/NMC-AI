@@ -8,7 +8,10 @@ import { nmcApi } from '@/services/nmcApi';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, LabelList,
+  RadialBarChart, RadialBar,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts';
+
 import {
   Building2, Database, GitMerge, Layers,
   RotateCw, ArrowRight, Search, ChevronLeft, ChevronRight,
@@ -441,7 +444,7 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          {/* Right: Harmonization Status Donut */}
+          {/* Right: Harmonization Status — Radar Chart */}
           <Card className="border-border/60">
             <CardHeader className="p-4 pb-2">
               <CardTitle className="text-sm font-bold text-foreground">Harmonization Status</CardTitle>
@@ -456,65 +459,110 @@ export default function Analytics() {
                 <div className="flex items-center justify-center h-44 text-xs text-muted-foreground">
                   No harmonization status data. Run AI matching first.
                 </div>
-              ) : (
-                <div className="flex flex-col sm:flex-row items-center gap-5 min-h-[200px]">
-                  {/* Donut */}
-                  <div className="relative w-40 h-40 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                      {harmonizationStatusData.map((item) => ({
-                            ...item,
-                            _total: totalStatusCount,
-                          })).length && null}
-                        <Pie
-                          data={harmonizationStatusData.map(item => ({ ...item, _total: totalStatusCount }))}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={46}
-                          outerRadius={70}
-                          paddingAngle={3}
-                          dataKey="value"
-                          strokeWidth={0}
-                        >
-                          {harmonizationStatusData.map((entry, idx) => (
-                            <Cell key={idx} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          content={<PieTooltip />}
-                          wrapperStyle={{ outline: 'none', zIndex: 50 }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Total</span>
-                      <span className="text-base font-extrabold text-foreground tabular-nums">
-                        {totalStatusCount.toLocaleString()}
-                      </span>
+              ) : (() => {
+                const radarData = harmonizationStatusData.map(item => ({
+                  status: item.name,
+                  pct: totalStatusCount > 0 ? parseFloat(((item.value / totalStatusCount) * 100).toFixed(1)) : 0,
+                  count: item.value,
+                  color: item.color,
+                }));
+                return (
+                  <div className="space-y-4">
+                    <div className="h-[220px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart data={radarData} margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
+                          <PolarGrid stroke="rgba(148,163,184,0.15)" strokeDasharray="3 3" />
+                          <PolarAngleAxis
+                            dataKey="status"
+                            tick={({ x, y, payload, textAnchor }: any) => {
+                              const words = (payload.value as string).split(' ');
+                              const lines: string[] = [];
+                              for (let i = 0; i < words.length; i += 2) {
+                                lines.push(words.slice(i, i + 2).join(' '));
+                              }
+                              return (
+                                <g>
+                                  {lines.map((line: string, i: number) => (
+                                    <text
+                                      key={i}
+                                      x={x}
+                                      y={y + i * 12}
+                                      textAnchor={textAnchor}
+                                      fontSize={10}
+                                      fontWeight={600}
+                                      fill="#94a3b8"
+                                    >
+                                      {line}
+                                    </text>
+                                  ))}
+                                </g>
+                              );
+                            }}
+                          />
+                          <PolarRadiusAxis
+                            angle={30}
+                            domain={[0, 100]}
+                            tick={{ fontSize: 9, fill: '#64748b' }}
+                            tickCount={4}
+                            tickFormatter={(v: number) => `${v}%`}
+                            axisLine={false}
+                          />
+                          <Radar
+                            name="Share"
+                            dataKey="pct"
+                            stroke="#6366f1"
+                            fill="#6366f1"
+                            fillOpacity={0.3}
+                            strokeWidth={2.5}
+                            dot={{ r: 4, fill: '#6366f1', strokeWidth: 0 } as any}
+                            activeDot={{ r: 6, fill: '#818cf8', strokeWidth: 0 } as any}
+                          />
+                          <Tooltip
+                            cursor={false}
+                            content={({ active, payload }: any) => {
+                              if (!active || !payload?.length) return null;
+                              const p = payload[0].payload;
+                              return (
+                                <div style={{
+                                  background: 'rgba(9,9,11,0.96)',
+                                  border: '1px solid rgba(99,102,241,0.45)',
+                                  borderRadius: 8,
+                                  padding: '10px 14px',
+                                  fontSize: 12,
+                                  minWidth: 160,
+                                }}>
+                                  <p className="font-bold text-foreground mb-1">{p.status}</p>
+                                  <p className="text-muted-foreground">
+                                    Count: <span className="font-bold text-foreground">{p.count.toLocaleString()}</span>
+                                  </p>
+                                  <p className="text-indigo-400 font-semibold">
+                                    Share: {p.pct}%
+                                  </p>
+                                </div>
+                              );
+                            }}
+                          />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Legend rows */}
+                    <div className="space-y-1.5 border-t border-border/40 pt-3">
+                      {radarData.map((item) => (
+                        <div key={item.status} className="flex items-center gap-2.5 text-xs">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                          <span className="text-foreground font-medium flex-1 truncate">{item.status}</span>
+                          <span className="tabular-nums font-bold text-foreground">{item.count.toLocaleString()}</span>
+                          <span className="tabular-nums text-muted-foreground w-11 text-right">{item.pct}%</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  {/* Legend */}
-                  <div className="flex-1 w-full space-y-2.5">
-                    {harmonizationStatusData.map((item) => {
-                      const pct = totalStatusCount > 0 ? Math.round((item.value / totalStatusCount) * 100) : 0;
-                      return (
-                        <div key={item.name} className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: item.color }} />
-                            <span className="text-foreground font-medium truncate">{item.name}</span>
-                          </div>
-                          <div className="shrink-0 text-right font-mono text-[11px]">
-                            <span className="font-bold text-foreground mr-1">{item.value.toLocaleString()}</span>
-                            <span className="text-muted-foreground">({pct}%)</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </CardContent>
           </Card>
+
 
         </div>
 

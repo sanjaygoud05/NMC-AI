@@ -113,7 +113,7 @@ export default function MatchDetail() {
                 match.confidence_label === 'HIGH'
                   ? 'bg-emerald-600 text-white'
                   : match.confidence_label === 'MEDIUM'
-                  ? 'bg-amber-600 text-white'
+                  ? 'bg-sky-600 text-white'
                   : 'bg-muted text-muted-foreground'
               }`}
             >
@@ -332,7 +332,7 @@ export default function MatchDetail() {
                 </CardDescription>
               </div>
               {!canSubmitDecisions && (
-                <Badge variant="outline" className="text-amber-500 border-amber-500/30 bg-amber-500/10 text-[11px] gap-1">
+                <Badge variant="outline" className="text-muted-foreground border-border bg-muted/40 text-[11px] gap-1">
                   <Lock className="h-3 w-3" /> Read-Only (Admin)
                 </Badge>
               )}
@@ -341,7 +341,7 @@ export default function MatchDetail() {
           <CardContent className="space-y-4">
             {!canSubmitDecisions && (
               <div className="p-3 rounded-lg bg-muted/60 border border-border flex items-center gap-2.5 text-xs text-muted-foreground">
-                <Lock className="h-4 w-4 text-amber-500 shrink-0" />
+                <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span>
                   <strong>Admin Read-Only:</strong> You can inspect match evidence, scores, and attributes. Decision actions (Accept, Reject, Mark Different, Override) are strictly reserved for verified Reviewers.
                 </span>
@@ -367,7 +367,7 @@ export default function MatchDetail() {
                   disabled={!canSubmitDecisions}
                   variant={decision === 'DIFFERENT' ? 'default' : 'outline'}
                   onClick={() => setDecision('DIFFERENT')}
-                  className={'text-xs h-9 gap-1.5 ' + (decision === 'DIFFERENT' ? 'bg-amber-600 hover:bg-amber-700 text-white' : '')}
+                  className={'text-xs h-9 gap-1.5 ' + (decision === 'DIFFERENT' ? 'bg-slate-700 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white' : '')}
                 >
                   <Split className="h-3.5 w-3.5" />
                   Mark as Different
@@ -429,8 +429,8 @@ export default function MatchDetail() {
                     onClick={() => setOverrideOutcome('DIFFERENT')}
                     className={'text-xs h-8 gap-1.5 ' + (
                       overrideOutcome === 'DIFFERENT'
-                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                        : 'border-amber-500/30 hover:bg-amber-500/10'
+                        ? 'bg-slate-700 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white'
+                        : 'border-border hover:bg-muted'
                     )}
                   >
                     <Split className="h-3.5 w-3.5" />
@@ -494,7 +494,7 @@ export default function MatchDetail() {
                 match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN'
                   ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                   : match.status === 'DIFFERENT' || match.status === 'REJECTED'
-                  ? 'bg-amber-500/5 border-amber-500/20 text-amber-600'
+                  ? 'bg-muted/50 border-border text-foreground dark:text-zinc-300'
                   : 'bg-muted/60 border-border text-muted-foreground'
               )}>
                 {match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN' ? (

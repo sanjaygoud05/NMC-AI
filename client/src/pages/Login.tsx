@@ -58,14 +58,14 @@ export default function Login() {
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-muted/30">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary font-bold text-lg mb-2">
-            NMC
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full overflow-hidden bg-white shadow-lg mb-2">
+            <img src="/favicon.png" alt="NMC Logo" className="h-full w-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            National Material Code
+            NMC-AI
           </h1>
           <p className="text-sm text-muted-foreground">
-            AI-Driven Standardization & Harmonization Platform
+            National Material Catalog & Harmonization Platform
           </p>
         </div>
 

@@ -115,12 +115,12 @@ export default function CommonMaster() {
             <table className="w-full text-left text-xs">
               <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase tracking-wider font-semibold">
                 <tr>
-                  <th className="p-3 w-56">National Material Code</th>
-                  <th className="p-3 min-w-[280px]">Canonical Description</th>
+                  <th className="p-3 w-52">National Material Code</th>
+                  <th className="p-3 w-72">Canonical Description</th>
                   <th className="p-3 w-28">Family</th>
-                  <th className="p-3 w-32">Contributing CPSEs</th>
-                  <th className="p-3 w-28">Created Date</th>
-                  <th className="p-3 w-24 text-right">Inspect</th>
+                  <th className="p-3 min-w-[200px]">Contributing CPSEs</th>
+                  <th className="p-3 w-28 whitespace-nowrap">Created At</th>
+                  <th className="p-3 w-28 text-center">Inspect</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -132,11 +132,11 @@ export default function CommonMaster() {
                   cmmData.items.map((cmm: any) => (
                     <tr key={cmm.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedCmmId(cmm.id)}>
                       <td className="p-3 font-medium text-xs text-primary font-mono truncate">{cmm.national_material_code}</td>
-                      <td className="p-3 font-medium text-foreground max-w-[340px] truncate" title={cmm.canonical_description}>{cmm.canonical_description}</td>
-                      <td className="p-3 capitalize font-medium text-foreground">{cmm.material_family || '—'}</td>
+                      <td className="p-3 font-medium text-foreground max-w-[280px] truncate" title={cmm.canonical_description}>{cmm.canonical_description}</td>
+                      <td className="p-3 capitalize font-medium text-foreground whitespace-nowrap">{cmm.material_family || '—'}</td>
                       <td className="p-3"><div className="flex flex-wrap gap-1">{Array.isArray(cmm.source_cpses) && cmm.source_cpses.length > 0 ? cmm.source_cpses.map((c: string) => <Badge key={c} variant="secondary" className="text-[10px] px-1.5 py-0">{c}</Badge>) : <span className="text-muted-foreground">—</span>}</div></td>
-                      <td className="p-3 text-muted-foreground">{cmm.created_at ? new Date(cmm.created_at).toLocaleDateString() : '—'}</td>
-                      <td className="p-3 text-right"><Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1.5 font-medium hover:bg-muted" onClick={(e) => { e.stopPropagation(); setSelectedCmmId(cmm.id); }}><Eye className="h-3.5 w-3.5 text-primary" /><span>Inspect</span></Button></td>
+                      <td className="p-3 text-muted-foreground whitespace-nowrap">{cmm.created_at ? new Date(cmm.created_at).toLocaleDateString() : '—'}</td>
+                      <td className="p-3 text-center"><Button variant="outline" size="sm" className="h-7 px-2.5 text-xs gap-1.5 font-medium hover:bg-muted whitespace-nowrap inline-flex items-center" onClick={(e) => { e.stopPropagation(); setSelectedCmmId(cmm.id); }}><Eye className="h-3.5 w-3.5 text-primary" /><span>Inspect</span></Button></td>
                     </tr>
                   ))
                 )}
@@ -311,7 +311,7 @@ export default function CommonMaster() {
 
                 {/* Footer */}
                 <div className="px-5 py-3 border-t border-border bg-muted/10 flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">NMC Platform · Central Ledger</span>
+                  <span className="text-[11px] text-muted-foreground">NMC-AI · Central Ledger</span>
                   <Button variant="outline" size="sm" className="h-7 px-3 text-xs font-medium" onClick={() => setSelectedCmmId(null)}>Close</Button>
                 </div>
               </>

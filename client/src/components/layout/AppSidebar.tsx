@@ -10,6 +10,7 @@ import {
   LogIn,
   LogOut,
   GitCompare,
+  ShoppingCart,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Link, useNavigate } from 'react-router-dom';
@@ -91,6 +92,13 @@ export function AppSidebar() {
         { title: 'Analytics', url: '/analytics', icon: BarChart3 },
       ],
     },
+    {
+      label: 'PROCUREMENT INTELLIGENCE',
+      showWhen: isAdmin,
+      items: [
+        { title: 'Procurement Intelligence', url: '/procurement-intelligence', icon: ShoppingCart },
+      ],
+    },
   ];
 
   // ----- Reviewer-only navigation -----
@@ -119,16 +127,16 @@ export function AppSidebar() {
   return (
     <Sidebar className="bg-sidebar border-r border-sidebar-border">
       <SidebarHeader className="h-16 px-4 flex items-center justify-start border-b border-sidebar-border w-full">
-        <Link to={isAdmin ? '/dashboard' : isReviewer ? '/review' : '/login'} className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary">
-            NMC
+        <Link to={isAdmin ? '/dashboard' : isReviewer ? '/review' : '/login'} className="flex items-center gap-3 group">
+          <div className="h-9 w-9 rounded-full overflow-hidden shrink-0 group-hover:scale-105 transition-transform bg-white">
+            <img src="/favicon.png" alt="NMC Logo" className="h-full w-full object-contain" />
           </div>
           <div>
             <h1 className="font-bold text-sm tracking-wide text-sidebar-foreground leading-tight">
-              NMC PLATFORM
+              NMC-AI
             </h1>
-            <p className="text-[11px] text-muted-foreground leading-tight">
-              National Material Code
+            <p className="text-[10px] text-muted-foreground leading-tight font-medium">
+              National Material Catalog
             </p>
           </div>
         </Link>
