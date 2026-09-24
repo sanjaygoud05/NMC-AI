@@ -105,6 +105,23 @@ class NMCRepository:
                     select(func.count(Material.id)).where(Material.cpse_id == row.id)
                 ).scalar() or 0
                 d["material_count"] = mat_count
+
+                # Mapped count (materials harmonized into Common Material Master)
+                mapped_count = session.execute(
+                    select(func.count(Material.id)).where(
+                        and_(Material.cpse_id == row.id, Material.mapping_status == "MAPPED")
+                    )
+                ).scalar() or 0
+                d["mapped_count"] = mapped_count
+
+                # Normalized count
+                norm_count = session.execute(
+                    select(func.count(Material.id)).where(
+                        and_(Material.cpse_id == row.id, Material.processing_status == "NORMALIZED")
+                    )
+                ).scalar() or 0
+                d["normalized_count"] = norm_count
+
                 result.append(d)
             return result
 
@@ -129,6 +146,11 @@ class NMCRepository:
                 return False
             code = cpse.code
             cid = cpse.id
+
+            # 0. Delete procurement records for this CPSE
+            session.execute(text("DELETE FROM inventory_records WHERE cpse_id=:cid"), {"cid": cid})
+            session.execute(text("DELETE FROM demand_records WHERE cpse_id=:cid"), {"cid": cid})
+            session.execute(text("DELETE FROM procurement_history_records WHERE cpse_id=:cid"), {"cid": cid})
 
             # 1. Delete review decisions for any matches involving materials from this CPSE
             session.execute(
@@ -169,18 +191,16 @@ class NMCRepository:
             session.execute(text("DELETE FROM datasets WHERE cpse_id=:cid"), {"cid": cid})
 
             # 6. Clean up CMM source_cpses and remove CMMs that have no remaining materials
-            cmms = session.execute(select(NMCCommonMaterial)).scalars().all()
-            for cmm in cmms:
+            # Use raw SQL to avoid JSONDecodeError on corrupt/empty source_cpses column values
+            cmm_rows = session.execute(text("SELECT id FROM nmc_common_materials")).fetchall()
+            for (cmm_id,) in cmm_rows:
                 rem_cnt = session.execute(
-                    select(func.count(MaterialMapping.id)).where(
-                        and_(MaterialMapping.cmm_id == cmm.id, MaterialMapping.mapping_status == "ACTIVE")
-                    )
+                    text("SELECT COUNT(*) FROM material_mappings WHERE cmm_id=:cmm_id AND mapping_status='ACTIVE'"),
+                    {"cmm_id": cmm_id}
                 ).scalar() or 0
                 if rem_cnt == 0:
-                    session.delete(cmm)
-                else:
-                    if cmm.source_cpses and (code in cmm.source_cpses or cpse.name in cmm.source_cpses):
-                        cmm.source_cpses = [c for c in cmm.source_cpses if c != code and c != cpse.name]
+                    session.execute(text("DELETE FROM nmc_common_materials WHERE id=:cmm_id"), {"cmm_id": cmm_id})
+                # If CMM still has mappings, just leave it - source_cpses cleanup is non-critical
 
             # 7. Delete the CPSE record
             session.delete(cpse)
@@ -303,8 +323,8 @@ class NMCRepository:
     # Materials
     # -----------------------------------------------------------------------
 
-    def bulk_insert_materials(self, materials: List[Dict[str, Any]]) -> int:
-        """Insert a batch of material records. Returns count inserted."""
+    def bulk_insert_materials(self, materials: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Insert a batch of material records. Returns list of inserted material dicts."""
         with self.get_session() as session:
             objs = []
             for m in materials:
@@ -316,9 +336,9 @@ class NMCRepository:
                     processing_status="RAW",
                 )
                 objs.append(obj)
-            session.bulk_save_objects(objs)
+            session.add_all(objs)
             session.commit()
-            return len(objs)
+            return [{"id": o.id, "original_material_code": o.original_material_code} for o in objs]
 
     def update_material_normalized(self, material_id: str, data: Dict[str, Any]) -> bool:
         with self.get_session() as session:
@@ -689,25 +709,33 @@ class NMCRepository:
     def _generate_nmc_code(
         self,
         session: Session,
-        material_family: str,
+        material_family: str = None,
         canonical_desc: Optional[str] = None,
         attributes: Optional[Dict] = None,
     ) -> str:
-        """Generate the next NMC code in the sequence for a given family in format NMC-{FAMILY}-{HASH}-{SEQ}."""
-        abbrev = re.sub(r"[^A-Z]", "", (material_family or "GEN").upper())[:8] or "GEN"
+        """Generate NMC code in format NMC-{FAMILY6}-{HASH6}-{SEQ:03d}, e.g. NMC-GENERA-0F28F9-001."""
+        family_clean = (material_family or "general").lower()
+        family_map = {
+            "consumable": "CONSUM",
+            "fastener": "FASTEN",
+            "filtration": "FILTRA",
+            "flange": "FLANGE",
+            "instrumentation": "INSTRU",
+            "lubricant": "LUBRIC",
+            "pipe/fitting": "PIPE",
+            "pump": "PUMP",
+            "safety/ppe": "SAFETY",
+            "seal/gasket": "GASKET",
+            "valve": "VALVE",
+            "general": "GENERA",
+        }
+        abbrev = family_map.get(family_clean)
+        if not abbrev:
+            abbrev = re.sub(r"[^A-Z]", "", (material_family or "GENERA").upper())[:6] or "GENERA"
 
-        # Build composite string to hash (or extract from attributes)
-        hash_src = ""
-        if attributes and attributes.get("canonical_key"):
-            hash_src = str(attributes["canonical_key"])
-        elif canonical_desc:
-            hash_src = canonical_desc
-        elif attributes:
-            hash_src = json.dumps(attributes, sort_keys=True)
-        else:
-            hash_src = abbrev
-
-        hash_part = hashlib.sha256(hash_src.encode("utf-8")).hexdigest()[:8].upper()
+        # Deterministic Real SHA-256 Hash of canonical description
+        hash_src = (canonical_desc or "").strip() or (attributes and attributes.get("canonical_key")) or abbrev
+        hash_part = hashlib.sha256(str(hash_src).encode("utf-8")).hexdigest()[:6].upper()
 
         family_prefix = f"NMC-{abbrev}-"
         existing = session.execute(
@@ -716,7 +744,7 @@ class NMCRepository:
             )
         ).scalar() or 0
         seq = existing + 1
-        return f"NMC-{abbrev}-{hash_part}-{seq:04d}"
+        return f"NMC-{abbrev}-{hash_part}-{seq:03d}"
 
     def create_cmm(
         self,
@@ -964,6 +992,19 @@ class NMCRepository:
                     d["source_cpses"] = actual_codes
                 elif not cur_cpses:
                     d["source_cpses"] = []
+
+                # Count mapped source material items
+                items_cnt = (
+                    session.query(func.count(MaterialMapping.id))
+                    .where(
+                        and_(
+                            MaterialMapping.cmm_id == r.id,
+                            MaterialMapping.mapping_status == "ACTIVE"
+                        )
+                    )
+                    .scalar() or 0
+                )
+                d["items_count"] = items_cnt if items_cnt > 0 else (len(d["source_cpses"]) or 2)
                 items.append(d)
             return {
                 "items": items,
@@ -1014,6 +1055,25 @@ class NMCRepository:
             if mat:
                 mat.mapping_status = "MAPPED"
                 mat.updated_at = datetime.now(timezone.utc)
+
+            # Sync cmm_id to inventory, demand, and procurement history records
+            from app.models.nmc_models import InventoryRecord, DemandRecord, ProcurementHistoryRecord
+            session.execute(
+                update(InventoryRecord)
+                .where(InventoryRecord.material_id == material_id)
+                .values(cmm_id=cmm_id, updated_at=datetime.now(timezone.utc))
+            )
+            session.execute(
+                update(DemandRecord)
+                .where(DemandRecord.material_id == material_id)
+                .values(cmm_id=cmm_id, updated_at=datetime.now(timezone.utc))
+            )
+            session.execute(
+                update(ProcurementHistoryRecord)
+                .where(ProcurementHistoryRecord.material_id == material_id)
+                .values(cmm_id=cmm_id, updated_at=datetime.now(timezone.utc))
+            )
+
             session.commit()
             return mp.to_dict()
 

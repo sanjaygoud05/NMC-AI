@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -124,7 +124,7 @@ export default function Review() {
               <TabsTrigger value="different" className="text-xs px-3 gap-1.5">
                 Different
                 {differentCount > 0 && (
-                  <Badge className="h-4 min-w-4 px-1 text-[9px] bg-amber-500/20 text-amber-600 border-0 rounded-full">
+                  <Badge className="h-4 min-w-4 px-1 text-[9px] bg-slate-500/15 text-slate-600 dark:text-slate-400 border-0 rounded-full">
                     {differentCount}
                   </Badge>
                 )}
@@ -244,7 +244,7 @@ export default function Review() {
                                 confLabel === 'HIGH'
                                   ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
                                   : confLabel === 'MEDIUM'
-                                  ? 'border-amber-500/40 text-amber-600 bg-amber-500/10'
+                                  ? 'border-sky-500/30 text-sky-600 dark:text-sky-400 bg-sky-500/10'
                                   : 'border-muted text-muted-foreground'
                               )}
                             >
@@ -299,7 +299,7 @@ export default function Review() {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
                                 title="Mark as Different"
                                 disabled={decisionMutation.isPending}
                                 onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'DIFFERENT' })}
@@ -334,7 +334,7 @@ export default function Review() {
                                   {m.status}
                                 </Badge>
                               ) : m.status === 'DIFFERENT' || m.status === 'REJECTED' ? (
-                                <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600 bg-amber-500/10">
+                                <Badge variant="outline" className="text-[10px] border-border text-muted-foreground bg-muted/50">
                                   {m.status}
                                 </Badge>
                               ) : (

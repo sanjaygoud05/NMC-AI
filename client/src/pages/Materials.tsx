@@ -32,6 +32,10 @@ import {
   ArrowLeft,
   Copy,
   Check,
+  Info,
+  Sparkles,
+  Layers,
+  Database,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -72,7 +76,7 @@ const renderHarmonizationBadge = (m: any) => {
   return (
     <Badge
       variant="secondary"
-      className="text-[10px] font-medium px-2 py-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+      className="text-[10px] font-medium px-2 py-0.5 bg-muted/60 text-muted-foreground border border-border/70"
     >
       Not Processed
     </Badge>
@@ -132,7 +136,10 @@ export default function Materials() {
         page,
         page_size: pageSize,
       }),
-    placeholderData: (prev) => prev,
+    // Always fetch fresh data when navigating to this page — prevents stale
+    // cache being shown after normalization runs on Manage CPSEs page
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -321,14 +328,14 @@ export default function Materials() {
           )}
         </div>
 
-        {/* ── Not-normalized warning banner ── */}
+        {/* ── Not-normalized information banner (neutral, non-yellow) ── */}
         {activeCpse && !isNormalized && activeCpseStatus !== 'PROCESSING' && (
-          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 text-xs text-amber-700 dark:text-amber-400">
-            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-            <span>
+          <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+            <span className="leading-relaxed">
               This CPSE dataset has not been processed yet. Only raw material codes and original
-              descriptions are shown. All other fields will display as <strong>—</strong> until you
-              click <strong>Normalize Materials</strong>.
+              descriptions are shown. All other fields will display as <strong className="text-foreground font-semibold">—</strong> until you
+              click <strong className="text-foreground font-semibold">Normalize Materials</strong>.
             </span>
           </div>
         )}
@@ -578,12 +585,13 @@ export default function Materials() {
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
 
                   {/* 1. Harmonization Outcome Banner */}
-                  <div className="p-4 rounded-xl border border-border bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="p-4 rounded-xl border border-border/80 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="space-y-1">
-                      <div className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                      <div className="text-[11px] font-semibold tracking-wider text-primary uppercase flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
                         Harmonization Status
                       </div>
-                      <div className="text-sm font-bold font-mono text-foreground">
+                      <div className="text-sm font-semibold font-mono text-foreground tracking-tight">
                         {selectedMaterial.mapping_status === 'MAPPED'
                           ? 'MATCHED & HARMONIZED'
                           : isRaw(selectedMaterial)
@@ -603,13 +611,14 @@ export default function Materials() {
                   {/* 2. Canonical Normalized Identity */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      <h3 className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
                         Canonical Normalized Description
                       </h3>
                       <span className="text-[11px] text-muted-foreground font-medium">Deterministic Standard</span>
                     </div>
 
-                    <div className="p-3.5 rounded-xl border border-border bg-muted/30 font-mono text-xs font-semibold text-foreground leading-relaxed select-text">
+                    <div className="p-3.5 rounded-xl border border-border/80 bg-muted/30 font-mono text-xs font-medium text-foreground leading-relaxed select-text">
                       {selectedMaterial.standardized_description ||
                         selectedMaterial.normalized_description ||
                         NA}
@@ -618,12 +627,13 @@ export default function Materials() {
 
                   {/* 3. Technical Parameters Table (Clean Tabular Form) */}
                   <div className="space-y-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    <h3 className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5 text-primary" />
                       Extracted Technical Parameters
                     </h3>
 
                     {isRaw(selectedMaterial) ? (
-                      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400 text-xs">
+                      <div className="p-4 rounded-xl border border-border bg-muted/30 text-muted-foreground text-xs">
                         This material has not been normalized yet. Parameters will appear here once you run <strong>Normalize Materials</strong>.
                       </div>
                     ) : (
@@ -638,10 +648,10 @@ export default function Materials() {
                           <tbody className="divide-y divide-border">
                             {getTabularAttributes(selectedMaterial).map((row) => (
                               <tr key={row.name} className="hover:bg-muted/20 transition-colors">
-                                <td className="px-4 py-2.5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                                <td className="px-4 py-2.5 bg-muted/20 font-medium text-foreground/80 border-r border-border">
                                   {row.name}
                                 </td>
-                                <td className="px-4 py-2.5 font-bold font-mono text-foreground uppercase">
+                                <td className="px-4 py-2.5 font-semibold font-mono text-foreground uppercase">
                                   {row.value}
                                 </td>
                               </tr>
@@ -654,7 +664,8 @@ export default function Materials() {
 
                   {/* 4. Source Data Table (Original Master Record) */}
                   <div className="space-y-2">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    <h3 className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                      <Database className="h-3.5 w-3.5 text-primary" />
                       Source Record (Immutable)
                     </h3>
 
@@ -662,15 +673,15 @@ export default function Materials() {
                       <table className="w-full text-left text-xs border-collapse">
                         <tbody className="divide-y divide-border">
                           <tr className="hover:bg-muted/20 transition-colors">
-                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-medium text-foreground/80 border-r border-border">
                               Source Material Code
                             </td>
-                            <td className="px-4 py-2.5 font-bold font-mono text-foreground">
+                            <td className="px-4 py-2.5 font-semibold font-mono text-foreground">
                               {selectedMaterial.original_material_code || NA}
                             </td>
                           </tr>
                           <tr className="hover:bg-muted/20 transition-colors">
-                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-medium text-foreground/80 border-r border-border">
                               Original Description
                             </td>
                             <td className="px-4 py-2.5 font-medium text-foreground leading-relaxed">
@@ -678,15 +689,15 @@ export default function Materials() {
                             </td>
                           </tr>
                           <tr className="hover:bg-muted/20 transition-colors">
-                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-medium text-foreground/80 border-r border-border">
                               Source Unit of Measure (UOM)
                             </td>
-                            <td className="px-4 py-2.5 font-bold font-mono text-foreground uppercase">
+                            <td className="px-4 py-2.5 font-semibold font-mono text-foreground uppercase">
                               {selectedMaterial.uom || 'PCS'}
                             </td>
                           </tr>
                           <tr className="hover:bg-muted/20 transition-colors">
-                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-semibold text-muted-foreground border-r border-border">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-medium text-foreground/80 border-r border-border">
                               Enterprise Tenant
                             </td>
                             <td className="px-4 py-2.5 font-semibold text-foreground">
@@ -702,11 +713,11 @@ export default function Materials() {
                   <div className="rounded-xl border border-border overflow-hidden bg-card shadow-2xs">
                     <button
                       type="button"
-                      className="w-full p-3.5 px-4 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
+                      className="w-full p-3.5 px-4 flex items-center justify-between hover:bg-muted/40 transition-colors text-left group"
                       onClick={() => setPayloadOpen(!payloadOpen)}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-foreground">
+                        <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
                           Original Raw Payload
                         </span>
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
@@ -714,7 +725,7 @@ export default function Materials() {
                         </Badge>
                       </div>
                       <ChevronRight
-                        className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                        className={`h-4 w-4 text-muted-foreground group-hover:text-primary transition-transform duration-200 ${
                           payloadOpen ? 'rotate-90' : ''
                         }`}
                       />

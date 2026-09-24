@@ -461,3 +461,160 @@ class AuditLog(Base):
             "metadata": self.extra_metadata,
         }
 
+# ---------------------------------------------------------------------------
+# InventoryRecord
+# ---------------------------------------------------------------------------
+
+class InventoryRecord(Base):
+    """
+    Inventory quantity data for a CPSE material.
+    Linked to NMCCommonMaterial when the material has been harmonized.
+    """
+    __tablename__ = "inventory_records"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    material_id = Column(String(36), ForeignKey("materials.id", ondelete="CASCADE"), nullable=False, index=True)
+    cpse_id = Column(String(36), ForeignKey("cpsEs.id", ondelete="CASCADE"), nullable=False, index=True)
+    cmm_id = Column(String(36), ForeignKey("nmc_common_materials.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    quantity_on_hand = Column(Float, nullable=False, default=0.0)
+    reserved_quantity = Column(Float, nullable=False, default=0.0)
+    available_quantity = Column(Float, nullable=False, default=0.0)
+    plant = Column(String(64), nullable=True)
+    uom = Column(String(32), nullable=True)
+    inventory_date = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)
+
+    material = relationship("Material", foreign_keys=[material_id])
+    cpse = relationship("CPSE", foreign_keys=[cpse_id])
+    cmm = relationship("NMCCommonMaterial", foreign_keys=[cmm_id])
+
+    __table_args__ = (
+        Index("idx_inventory_cpse", "cpse_id"),
+        Index("idx_inventory_cmm", "cmm_id"),
+        Index("idx_inventory_material", "material_id"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "material_id": self.material_id,
+            "cpse_id": self.cpse_id,
+            "cmm_id": self.cmm_id,
+            "quantity_on_hand": self.quantity_on_hand,
+            "reserved_quantity": self.reserved_quantity,
+            "available_quantity": self.available_quantity,
+            "plant": self.plant,
+            "uom": self.uom,
+            "inventory_date": self.inventory_date.isoformat() if self.inventory_date else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# DemandRecord
+# ---------------------------------------------------------------------------
+
+class DemandRecord(Base):
+    """
+    Demand/requirement data for a CPSE material.
+    Linked to NMCCommonMaterial when the material has been harmonized.
+    """
+    __tablename__ = "demand_records"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    material_id = Column(String(36), ForeignKey("materials.id", ondelete="CASCADE"), nullable=False, index=True)
+    cpse_id = Column(String(36), ForeignKey("cpsEs.id", ondelete="CASCADE"), nullable=False, index=True)
+    cmm_id = Column(String(36), ForeignKey("nmc_common_materials.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    required_quantity = Column(Float, nullable=False, default=0.0)
+    forecast_quantity = Column(Float, nullable=True)
+    demand_period = Column(String(64), nullable=True)
+    plant = Column(String(64), nullable=True)
+    uom = Column(String(32), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)
+
+    material = relationship("Material", foreign_keys=[material_id])
+    cpse = relationship("CPSE", foreign_keys=[cpse_id])
+    cmm = relationship("NMCCommonMaterial", foreign_keys=[cmm_id])
+
+    __table_args__ = (
+        Index("idx_demand_cpse", "cpse_id"),
+        Index("idx_demand_cmm", "cmm_id"),
+        Index("idx_demand_material", "material_id"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "material_id": self.material_id,
+            "cpse_id": self.cpse_id,
+            "cmm_id": self.cmm_id,
+            "required_quantity": self.required_quantity,
+            "forecast_quantity": self.forecast_quantity,
+            "demand_period": self.demand_period,
+            "plant": self.plant,
+            "uom": self.uom,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# ProcurementHistoryRecord
+# ---------------------------------------------------------------------------
+
+class ProcurementHistoryRecord(Base):
+    """
+    Historical purchase orders for CPSE materials.
+    Linked to NMCCommonMaterial when the material has been harmonized.
+    Kept separate from inventory and demand due to distinct lifecycle and cardinality.
+    """
+    __tablename__ = "procurement_history_records"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    material_id = Column(String(36), ForeignKey("materials.id", ondelete="CASCADE"), nullable=False, index=True)
+    cpse_id = Column(String(36), ForeignKey("cpsEs.id", ondelete="CASCADE"), nullable=False, index=True)
+    cmm_id = Column(String(36), ForeignKey("nmc_common_materials.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    po_number = Column(String(64), nullable=False)
+    supplier_name = Column(String(128), nullable=False)
+    quantity = Column(Float, nullable=False, default=0.0)
+    unit_price = Column(Float, nullable=False, default=0.0)
+    uom = Column(String(32), nullable=True)
+    po_date = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)
+
+    material = relationship("Material", foreign_keys=[material_id])
+    cpse = relationship("CPSE", foreign_keys=[cpse_id])
+    cmm = relationship("NMCCommonMaterial", foreign_keys=[cmm_id])
+
+    __table_args__ = (
+        Index("idx_proc_hist_cpse", "cpse_id"),
+        Index("idx_proc_hist_cmm", "cmm_id"),
+        Index("idx_proc_hist_material", "material_id"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "material_id": self.material_id,
+            "cpse_id": self.cpse_id,
+            "cmm_id": self.cmm_id,
+            "po_number": self.po_number,
+            "supplier_name": self.supplier_name,
+            "quantity": self.quantity,
+            "unit_price": self.unit_price,
+            "uom": self.uom,
+            "po_date": self.po_date.isoformat() if self.po_date else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+

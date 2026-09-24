@@ -190,7 +190,7 @@ export default function Dashboard() {
                 {cpses.map((c: any, idx: number) => {
                   const activeDs = c.active_dataset;
                   const status = activeDs?.status || 'NO_DATASET';
-                  const totalItems = activeDs?.record_count ?? 0;
+                  const totalItems = activeDs?.record_count ?? c.material_count ?? 0;
                   const mapped = c.mapped_count ?? 0;
                   const pct = totalItems > 0 ? Math.round((mapped / totalItems) * 100) : 0;
 
@@ -223,19 +223,30 @@ export default function Dashboard() {
 
                       {/* Materials */}
                       <div className="flex items-center">
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground font-medium">
                           {totalItems > 0 ? totalItems.toLocaleString() : '—'}
                         </span>
                       </div>
 
                       {/* Mapped */}
-                      <div className="flex items-center">
-                        <span className="text-xs text-muted-foreground">{mapped}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-semibold text-foreground">{mapped}</span>
+                        <span className="text-[11px] text-muted-foreground">/ {totalItems > 0 ? totalItems : '—'}</span>
                       </div>
 
                       {/* Progress */}
-                      <div className="flex items-center justify-end">
-                        <span className="text-xs text-muted-foreground">{pct}%</span>
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              pct > 0 ? 'bg-primary' : 'bg-transparent'
+                            }`}
+                            style={{ width: `${Math.min(100, pct)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-foreground min-w-[2rem] text-right">
+                          {pct}%
+                        </span>
                       </div>
                     </div>
                   );

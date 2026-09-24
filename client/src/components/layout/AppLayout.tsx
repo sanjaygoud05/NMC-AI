@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -30,10 +30,15 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Initializing NMC Platform...</p>
+          <p className="text-sm text-muted-foreground">Initializing NMC-AI...</p>
         </div>
       </div>
     );
+  }
+
+  // Authentication gate
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   // Authorization gate

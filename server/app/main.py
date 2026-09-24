@@ -27,6 +27,7 @@ from app.api import (
     nmc_cmm,
     nmc_analytics,
     nmc_audit,
+    nmc_procurement,
 )
 
 app = FastAPI(
@@ -60,6 +61,7 @@ app.include_router(nmc_review.router)
 app.include_router(nmc_cmm.router)
 app.include_router(nmc_analytics.router)
 app.include_router(nmc_audit.router)
+app.include_router(nmc_procurement.router)
 
 
 @app.get("/")

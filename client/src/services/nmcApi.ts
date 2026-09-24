@@ -288,5 +288,94 @@ export const nmcApi = {
       }>(`/api/nmc/audit?${sp.toString()}`);
     },
   },
+
+  // Procurement Intelligence
+  procurement: {
+    getFilters: () => request<any>('/api/nmc/procurement/filters'),
+
+    // ── Inventory ──────────────────────────────────────────────────────────
+    getInventorySummary: () => request<{
+      total_inventory_units: number;
+      materials_with_inventory: number;
+      multi_cpse_stock: number;
+      multi_cpse_nmcs: number;
+      consolidation_opportunities: number;
+    }>('/api/nmc/procurement/inventory/summary'),
+
+    getInventoryByCpse: () => request<any[]>('/api/nmc/procurement/inventory/by-cpse'),
+
+    getInventoryByNmc: (params: {
+      cpse_id?: string;
+      uom?: string;
+      material_type?: string;
+      nmc_code?: string;
+      search?: string;
+      page?: number;
+      page_size?: number;
+    }) => {
+      const sp = new URLSearchParams();
+      if (params.cpse_id && params.cpse_id !== 'ALL') sp.set('cpse_id', params.cpse_id);
+      if (params.uom && params.uom !== 'ALL') sp.set('uom', params.uom);
+      if (params.material_type && params.material_type !== 'ALL') sp.set('material_type', params.material_type);
+      if (params.nmc_code && params.nmc_code !== 'ALL') sp.set('nmc_code', params.nmc_code);
+      if (params.search) sp.set('search', params.search);
+      if (params.page) sp.set('page', params.page.toString());
+      if (params.page_size) sp.set('page_size', params.page_size.toString());
+      return request<{ items: any[]; total: number; page: number; total_pages: number }>(
+        `/api/nmc/procurement/inventory/by-nmc?${sp.toString()}`
+      );
+    },
+
+    getInventoryDetail: (cmmId: string) =>
+      request<any>(`/api/nmc/procurement/inventory/${cmmId}`),
+
+    // ── Demand ─────────────────────────────────────────────────────────────
+    getDemandSummary: () => request<{
+      total_demand: number;
+      materials_with_demand: number;
+      multi_cpse_demand: number;
+      multi_cpse_demand_nmcs: number;
+      procurement_opportunities: number;
+      consolidation_opportunities: number;
+    }>('/api/nmc/procurement/demand/summary'),
+
+    getDemandByCpse: () => request<any[]>('/api/nmc/procurement/demand/by-cpse'),
+
+    getDemandByNmc: (params: {
+      cpse_id?: string;
+      uom?: string;
+      material_type?: string;
+      demand_period?: string;
+      search?: string;
+      page?: number;
+      page_size?: number;
+    }) => {
+      const sp = new URLSearchParams();
+      if (params.cpse_id && params.cpse_id !== 'ALL') sp.set('cpse_id', params.cpse_id);
+      if (params.uom && params.uom !== 'ALL') sp.set('uom', params.uom);
+      if (params.material_type && params.material_type !== 'ALL') sp.set('material_type', params.material_type);
+      if (params.demand_period && params.demand_period !== 'ALL') sp.set('demand_period', params.demand_period);
+      if (params.search) sp.set('search', params.search);
+      if (params.page) sp.set('page', params.page.toString());
+      if (params.page_size) sp.set('page_size', params.page_size.toString());
+      return request<{ items: any[]; total: number; page: number; total_pages: number }>(
+        `/api/nmc/procurement/demand/by-nmc?${sp.toString()}`
+      );
+    },
+
+    getDemandDetail: (cmmId: string) =>
+      request<any>(`/api/nmc/procurement/demand/${cmmId}`),
+
+    // ── Combined ───────────────────────────────────────────────────────────
+    getCombined: (cmmId: string) =>
+      request<any>(`/api/nmc/procurement/combined/${cmmId}`),
+
+    // ── Procurement History ────────────────────────────────────────────────
+    getProcurementHistory: (cmmId: string) =>
+      request<any>(`/api/nmc/procurement/history/${cmmId}`),
+
+    // ── Opportunities ─────────────────────────────────────────────────────
+    getOpportunities: () => request<any[]>('/api/nmc/procurement/opportunities'),
+  },
 };
 
