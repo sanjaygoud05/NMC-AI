@@ -177,8 +177,8 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                {/* Table header */}
-                <div className="grid grid-cols-[2rem_1fr_8rem_8rem_6rem] gap-x-3 px-4 py-2 border-b border-border/50 bg-muted/30">
+                {/* Table header — desktop/laptop only */}
+                <div className="hidden md:grid md:grid-cols-[2rem_1fr_8rem_8rem_6rem] gap-x-3 px-4 py-2 border-b border-border/50 bg-muted/30">
                   <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">#</span>
                   <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Enterprise</span>
                   <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Materials</span>
@@ -195,60 +195,114 @@ export default function Dashboard() {
                   const pct = totalItems > 0 ? Math.round((mapped / totalItems) * 100) : 0;
 
                   return (
-                    <div
-                      key={c.id}
-                      className="grid grid-cols-[2rem_1fr_8rem_8rem_6rem] gap-x-3 px-4 py-2.5 border-b border-border/40 last:border-b-0 hover:bg-muted/20 transition-colors"
-                    >
-                      {/* # */}
-                      <span className="text-xs text-muted-foreground/60 flex items-center">{idx + 1}</span>
+                    <React.Fragment key={c.id}>
+                      {/* ── Laptop / Desktop row (unchanged) ── */}
+                      <div className="hidden md:grid md:grid-cols-[2rem_1fr_8rem_8rem_6rem] gap-x-3 px-4 py-2.5 border-b border-border/40 last:border-b-0 hover:bg-muted/20 transition-colors">
+                        {/* # */}
+                        <span className="text-xs text-muted-foreground/60 flex items-center">{idx + 1}</span>
 
-                      {/* Enterprise */}
-                      <div className="min-w-0 flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                            status === 'NORMALIZED'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                              : status === 'VALIDATED'
-                              ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-                              : status === 'PROCESSING'
-                              ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                              : 'bg-muted text-muted-foreground border-border/40'
-                          }`}
-                        >
-                          {status}
-                        </Badge>
-                      </div>
-
-                      {/* Materials */}
-                      <div className="flex items-center">
-                        <span className="text-xs text-muted-foreground font-medium">
-                          {totalItems > 0 ? totalItems.toLocaleString() : '—'}
-                        </span>
-                      </div>
-
-                      {/* Mapped */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-semibold text-foreground">{mapped}</span>
-                        <span className="text-[11px] text-muted-foreground">/ {totalItems > 0 ? totalItems : '—'}</span>
-                      </div>
-
-                      {/* Progress */}
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              pct > 0 ? 'bg-primary' : 'bg-transparent'
+                        {/* Enterprise */}
+                        <div className="min-w-0 flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1.5 py-0 shrink-0 ${
+                              status === 'NORMALIZED'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                : status === 'VALIDATED'
+                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                                : status === 'PROCESSING'
+                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                : 'bg-muted text-muted-foreground border-border/40'
                             }`}
-                            style={{ width: `${Math.min(100, pct)}%` }}
-                          />
+                          >
+                            {status}
+                          </Badge>
                         </div>
-                        <span className="text-xs font-semibold text-foreground min-w-[2rem] text-right">
-                          {pct}%
-                        </span>
+
+                        {/* Materials */}
+                        <div className="flex items-center">
+                          <span className="text-xs text-muted-foreground font-medium">
+                            {totalItems > 0 ? totalItems.toLocaleString() : '—'}
+                          </span>
+                        </div>
+
+                        {/* Mapped */}
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-semibold text-foreground">{mapped}</span>
+                          <span className="text-[11px] text-muted-foreground">/ {totalItems > 0 ? totalItems : '—'}</span>
+                        </div>
+
+                        {/* Progress */}
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                pct > 0 ? 'bg-primary' : 'bg-transparent'
+                              }`}
+                              style={{ width: `${Math.min(100, pct)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-semibold text-foreground min-w-[2rem] text-right">
+                            {pct}%
+                          </span>
+                        </div>
                       </div>
-                    </div>
+
+                      {/* ── Mobile row (< md): Optimized card layout ── */}
+                      <div className="md:hidden p-3.5 border-b border-border/40 last:border-b-0 space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-xs text-muted-foreground/60 font-medium shrink-0">#{idx + 1}</span>
+                            <span className="text-sm font-semibold text-foreground truncate">{c.name}</span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1.5 py-0 shrink-0 font-medium ${
+                              status === 'NORMALIZED'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                : status === 'VALIDATED'
+                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                                : status === 'PROCESSING'
+                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                : 'bg-muted text-muted-foreground border-border/40'
+                            }`}
+                          >
+                            {status}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 rounded-md p-2 border border-border/40">
+                          <div>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Total Materials</span>
+                            <span className="font-semibold text-foreground">
+                              {totalItems > 0 ? totalItems.toLocaleString() : '—'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Harmonized</span>
+                            <span className="font-semibold text-foreground">
+                              {mapped} <span className="text-muted-foreground font-normal text-[11px]">/ {totalItems > 0 ? totalItems : '—'}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">Progress</span>
+                            <span className="font-semibold text-foreground">{pct}%</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                pct > 0 ? 'bg-primary' : 'bg-transparent'
+                              }`}
+                              style={{ width: `${Math.min(100, pct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </React.Fragment>
                   );
                 })}
 
