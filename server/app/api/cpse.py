@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Form
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 try:
     from app.db.nmc_repository import nmc_repo
@@ -148,45 +151,51 @@ async def upload_dataset(
             ),
         )
 
-    # Save file to disk
-    uploads_dir = Path(settings.UPLOADS_DIR)
-    uploads_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        # Save file to disk
+        uploads_dir = Path(settings.UPLOADS_DIR).resolve()
+        uploads_dir.mkdir(parents=True, exist_ok=True)
 
-    cpse_dir = uploads_dir / cpse["code"]
-    cpse_dir.mkdir(parents=True, exist_ok=True)
+        cpse_dir = uploads_dir / cpse["code"]
+        cpse_dir.mkdir(parents=True, exist_ok=True)
 
-    save_path = cpse_dir / filename
-    with open(save_path, "wb") as f:
-        f.write(content)
+        save_path = cpse_dir / filename
+        with open(save_path, "wb") as f:
+            f.write(content)
 
-    record_count = len(df)
-    dataset = nmc_repo.create_dataset(
-        cpse_id=cpse["id"],
-        file_name=filename,
-        file_type=ext.lstrip("."),
-        record_count=record_count,
-    )
-    dataset_id = dataset["id"]
+        record_count = len(df)
+        dataset = nmc_repo.create_dataset(
+            cpse_id=cpse["id"],
+            file_name=filename,
+            file_type=ext.lstrip("."),
+            record_count=record_count,
+        )
+        dataset_id = dataset["id"]
 
-    # Queue background ingestion
-    background_tasks.add_task(
-        _ingest_dataset_background,
-        dataset_id=dataset_id,
-        cpse_id=cpse["id"],
-        cpse_code=cpse["code"],
-        file_path=str(save_path),
-        col_map=col_map,
-        df_columns=df.columns.tolist(),
-    )
+        # Queue background ingestion
+        background_tasks.add_task(
+            _ingest_dataset_background,
+            dataset_id=dataset_id,
+            cpse_id=cpse["id"],
+            cpse_code=cpse["code"],
+            file_path=str(save_path),
+            col_map=col_map,
+            df_columns=df.columns.tolist(),
+        )
 
-    return {
-        "status": "UPLOADED",
-        "dataset_id": dataset_id,
-        "file_name": filename,
-        "record_count": record_count,
-        "message": f"Dataset uploaded. Processing started for {record_count} records.",
-        "dataset": dataset,
-    }
+        return {
+            "status": "UPLOADED",
+            "dataset_id": dataset_id,
+            "file_name": filename,
+            "record_count": record_count,
+            "message": f"Dataset uploaded. Processing started for {record_count} records.",
+            "dataset": dataset,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Upload error for CPSE %s: %s", cpse_id, exc)
+        raise HTTPException(status_code=500, detail=f"Upload processing failed: {exc}")
 
 
 def _find_field(df_cols, aliases):

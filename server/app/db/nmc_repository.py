@@ -215,11 +215,11 @@ class NMCRepository:
     def create_dataset(
         self, cpse_id: str, file_name: str, file_type: str, record_count: Optional[int] = None
     ) -> Dict[str, Any]:
-        with self.get_session() as session:
             # Deactivate previous active datasets for this CPSE
             session.execute(
-                text("UPDATE datasets SET is_active=0 WHERE cpse_id=:cid AND is_active=1"),
-                {"cid": cpse_id},
+                update(Dataset)
+                .where(and_(Dataset.cpse_id == cpse_id, Dataset.is_active == True))
+                .values(is_active=False)
             )
             ds = Dataset(
                 cpse_id=cpse_id,
