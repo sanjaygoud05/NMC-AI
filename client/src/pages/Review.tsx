@@ -398,15 +398,15 @@ export default function Review() {
             Once you upload datasets and run the AI Matching Engine on the Manage CPSEs page, all candidate pairs will appear here in the <strong>Pending</strong> queue for your review.
           </p>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <Link to="/manage-cpses">
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-2 w-full max-w-sm px-4">
+          <Link to="/manage-cpses" className="w-full sm:w-auto">
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8 w-full sm:w-auto">
               <Building2 className="h-3.5 w-3.5" />
               Manage CPSEs
             </Button>
           </Link>
-          <Link to="/manage-cpses">
-            <Button size="sm" className="gap-1.5 text-xs h-8">
+          <Link to="/manage-cpses" className="w-full sm:w-auto">
+            <Button size="sm" className="gap-1.5 text-xs h-8 w-full sm:w-auto">
               <GitMerge className="h-3.5 w-3.5" />
               Run Matching Engine
               <ArrowRight className="h-3 w-3" />

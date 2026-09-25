@@ -47,9 +47,9 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
       <SidebarProvider>
         <div className="h-screen flex w-full bg-background overflow-hidden">
           <AppSidebar />
-          <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto p-8 items-center justify-center">
-            <div className="max-w-md w-full p-6 rounded-xl border border-destructive/20 bg-destructive/5 text-center flex flex-col items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
+          <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto p-4 sm:p-8 items-center justify-center">
+            <div className="max-w-md w-full p-5 sm:p-6 rounded-xl border border-destructive/20 bg-destructive/5 text-center flex flex-col items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
                 <Shield className="h-6 w-6" />
               </div>
               <div>
@@ -58,11 +58,13 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
                   This page requires administrator privileges. Please sign in with the admin password to continue.
                 </p>
               </div>
-              <Link to="/login" state={{ from: location.pathname }}>
-                <Button className="gap-2">
-                  Sign in as Admin
-                </Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 w-full">
+                <Link to="/login" state={{ from: location.pathname }} className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto gap-2">
+                    Sign in as Admin
+                  </Button>
+                </Link>
+              </div>
             </div>
           </main>
         </div>
@@ -75,9 +77,9 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
       <SidebarProvider>
         <div className="h-screen flex w-full bg-background overflow-hidden">
           <AppSidebar />
-          <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto p-8 items-center justify-center">
-            <div className="max-w-md w-full p-6 rounded-xl border border-amber-500/20 bg-amber-500/5 text-center flex flex-col items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center">
+          <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto p-4 sm:p-8 items-center justify-center">
+            <div className="max-w-md w-full p-5 sm:p-6 rounded-xl border border-amber-500/20 bg-amber-500/5 text-center flex flex-col items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
                 <UserCheck className="h-6 w-6" />
               </div>
               <div>
@@ -86,16 +88,16 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
                   The Review Queue requires a valid Reviewer Key to evaluate candidate pairs and confirm harmonized Common Material Master records.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 w-full">
                 {isAdmin && (
-                  <Link to="/dashboard">
-                    <Button variant="outline" className="gap-2">
+                  <Link to="/dashboard" className="w-full sm:w-auto">
+                    <Button variant="outline" className="w-full sm:w-auto gap-2">
                       Return to Dashboard
                     </Button>
                   </Link>
                 )}
-                <Link to="/login" state={{ from: location.pathname, tab: 'reviewer' }}>
-                  <Button className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
+                <Link to="/login" state={{ from: location.pathname, tab: 'reviewer' }} className="w-full sm:w-auto">
+                  <Button className="w-full sm:w-auto gap-2 bg-amber-600 hover:bg-amber-700 text-white">
                     Enter Reviewer Key
                   </Button>
                 </Link>
