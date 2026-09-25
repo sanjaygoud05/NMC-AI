@@ -215,6 +215,7 @@ class NMCRepository:
     def create_dataset(
         self, cpse_id: str, file_name: str, file_type: str, record_count: Optional[int] = None
     ) -> Dict[str, Any]:
+        with self.get_session() as session:
             # Deactivate previous active datasets for this CPSE
             session.execute(
                 update(Dataset)
