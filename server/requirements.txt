@@ -19,9 +19,10 @@ sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.9
 aiofiles>=23.0.0
 
-# AI/ML
-sentence-transformers>=2.2.2
-torch>=2.0.0
+# AI/ML — commented out for free-tier Render deployment (torch needs >512 MB RAM)
+# Uncomment below if using Render Starter plan ($7/mo) for full semantic embeddings
+# sentence-transformers>=2.2.2
+# torch>=2.0.0
 
 # Testing
 pytest>=7.4.3
