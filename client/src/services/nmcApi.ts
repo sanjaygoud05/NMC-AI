@@ -7,14 +7,32 @@ export function getStoredAuth() {
   const token = localStorage.getItem('nmc_token');
   const role = localStorage.getItem('nmc_role'); // 'admin' | 'reviewer' | null
   const reviewerKey = localStorage.getItem('nmc_reviewer_key') || '';
-  return { token, role, reviewerKey };
+  const reviewerName = localStorage.getItem('nmc_reviewer_name') || '';
+  const reviewerCpse = localStorage.getItem('nmc_reviewer_cpse') || '';
+  return { token, role, reviewerKey, reviewerName, reviewerCpse };
 }
 
-export function setStoredAuth(token: string, role: string, reviewerKey?: string) {
+export function setStoredAuth(
+  token: string,
+  role: string,
+  reviewerKey?: string,
+  reviewerName?: string,
+  reviewerCpse?: string
+) {
   localStorage.setItem('nmc_token', token);
   localStorage.setItem('nmc_role', role);
   if (reviewerKey) {
     localStorage.setItem('nmc_reviewer_key', reviewerKey);
+  }
+  if (reviewerName) {
+    localStorage.setItem('nmc_reviewer_name', reviewerName);
+  } else {
+    localStorage.removeItem('nmc_reviewer_name');
+  }
+  if (reviewerCpse) {
+    localStorage.setItem('nmc_reviewer_cpse', reviewerCpse);
+  } else {
+    localStorage.removeItem('nmc_reviewer_cpse');
   }
 }
 
@@ -22,6 +40,8 @@ export function clearStoredAuth() {
   localStorage.removeItem('nmc_token');
   localStorage.removeItem('nmc_role');
   localStorage.removeItem('nmc_reviewer_key');
+  localStorage.removeItem('nmc_reviewer_name');
+  localStorage.removeItem('nmc_reviewer_cpse');
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -228,10 +248,11 @@ export const nmcApi = {
 
   // Common Material Master (CMM)
   cmm: {
-    list: (params: { search?: string; material_family?: string; page?: number; page_size?: number }) => {
+    list: (params: { search?: string; material_family?: string; cpse_code?: string; page?: number; page_size?: number }) => {
       const sp = new URLSearchParams();
       if (params.search) sp.set('search', params.search);
       if (params.material_family) sp.set('material_family', params.material_family);
+      if (params.cpse_code) sp.set('cpse_code', params.cpse_code);
       if (params.page) sp.set('page', params.page.toString());
       if (params.page_size) sp.set('page_size', params.page_size.toString());
       return request<{
@@ -260,6 +281,20 @@ export const nmcApi = {
     getCPSEAnalytics: () => request<any[]>('/api/nmc/analytics/cpses'),
     getFullAnalytics: () => request<any>('/api/nmc/analytics/full'),
     getTopologyData: () => request<any>('/api/nmc/analytics/topology'),
+    getGovernanceMetrics: () => request<{
+      approved_today: number;
+      rejected_today: number;
+      different_today: number;
+      total_today: number;
+      total_yesterday: number;
+      overrides_today: number;
+      overrides_total: number;
+      active_reviewer_count: number;
+      active_reviewer_cpses: string[];
+      confidence_index: number;
+      total_accepted_all_time: number;
+      total_rejected_all_time: number;
+    }>('/api/nmc/analytics/governance'),
   },
 
   // Audit Trail

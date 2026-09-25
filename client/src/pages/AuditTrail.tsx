@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { nmcApi } from '@/services/nmcApi';
-import { Filter, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Filter, RotateCw, ChevronLeft, ChevronRight, Database } from 'lucide-react';
 
 function parseUtcDate(dateStr?: string): Date | null {
   if (!dateStr) return null;
@@ -198,12 +199,24 @@ function resolveReasonNotes(log: any): string {
 }
 
 export default function AuditTrail() {
+  const { isReviewer, reviewerName, reviewerCpse } = useAuth();
+  const [selectedCpse, setSelectedCpse] = useState<string>('ALL');
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('ALL');
+  const [actorFilter, setActorFilter] = useState<string>('ALL');
   const [uuidInput, setUuidInput] = useState<string>('');
   const [appliedSearch, setAppliedSearch] = useState<string>('');
   const [appliedEntityType, setAppliedEntityType] = useState<string>('ALL');
+  const [appliedActor, setAppliedActor] = useState<string>('ALL');
   const [page, setPage] = useState<number>(1);
   const pageSize = 50;
+
+  const { data: cpses } = useQuery({
+    queryKey: ['nmc', 'cpses-list'],
+    queryFn: () => nmcApi.cpses.list(),
+  });
+
+  const effectiveCpse = isReviewer && reviewerCpse ? reviewerCpse : (selectedCpse === 'ALL' ? undefined : selectedCpse);
+  const effectiveActor = appliedActor === 'ALL' ? undefined : appliedActor;
 
   const {
     data: auditData,
@@ -211,19 +224,22 @@ export default function AuditTrail() {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ['nmc', 'audit-trail', appliedEntityType, appliedSearch, page],
+    queryKey: ['nmc', 'audit-trail', appliedEntityType, appliedActor, appliedSearch, page, effectiveCpse],
     queryFn: () =>
       nmcApi.audit.list({
+        cpse_code: effectiveCpse,
+        actor: effectiveActor,
         entity_type: appliedEntityType === 'ALL' ? undefined : appliedEntityType,
         search: appliedSearch.trim() || undefined,
         page,
         page_size: pageSize,
       }),
-    refetchInterval: 10000, // live polling every 10 seconds
+    refetchInterval: 10000,
   });
 
   const handleApply = () => {
     setAppliedEntityType(entityTypeFilter);
+    setAppliedActor(actorFilter);
     setAppliedSearch(uuidInput);
     setPage(1);
   };
@@ -250,7 +266,9 @@ export default function AuditTrail() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              System and governance history
+              {isReviewer && reviewerCpse
+                ? `Governance history scoped to ${reviewerCpse}`
+                : 'System and governance history'}
             </p>
           </div>
           <Button
@@ -265,6 +283,17 @@ export default function AuditTrail() {
           </Button>
         </div>
 
+        {/* Reviewer CPSE Scoping Banner */}
+        {isReviewer && reviewerCpse && (
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
+            <Database className="h-4 w-4 shrink-0 text-primary" />
+            <span className="leading-relaxed">
+              Signed in as <strong className="text-foreground">{reviewerName || 'Reviewer'}</strong>
+              {' '}— Governance history scoped to <strong className="text-foreground uppercase">{reviewerCpse}</strong>. Full audit log available to Central Admin.
+            </span>
+          </div>
+        )}
+
         {/* Filter Bar */}
         <div className="bg-card border border-border/70 rounded-md p-2.5 shadow-xs">
           <div className="flex flex-wrap items-center gap-2.5 text-xs">
@@ -272,6 +301,66 @@ export default function AuditTrail() {
               <Filter className="h-3.5 w-3.5" />
               <span>Filters:</span>
             </div>
+
+            {isReviewer ? (
+              <div className="flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-input bg-muted/40 text-xs text-muted-foreground select-none whitespace-nowrap">
+                <Database className="h-3 w-3 shrink-0 text-primary" />
+                <span className="font-medium text-foreground">{reviewerCpse}</span>
+                <span>— Scoped</span>
+              </div>
+            ) : (
+              <Select
+                value={selectedCpse}
+                onValueChange={(val) => {
+                  setSelectedCpse(val);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[150px] h-8 text-xs bg-background border-border/70">
+                  <SelectValue placeholder="All CPSEs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All CPSEs</SelectItem>
+                  {cpses?.map((c: any) => (
+                    <SelectItem key={c.id} value={c.code}>
+                      {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Actor Filter */}
+            {isReviewer ? (
+              <Select
+                value={actorFilter}
+                onValueChange={(val) => setActorFilter(val)}
+              >
+                <SelectTrigger className="w-[160px] h-8 text-xs bg-background border-border/70">
+                  <SelectValue placeholder="All Scoped Actors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Scoped Actors</SelectItem>
+                  <SelectItem value="reviewer">Reviewer ({reviewerName || 'You'})</SelectItem>
+                  <SelectItem value="system">System Harmonization</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select
+                value={actorFilter}
+                onValueChange={(val) => setActorFilter(val)}
+              >
+                <SelectTrigger className="w-[150px] h-8 text-xs bg-background border-border/70">
+                  <SelectValue placeholder="All Actors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Actors</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="reviewer">Human Reviewer</SelectItem>
+                  <SelectItem value="system">System Harmonization</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
 
             <Select
               value={entityTypeFilter}
@@ -319,16 +408,17 @@ export default function AuditTrail() {
                 <tr className="bg-muted/30 border-b border-border text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
                   <th className="py-2.5 px-3 w-10 text-center">#</th>
                   <th className="py-2.5 px-3 w-56">TIMESTAMP</th>
-                  <th className="py-2.5 px-3 w-44">ACTOR</th>
-                  <th className="py-2.5 px-3 w-48">ACTION</th>
-                  <th className="py-2.5 px-3 w-56">ENTITY TYPE</th>
+                  <th className="py-2.5 px-3 w-32">CPSE</th>
+                  <th className="py-2.5 px-3 w-40">ACTOR</th>
+                  <th className="py-2.5 px-3 w-44">ACTION</th>
+                  <th className="py-2.5 px-3 w-52">ENTITY TYPE</th>
                   <th className="py-2.5 px-3 min-w-[280px]">REASON / NOTES</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
                       <div className="flex items-center justify-center gap-2">
                         <RotateCw className="h-4 w-4 animate-spin text-primary" />
                         <span>Loading audit records...</span>
@@ -337,7 +427,7 @@ export default function AuditTrail() {
                   </tr>
                 ) : !auditData?.items || auditData.items.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
                       No audit records found matching your filters.
                     </td>
                   </tr>
@@ -371,6 +461,15 @@ export default function AuditTrail() {
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="py-2.5 px-3 whitespace-nowrap font-mono">
+                          {log.cpse_code ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                              {log.cpse_code}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/60 text-[11px]">—</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3 font-mono text-foreground/80 font-medium whitespace-nowrap">
                           {actorName}

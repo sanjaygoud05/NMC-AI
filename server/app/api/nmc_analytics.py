@@ -6,7 +6,7 @@ All data derived from real DB tables. No hardcoded values.
 import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, and_, text
+from sqlalchemy import select, func, and_, or_, desc, text
 from sqlalchemy.orm import aliased
 from app.db.nmc_repository import nmc_repo
 from app.api.nmc_auth import verify_reviewer_access
@@ -370,6 +370,126 @@ def get_full_analytics(role: str = Depends(verify_reviewer_access)):
         }
 
 
+@router.get("/governance")
+def get_governance_metrics(role: str = Depends(verify_reviewer_access)):
+    """
+    Governance & Decision Summary for the Admin Dashboard.
+    Returns today's review throughput, overrides, active reviewers, and confidence index.
+    """
+    from datetime import datetime, timezone, timedelta
+    with nmc_repo.get_session() as s:
+
+        # ── Today boundaries (UTC) ─────────────────────────────────────
+        now_utc = datetime.now(timezone.utc)
+        today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday_start = today_start - timedelta(days=1)
+        thirty_days_ago = now_utc - timedelta(days=30)
+
+        # ── Decisions today ────────────────────────────────────────────
+        today_decisions_rows = s.execute(
+            select(ReviewDecision.decision, func.count())
+            .where(ReviewDecision.timestamp >= today_start)
+            .group_by(ReviewDecision.decision)
+        ).all()
+        decisions_today = {r[0]: r[1] for r in today_decisions_rows}
+        approved_today = decisions_today.get("ACCEPT", 0)
+        rejected_today = decisions_today.get("REJECT", 0)
+        different_today = decisions_today.get("DIFFERENT", 0)
+        total_today = approved_today + rejected_today + different_today
+
+        # ── Overrides ──────────────────────────────────────────────────
+        overrides_total = s.execute(
+            select(func.count(MaterialMatch.id))
+            .where(MaterialMatch.status == "OVERRIDDEN")
+        ).scalar() or 0
+        overrides_today = s.execute(
+            select(func.count(AuditLog.id))
+            .where(
+                and_(
+                    AuditLog.action.in_(["MATCH_OVERRIDDEN", "OVERRIDE_MATCH"]),
+                    AuditLog.timestamp >= today_start,
+                )
+            )
+        ).scalar() or 0
+
+        # ── Active reviewers (distinct CPSEs with reviewer actions in last 30 days)
+        reviewer_rows = s.execute(
+            select(AuditLog.cpse_code)
+            .where(
+                and_(
+                    AuditLog.actor.ilike("%reviewer%"),
+                    AuditLog.action.in_(["MATCH_ACCEPTED", "MATCH_REJECTED", "MATCH_DIFFERENT", "MARK_DIFFERENT"]),
+                    AuditLog.timestamp >= thirty_days_ago,
+                    AuditLog.cpse_code.isnot(None),
+                )
+            )
+            .distinct()
+        ).all()
+        active_cpse_reviewers = set()
+        for row in reviewer_rows:
+            if row[0]:
+                for code in str(row[0]).split(","):
+                    c = code.strip().upper()
+                    if c:
+                        active_cpse_reviewers.add(c)
+        active_reviewer_count = len(active_cpse_reviewers)
+
+        # ── Confidence Index (accepted matches) ────────────────────────
+        avg_conf_val = s.execute(
+            select(func.avg(MaterialMatch.final_confidence))
+            .where(
+                and_(
+                    MaterialMatch.final_confidence.isnot(None),
+                    MaterialMatch.status == "ACCEPTED",
+                )
+            )
+        ).scalar()
+        if avg_conf_val is None:
+            avg_conf_val = s.execute(
+                select(func.avg(MaterialMatch.final_confidence))
+                .where(MaterialMatch.final_confidence.isnot(None))
+            ).scalar()
+        confidence_index = round((avg_conf_val or 0) * 100, 1)
+
+        # ── Yesterday totals for delta ─────────────────────────────────
+        yesterday_rows = s.execute(
+            select(ReviewDecision.decision, func.count())
+            .where(
+                and_(
+                    ReviewDecision.timestamp >= yesterday_start,
+                    ReviewDecision.timestamp < today_start,
+                )
+            )
+            .group_by(ReviewDecision.decision)
+        ).all()
+        total_yesterday = sum(r[1] for r in yesterday_rows)
+
+        # ── Cumulative totals ──────────────────────────────────────────
+        total_accepted = s.execute(
+            select(func.count(ReviewDecision.id))
+            .where(ReviewDecision.decision == "ACCEPT")
+        ).scalar() or 0
+        total_rejected = s.execute(
+            select(func.count(ReviewDecision.id))
+            .where(ReviewDecision.decision == "REJECT")
+        ).scalar() or 0
+
+        return {
+            "approved_today": approved_today,
+            "rejected_today": rejected_today,
+            "different_today": different_today,
+            "total_today": total_today,
+            "total_yesterday": total_yesterday,
+            "overrides_today": overrides_today,
+            "overrides_total": overrides_total,
+            "active_reviewer_count": active_reviewer_count,
+            "active_reviewer_cpses": sorted(active_cpse_reviewers),
+            "confidence_index": confidence_index,
+            "total_accepted_all_time": total_accepted,
+            "total_rejected_all_time": total_rejected,
+        }
+
+
 @router.get("/topology")
 def get_topology_data(role: str = Depends(verify_reviewer_access)):
     """
@@ -537,4 +657,195 @@ def get_topology_data(role: str = Depends(verify_reviewer_access)):
             "overlap_pairs": overlap_pairs,
             "cmm_list": cmm_list,
         }
+
+
+@router.get("/reviewer")
+def get_reviewer_analytics(
+    cpse_id: Optional[str] = Query(None, description="CPSE ID"),
+    cpse_code: Optional[str] = Query(None, description="CPSE Code"),
+    role: str = Depends(verify_reviewer_access),
+):
+    """
+    Dedicated analytics for CPSE reviewers:
+    Provides real-time scoped review KPIs, match confidence distribution,
+    peer CPSE candidate pairs, and material family distributions.
+    """
+    with nmc_repo.get_session() as s:
+        target_cpse = None
+        if cpse_id:
+            target_cpse = s.get(CPSE, cpse_id)
+        if not target_cpse and cpse_code:
+            target_cpse = s.execute(
+                select(CPSE).where(func.upper(CPSE.code) == cpse_code.strip().upper())
+            ).scalar_one_or_none()
+
+        if not target_cpse:
+            target_cpse = s.execute(select(CPSE).where(CPSE.status == "ACTIVE")).scalars().first()
+            if not target_cpse:
+                return {"error": "No CPSE enterprise found"}
+
+        cid = target_cpse.id
+        ccode = target_cpse.code
+
+        # 1. Materials
+        total_materials = s.execute(
+            select(func.count(Material.id)).where(Material.cpse_id == cid)
+        ).scalar() or 0
+        normalized_materials = s.execute(
+            select(func.count(Material.id)).where(
+                and_(Material.cpse_id == cid, Material.processing_status == "NORMALIZED")
+            )
+        ).scalar() or 0
+
+        # 2. Review queue stats
+        q_stats = nmc_repo.get_queue_stats(cpse_id=cid)
+        pending = q_stats.get("pending", 0)
+        mapped = q_stats.get("mapped", 0)
+        different = q_stats.get("different", 0)
+        rejected = q_stats.get("rejected", 0)
+        total_pairs = pending + mapped + different + rejected
+        resolved_pairs = mapped + different + rejected
+        completion_rate = round((resolved_pairs / total_pairs * 100), 1) if total_pairs > 0 else 0.0
+
+        # 3. Match confidence distribution for reviewer's CPSE
+        SrcMat = aliased(Material)
+        CandMat = aliased(Material)
+        base_match = (
+            select(MaterialMatch.final_confidence, MaterialMatch.status)
+            .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+            .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+            .where(or_(SrcMat.cpse_id == cid, CandMat.cpse_id == cid))
+        )
+        matches = s.execute(base_match).all()
+
+        tiers_count = {"very_high": 0, "high": 0, "medium": 0, "moderate": 0}
+        for conf, st in matches:
+            if conf is None:
+                tiers_count["moderate"] += 1
+                continue
+            pct = conf * 100
+            if pct >= 95:
+                tiers_count["very_high"] += 1
+            elif pct >= 90:
+                tiers_count["high"] += 1
+            elif pct >= 80:
+                tiers_count["medium"] += 1
+            else:
+                tiers_count["moderate"] += 1
+
+        confidence_distribution = [
+            {
+                "tier": "Very High (≥95%)",
+                "shortTier": "≥95%",
+                "count": tiers_count["very_high"],
+                "color": "#10b981",
+                "action": "Immediate Candidate for Acceptance",
+                "recommendation": "High semantic & attribute certainty — Recommended for quick approval",
+            },
+            {
+                "tier": "High (90–94%)",
+                "shortTier": "90–94%",
+                "count": tiers_count["high"],
+                "color": "#3b82f6",
+                "action": "Standard Verification Required",
+                "recommendation": "Strong candidate match — Verify key specifications & ratings",
+            },
+            {
+                "tier": "Medium (80–89%)",
+                "shortTier": "80–89%",
+                "count": tiers_count["medium"],
+                "color": "#f59e0b",
+                "action": "Detailed Inspection Needed",
+                "recommendation": "Attribute nuances present — Compare trim, dimensions & standards",
+            },
+            {
+                "tier": "Moderate (<80%)",
+                "shortTier": "<80%",
+                "count": tiers_count["moderate"],
+                "color": "#8b5cf6",
+                "action": "Evaluate for Mark Different",
+                "recommendation": "Distinct items or edge cases — Verify if items should be kept separate",
+            },
+        ]
+
+        # 4. Peer CPSE distribution (matches with other CPSEs)
+        CandCpse = aliased(CPSE)
+        stmt1 = (
+            select(CandCpse.code, func.count(MaterialMatch.id))
+            .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+            .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+            .join(CandCpse, CandMat.cpse_id == CandCpse.id)
+            .where(SrcMat.cpse_id == cid)
+            .group_by(CandCpse.code)
+        )
+        SrcCpse = aliased(CPSE)
+        stmt2 = (
+            select(SrcCpse.code, func.count(MaterialMatch.id))
+            .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+            .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+            .join(SrcCpse, SrcMat.cpse_id == SrcCpse.id)
+            .where(CandMat.cpse_id == cid)
+            .group_by(SrcCpse.code)
+        )
+        peer_counts = {}
+        for code, cnt in s.execute(stmt1).all():
+            if code and code.upper() != ccode.upper():
+                peer_counts[code.upper()] = peer_counts.get(code.upper(), 0) + cnt
+        for code, cnt in s.execute(stmt2).all():
+            if code and code.upper() != ccode.upper():
+                peer_counts[code.upper()] = peer_counts.get(code.upper(), 0) + cnt
+
+        peer_distribution = [
+            {"cpse_code": code, "pairs": cnt}
+            for code, cnt in sorted(peer_counts.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+        # 5. Material family breakdown
+        fam_rows = s.execute(
+            select(Material.material_family, func.count(Material.id))
+            .where(and_(Material.cpse_id == cid, Material.material_family.isnot(None)))
+            .group_by(Material.material_family)
+            .order_by(func.count(Material.id).desc())
+            .limit(6)
+        ).all()
+        family_distribution = [
+            {"family": (r[0] or "General").capitalize(), "count": r[1]}
+            for r in fam_rows if r[0]
+        ]
+
+        # 6. Recent decisions for this CPSE
+        recent_stmt = (
+            select(ReviewDecision)
+            .join(MaterialMatch, ReviewDecision.match_id == MaterialMatch.id)
+            .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+            .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+            .where(or_(SrcMat.cpse_id == cid, CandMat.cpse_id == cid))
+            .order_by(desc(ReviewDecision.timestamp))
+            .limit(5)
+        )
+        recent_rows = s.execute(recent_stmt).scalars().all()
+        recent_decisions = [r.to_dict() for r in recent_rows]
+
+        return {
+            "cpse_id": cid,
+            "cpse_code": ccode,
+            "cpse_name": target_cpse.name,
+            "cpse_description": target_cpse.description,
+            "total_materials": total_materials,
+            "normalized_materials": normalized_materials,
+            "stats": {
+                "pending": pending,
+                "mapped": mapped,
+                "different": different,
+                "rejected": rejected,
+                "total_pairs": total_pairs,
+                "resolved_pairs": resolved_pairs,
+                "completion_rate": completion_rate,
+            },
+            "confidence_distribution": confidence_distribution,
+            "peer_distribution": peer_distribution,
+            "family_distribution": family_distribution,
+            "recent_decisions": recent_decisions,
+        }
+
 

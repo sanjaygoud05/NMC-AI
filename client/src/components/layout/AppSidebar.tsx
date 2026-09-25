@@ -46,7 +46,7 @@ interface NavGroup {
 }
 
 export function AppSidebar() {
-  const { role, isAdmin, isReviewer, canViewReviewQueue, canSubmitDecisions, isAuthenticated, logout } = useAuth();
+  const { role, isAdmin, isReviewer, canViewReviewQueue, canSubmitDecisions, isAuthenticated, logout, reviewerName, reviewerCpse } = useAuth();
   const { isMobile, setOpenMobile } = useSidebar();
   const navigate = useNavigate();
 
@@ -113,10 +113,11 @@ export function AppSidebar() {
       ],
     },
     {
-      label: 'GOVERNANCE',
+      label: 'GOVERNANCE & INSIGHTS',
       showWhen: isReviewer,
       items: [
         { title: 'Audit Trail', url: '/audit', icon: ShieldCheck },
+        { title: 'Analytics', url: '/analytics', icon: BarChart3 },
       ],
     },
   ];
@@ -199,13 +200,17 @@ export function AppSidebar() {
         <div className="flex items-center justify-between w-full">
           <div className="flex flex-col">
             <span className="text-xs font-medium text-sidebar-foreground">
-              {isAuthenticated ? `${roleLabel} Access` : 'Not Signed In'}
+              {isAuthenticated
+                ? isAdmin
+                  ? 'Central Admin'
+                  : (reviewerName || 'Reviewer')
+                : 'Not Signed In'}
             </span>
             <span className="text-[10px] text-muted-foreground">
               {isAuthenticated
                 ? isAdmin
-                  ? 'Admin — Full Platform'
-                  : 'Reviewer — Review Workflow'
+                  ? 'National Platform · All CPSEs'
+                  : `${reviewerCpse || 'CPSE'} · Domain Reviewer`
                 : 'Please sign in'}
             </span>
           </div>

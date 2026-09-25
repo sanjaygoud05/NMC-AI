@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import {
 import {
   Building2, Database, GitMerge, Layers,
   RotateCw, ArrowRight, Search, ChevronLeft, ChevronRight,
-  Clock, Split, XCircle, CheckCircle2, PieChart as PieIcon, BarChart2,
+  Clock, Split, XCircle, CheckCircle2, PieChart as PieIcon, BarChart2, ShieldCheck,
 } from 'lucide-react';
 
 // ─── Color Palette ────────────────────────────────────────────────────────────
@@ -163,6 +164,7 @@ function Spinner({ color = 'text-blue-500' }: { color?: string }) {
 
 // ─── Main Analytics Page ──────────────────────────────────────────────────────
 export default function Analytics() {
+  const { isAdmin, isReviewer, reviewerName, reviewerCpse } = useAuth();
   const [cmmSearch, setCmmSearch] = useState('');
   const [cmmPage, setCmmPage] = useState(1);
   const cmmPageSize = 8;
@@ -194,6 +196,24 @@ export default function Analytics() {
     queryFn: () => nmcApi.review.getStats(),
     refetchInterval: 15000,
   });
+
+  // ── Reviewer-scoped stats (their CPSE only) ───────────────────────────────
+  const { data: cpses } = useQuery({
+    queryKey: ['nmc', 'cpses-list'],
+    queryFn: () => nmcApi.cpses.list(),
+    enabled: isReviewer,
+  });
+  const reviewerCpseId = useMemo(() => {
+    if (!isReviewer || !reviewerCpse || !cpses) return undefined;
+    return cpses.find((c: any) => c.code?.toUpperCase() === reviewerCpse.toUpperCase())?.id;
+  }, [isReviewer, reviewerCpse, cpses]);
+  const { data: reviewerStats, isLoading: reviewerStatsLoading } = useQuery({
+    queryKey: ['nmc', 'review-stats', reviewerCpseId],
+    queryFn: () => nmcApi.review.getStats(reviewerCpseId),
+    enabled: isReviewer && !!reviewerCpseId,
+    refetchInterval: 15000,
+  });
+  const reviewerCpseObj = useMemo(() => cpses?.find((c: any) => c.id === reviewerCpseId), [cpses, reviewerCpseId]);
 
   const [hoveredStatus, setHoveredStatus] = useState<string | null>(null);
 
@@ -309,6 +329,92 @@ export default function Analytics() {
     const start = (cmmPage - 1) * cmmPageSize;
     return cmmRecords.slice(start, start + cmmPageSize);
   }, [cmmRecords, cmmPage, cmmPageSize]);
+
+  // ── Reviewer early-return: scoped stats view ──────────────────────────────
+  if (isReviewer) {
+    const rs = reviewerStats;
+    const cpseObj = reviewerCpseObj as any;
+    const statCards = [
+      { label: 'Pending', value: rs?.pending ?? 0, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-500/10', desc: 'Items awaiting review' },
+      { label: 'Accepted / Mapped', value: rs?.mapped ?? 0, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', desc: 'Matches confirmed and harmonized into Common Master' },
+      { label: 'Different', value: rs?.different ?? 0, icon: Split, color: 'text-purple-500', bg: 'bg-purple-500/10', desc: 'Distinct materials flagged separately' },
+      { label: 'Rejected', value: rs?.rejected ?? 0, icon: XCircle, color: 'text-rose-500', bg: 'bg-rose-500/10', desc: 'False positive candidate pairs rejected' },
+    ];
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">My Review Analytics</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Review activity and stats scoped to {reviewerCpse || 'your CPSE'}.
+              </p>
+            </div>
+          </div>
+
+          {/* Scoping Banner */}
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
+            <span className="leading-relaxed">
+              Signed in as <strong className="text-foreground">{reviewerName || 'Reviewer'}</strong>
+              {' '}— analytics scoped to <strong className="text-foreground uppercase">{reviewerCpse}</strong> review activity.
+              Full platform analytics are available to Central Admin only.
+            </span>
+          </div>
+
+          {/* CPSE Info */}
+          {cpseObj && (
+            <Card className="border-border/60">
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{cpseObj.name}</p>
+                  <p className="text-xs text-muted-foreground">{cpseObj.code} · {cpseObj.description || 'CPSE Enterprise'}</p>
+                </div>
+                <div className="ml-auto text-right">
+                  <p className="text-xs text-muted-foreground">Total Materials</p>
+                  <p className="text-lg font-bold text-foreground">{cpseObj.active_dataset?.record_count?.toLocaleString() ?? '—'}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* KPI Stat Cards */}
+          {reviewerStatsLoading ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">Loading stats...</div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {statCards.map((s) => (
+                <Card key={s.label} className="border-border/60">
+                  <CardHeader className="p-4 pb-2">
+                    <CardDescription className="text-xs flex items-center gap-1.5">
+                      <div className={`h-5 w-5 rounded-md ${s.bg} flex items-center justify-center`}>
+                        <s.icon className={`h-3 w-3 ${s.color}`} />
+                      </div>
+                      {s.label}
+                    </CardDescription>
+                    <CardTitle className="text-3xl font-bold tabular-nums">{s.value.toLocaleString()}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <p className="text-[11px] text-muted-foreground">{s.desc}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Summary note */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground p-3 rounded-lg border border-border/60 bg-muted/20">
+            <Database className="h-4 w-4 shrink-0 text-primary" />
+            <span>Stats update live every 15 seconds. Cross-enterprise macro analytics and comparisons are reserved for Central Admin.</span>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout requireAdmin>

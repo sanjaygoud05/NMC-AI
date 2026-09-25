@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -55,7 +55,7 @@ function sortByConfidence(items: any[]): any[] {
 export default function Review() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { canSubmitDecisions, reviewerKey } = useAuth();
+  const { canSubmitDecisions, reviewerKey, isAdmin, isReviewer, reviewerName, reviewerCpse } = useAuth();
 
   // Four top-level tabs: pending | different | rejected | mapped
   const [activeTab, setActiveTab] = useState<'pending' | 'mapped' | 'different' | 'rejected'>('pending');
@@ -71,6 +71,18 @@ export default function Review() {
     queryKey: ['nmc', 'cpses-list'],
     queryFn: () => nmcApi.cpses.list(),
   });
+
+  // Auto-scope: when reviewer logs in, lock selectedCpse to their CPSE id
+  useEffect(() => {
+    if (isReviewer && reviewerCpse && cpses && cpses.length > 0) {
+      const match = cpses.find((c: any) =>
+        c.code?.toUpperCase() === reviewerCpse.toUpperCase()
+      );
+      if (match) {
+        setSelectedCpse(match.id);
+      }
+    }
+  }, [isReviewer, reviewerCpse, cpses]);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['nmc', 'review-stats', selectedCpse],
@@ -437,6 +449,19 @@ export default function Review() {
           </div>
         </div>
 
+        {/* ── Reviewer CPSE Scoping Banner ── */}
+        {isReviewer && reviewerCpse && (
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
+            <Building2 className="h-4 w-4 shrink-0 text-primary" />
+            <span className="leading-relaxed">
+              Signed in as <strong className="text-foreground">{reviewerName || 'Reviewer'}</strong>
+              {' '}— review queue is scoped exclusively to{' '}
+              <strong className="text-foreground uppercase">{reviewerCpse}</strong>.
+              Other CPSE records are not accessible.
+            </span>
+          </div>
+        )}
+
         {/* ── Gateway: No CPSE / No Matches ── */}
         {noMatchesYet && !statsLoading ? (
           <Card className="border-border/60">
@@ -526,25 +551,36 @@ export default function Review() {
                   </div>
                 )}
 
-                {/* CPSE Dropdown */}
+                {/* CPSE Dropdown — locked for reviewers, open for admins */}
                 <div className="flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Select
-                    value={selectedCpse}
-                    onValueChange={(val) => { setSelectedCpse(val); setPage(1); }}
-                  >
-                    <SelectTrigger className="w-[170px] h-9 text-xs">
-                      <SelectValue placeholder="Filter by CPSE" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL" className="text-xs">All CPSEs</SelectItem>
-                      {cpses?.map((c: any) => (
-                        <SelectItem key={c.id} value={c.id} className="text-xs">
-                          {c.code} — {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isReviewer ? (
+                    // Locked — reviewer cannot switch CPSE, styled like a disabled SelectTrigger
+                    <div className="flex items-center justify-between gap-2 h-9 px-3 w-[170px] rounded-md border border-input bg-muted/40 text-xs text-muted-foreground cursor-not-allowed select-none">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Building2 className="h-3 w-3 shrink-0" />
+                        <span className="font-medium text-foreground truncate">{reviewerCpse}</span>
+                        <span className="text-muted-foreground">— Scoped</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <Select
+                      value={selectedCpse}
+                      onValueChange={(val) => { setSelectedCpse(val); setPage(1); }}
+                    >
+                      <SelectTrigger className="w-[170px] h-9 text-xs">
+                        <SelectValue placeholder="Filter by CPSE" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL" className="text-xs">All CPSEs</SelectItem>
+                        {cpses?.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id} className="text-xs">
+                            {c.code} — {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="text-xs text-muted-foreground whitespace-nowrap">

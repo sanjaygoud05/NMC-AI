@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,7 @@ export default function Materials() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isReviewer, reviewerName, reviewerCpse } = useAuth();
 
   // If navigated from Manage CPSE with ?cpse_id=xxx, pre-filter to that CPSE
   const cpseIdFromUrl = searchParams.get('cpse_id') || undefined;
@@ -125,6 +127,18 @@ export default function Materials() {
     queryKey: ['nmc', 'cpses-list'],
     queryFn: () => nmcApi.cpses.list(),
   });
+
+  // Auto-scope: lock to reviewer's CPSE when cpses list is available
+  useEffect(() => {
+    if (isReviewer && reviewerCpse && cpses && cpses.length > 0) {
+      const match = cpses.find((c: any) =>
+        c.code?.toUpperCase() === reviewerCpse.toUpperCase()
+      );
+      if (match) {
+        setSelectedCpse(match.id);
+      }
+    }
+  }, [isReviewer, reviewerCpse, cpses]);
 
   const { data: materialsData, isLoading, refetch: refetchMaterials } = useQuery({
     queryKey: ['nmc', 'materials', selectedCpse, statusFilter, search, page],
@@ -340,6 +354,17 @@ export default function Materials() {
           </div>
         )}
 
+        {/* ── Reviewer CPSE Scoping Banner ── */}
+        {isReviewer && reviewerCpse && (
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
+            <Database className="h-4 w-4 shrink-0 text-primary" />
+            <span className="leading-relaxed">
+              Viewing materials for <strong className="text-foreground">{reviewerName || 'Reviewer'}</strong>
+              {' '}— scoped to <strong className="text-foreground uppercase">{reviewerCpse}</strong> only.
+            </span>
+          </div>
+        )}
+
         {/* ── Filter Bar ── */}
         <Card className="border-border/60">
           <CardContent className="p-3 flex flex-col md:flex-row items-center gap-2">
@@ -357,25 +382,34 @@ export default function Materials() {
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <Select
-                value={selectedCpse}
-                onValueChange={(val) => {
-                  setSelectedCpse(val);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-full md:w-[170px] h-8 text-xs">
-                  <SelectValue placeholder="All CPSEs" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All CPSEs</SelectItem>
-                  {cpses?.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.code} — {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isReviewer ? (
+                // Locked — reviewer cannot switch CPSE, styled like a disabled SelectTrigger
+                <div className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-input bg-muted/40 text-xs text-muted-foreground cursor-not-allowed select-none whitespace-nowrap">
+                  <Database className="h-3 w-3 shrink-0" />
+                  <span className="font-medium text-foreground">{reviewerCpse}</span>
+                  <span>— Scoped</span>
+                </div>
+              ) : (
+                <Select
+                  value={selectedCpse}
+                  onValueChange={(val) => {
+                    setSelectedCpse(val);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full md:w-[170px] h-8 text-xs">
+                    <SelectValue placeholder="All CPSEs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All CPSEs</SelectItem>
+                    {cpses?.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.code} — {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               <Select
                 value={statusFilter}

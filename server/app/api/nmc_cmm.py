@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/nmc/cmm", tags=["NMC CMM"])
 def list_cmm_records(
     search: Optional[str] = Query(None, description="Search by NMC code or description"),
     material_family: Optional[str] = Query(None, description="Filter by material family"),
+    cpse_code: Optional[str] = Query(None, description="Filter by CPSE enterprise code"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     role: str = Depends(verify_reviewer_access),
@@ -27,6 +28,7 @@ def list_cmm_records(
     return nmc_repo.query_cmm(
         search=search,
         material_family=material_family,
+        cpse_code=cpse_code,
         page=page,
         page_size=page_size,
     )

@@ -7,6 +7,8 @@ interface AuthContextType {
   role: UserRole;
   token: string | null;
   reviewerKey: string | null;
+  reviewerName: string | null;
+  reviewerCpse: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   /** Strictly true only for 'reviewer' role. Used to gate decision submission. */
@@ -17,7 +19,7 @@ interface AuthContextType {
   canSubmitDecisions: boolean;
   isLoading: boolean;
   loginAdmin: (password: string) => Promise<void>;
-  loginReviewer: (reviewerKey: string) => Promise<void>;
+  loginReviewer: (reviewerKey: string, reviewerName?: string, reviewerCpse?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -27,6 +29,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [role, setRole] = useState<UserRole>(null);
   const [token, setToken] = useState<string | null>(null);
   const [reviewerKey, setReviewerKey] = useState<string | null>(null);
+  const [reviewerName, setReviewerName] = useState<string | null>(null);
+  const [reviewerCpse, setReviewerCpse] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Initialize auth from localStorage on mount
@@ -40,6 +44,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setToken(stored.token);
             setRole(res.role as UserRole);
             setReviewerKey(stored.reviewerKey || null);
+            setReviewerName(stored.reviewerName || null);
+            setReviewerCpse(stored.reviewerCpse || null);
           } else {
             clearStoredAuth();
           }
@@ -61,12 +67,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRole('admin');
   };
 
-  const loginReviewer = async (key: string) => {
+  const loginReviewer = async (key: string, name?: string, cpse?: string) => {
     const res = await nmcApi.auth.reviewerLogin(key);
-    setStoredAuth(res.token, 'reviewer', key);
+    const finalName = name || 'Rajesh Kumar';
+    const finalCpse = cpse || 'HPCL';
+    setStoredAuth(res.token, 'reviewer', key, finalName, finalCpse);
     setToken(res.token);
     setRole('reviewer');
     setReviewerKey(key);
+    setReviewerName(finalName);
+    setReviewerCpse(finalCpse);
   };
 
   const logout = () => {
@@ -74,6 +84,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRole(null);
     setToken(null);
     setReviewerKey(null);
+    setReviewerName(null);
+    setReviewerCpse(null);
   };
 
   return (
@@ -82,12 +94,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         role,
         token,
         reviewerKey,
+        reviewerName,
+        reviewerCpse,
         isAuthenticated: !!token && !!role,
         isAdmin: role === 'admin',
         // isReviewer is STRICTLY reviewer — used to gate decision submission UI
         isReviewer: role === 'reviewer',
-        // canViewReviewQueue: ONLY reviewer can access review queue (admin must use reviewer key)
-        canViewReviewQueue: role === 'reviewer',
+        // canViewReviewQueue: both admin and reviewer can view the review queue (admin in read-only mode, reviewer with decision actions)
+        canViewReviewQueue: role === 'reviewer' || role === 'admin',
         // canSubmitDecisions: ONLY reviewer can Accept/Reject/Different/Override
         canSubmitDecisions: role === 'reviewer',
         isLoading,

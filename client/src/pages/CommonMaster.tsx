@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,11 +26,13 @@ import {
   Copy,
   Check,
   RefreshCw,
+  Database,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CommonMaster() {
   const { code } = useParams<{ code?: string }>();
+  const { isReviewer, reviewerName, reviewerCpse } = useAuth();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 20;
@@ -38,10 +41,28 @@ export default function CommonMaster() {
 
   useEffect(() => { if (code) setSelectedCmmId(code); }, [code]);
 
+  const effectiveCpse = isReviewer && reviewerCpse ? reviewerCpse : undefined;
+
   const { data: cmmData, isLoading } = useQuery({
-    queryKey: ['nmc', 'cmm-list', search, page],
-    queryFn: () => nmcApi.cmm.list({ search: search.trim() || undefined, page, page_size: pageSize }),
+    queryKey: ['nmc', 'cmm-list', search, page, effectiveCpse],
+    queryFn: () =>
+      nmcApi.cmm.list({
+        search: search.trim() || undefined,
+        cpse_code: effectiveCpse,
+        page,
+        page_size: pageSize,
+      }),
   });
+
+  // For reviewers: filter items to ensure only those involving their CPSE are visible
+  const filteredItems = React.useMemo(() => {
+    if (!cmmData?.items) return [];
+    if (!isReviewer || !reviewerCpse) return cmmData.items;
+    return cmmData.items.filter((cmm: any) =>
+      Array.isArray(cmm.source_cpses) &&
+      cmm.source_cpses.some((c: string) => c.toUpperCase() === reviewerCpse.toUpperCase())
+    );
+  }, [cmmData, isReviewer, reviewerCpse]);
 
   const { data: cmmDetail, isLoading: loadingDetail } = useQuery({
     queryKey: ['nmc', 'cmm-detail', selectedCmmId],
@@ -97,8 +118,23 @@ export default function CommonMaster() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Common Material Master</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Harmonized National Material Code registry — single source of truth across CPSEs.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {isReviewer && reviewerCpse
+              ? `Harmonized NMC records involving ${reviewerCpse} — scoped view.`
+              : 'Harmonized National Material Code registry — single source of truth across CPSEs.'}
+          </p>
         </div>
+
+        {/* Reviewer Scoping Banner */}
+        {isReviewer && reviewerCpse && (
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
+            <Database className="h-4 w-4 shrink-0 text-primary" />
+            <span className="leading-relaxed">
+              Signed in as <strong className="text-foreground">{reviewerName || 'Reviewer'}</strong>
+              {' '}— Only catalog entries linked to <strong className="text-foreground uppercase">{reviewerCpse}</strong> are visible. Full unified master catalog available to Central Admin.
+            </span>
+          </div>
+        )}
 
         <Card className="border-border/60">
           <CardContent className="p-4 flex items-center gap-3">
@@ -106,7 +142,13 @@ export default function CommonMaster() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search by NMC code or description..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-9 h-9 text-sm" />
             </div>
-            <div className="text-xs text-muted-foreground shrink-0">Total: <strong className="text-foreground">{cmmData?.total || 0}</strong></div>
+            <div className="text-xs text-muted-foreground shrink-0">
+              {isReviewer && reviewerCpse ? (
+                <span>Showing <strong className="text-foreground">{filteredItems.length}</strong> records <span className="text-muted-foreground/70">(scoped to {reviewerCpse})</span></span>
+              ) : (
+                <span>Total: <strong className="text-foreground">{cmmData?.total || 0}</strong> records</span>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -126,10 +168,14 @@ export default function CommonMaster() {
               <tbody className="divide-y divide-border/60">
                 {isLoading ? (
                   <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Loading records...</td></tr>
-                ) : !cmmData?.items || cmmData.items.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No harmonized NMC records yet. Accept matches in the Review Queue.</td></tr>
+                ) : filteredItems.length === 0 ? (
+                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    {isReviewer && reviewerCpse
+                      ? `No harmonized NMC records involving ${reviewerCpse} yet. Accept matches in the Review Queue.`
+                      : 'No harmonized NMC records yet. Accept matches in the Review Queue.'}
+                  </td></tr>
                 ) : (
-                  cmmData.items.map((cmm: any) => (
+                  filteredItems.map((cmm: any) => (
                     <tr key={cmm.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedCmmId(cmm.id)}>
                       <td className="p-3 font-medium text-xs text-primary font-mono truncate">{cmm.national_material_code}</td>
                       <td className="p-3 font-medium text-foreground max-w-[280px] truncate" title={cmm.canonical_description}>{cmm.canonical_description}</td>

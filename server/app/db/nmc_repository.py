@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import create_engine, select, func, and_, or_, desc, text, update
+from sqlalchemy import create_engine, select, func, and_, or_, desc, text, update, String
 from sqlalchemy.orm import sessionmaker, Session, aliased
 
 try:
@@ -1026,6 +1026,7 @@ class NMCRepository:
         self,
         search: Optional[str] = None,
         material_family: Optional[str] = None,
+        cpse_code: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> Dict[str, Any]:
@@ -1033,6 +1034,24 @@ class NMCRepository:
             stmt = select(NMCCommonMaterial).where(NMCCommonMaterial.status == "ACTIVE")
             if material_family:
                 stmt = stmt.where(NMCCommonMaterial.material_family == material_family)
+            if cpse_code:
+                code_term = cpse_code.strip().upper()
+                stmt = stmt.where(
+                    or_(
+                        NMCCommonMaterial.source_cpses.cast(String).ilike(f"%{code_term}%"),
+                        NMCCommonMaterial.id.in_(
+                            select(MaterialMapping.cmm_id)
+                            .join(Material, Material.id == MaterialMapping.material_id)
+                            .join(CPSE, CPSE.id == Material.cpse_id)
+                            .where(
+                                and_(
+                                    MaterialMapping.mapping_status == "ACTIVE",
+                                    or_(CPSE.code == code_term, CPSE.code.ilike(f"%{code_term}%"))
+                                )
+                            )
+                        )
+                    )
+                )
             if search:
                 term = f"%{search.lower()}%"
                 stmt = stmt.where(
@@ -1290,11 +1309,20 @@ class NMCRepository:
         with self.get_session() as session:
             stmt = select(AuditLog)
             if cpse_code:
-                stmt = stmt.where(AuditLog.cpse_code == cpse_code)
+                code_term = f"%{cpse_code.strip()}%"
+                stmt = stmt.where(or_(AuditLog.cpse_code == cpse_code, AuditLog.cpse_code.ilike(code_term)))
             if action:
                 stmt = stmt.where(AuditLog.action == action)
-            if actor:
-                stmt = stmt.where(AuditLog.actor == actor)
+            if actor and actor != "ALL":
+                act = actor.strip().lower()
+                if act in ("system", "system_harmonization"):
+                    stmt = stmt.where(or_(AuditLog.actor.ilike("%system%"), AuditLog.actor == "System"))
+                elif act in ("reviewer", "human_reviewer"):
+                    stmt = stmt.where(or_(AuditLog.actor.ilike("%reviewer%"), AuditLog.actor == "Reviewer", AuditLog.actor == "nmc-reviewer-key"))
+                elif act == "admin":
+                    stmt = stmt.where(AuditLog.actor.ilike("%admin%"))
+                else:
+                    stmt = stmt.where(AuditLog.actor.ilike(f"%{actor}%"))
             if entity_type and entity_type != "ALL":
                 et = entity_type.upper()
                 if et == "MATCH_RECOMMENDATION":

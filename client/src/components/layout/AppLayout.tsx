@@ -6,7 +6,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Moon, Sun, Shield, UserCheck, AlertCircle, LogOut } from 'lucide-react';
+import { Moon, Sun, Shield, AlertCircle, LogOut, UserCheck } from 'lucide-react';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,7 +15,7 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayoutProps) {
-  const { role, isAdmin, isReviewer, canViewReviewQueue, isAuthenticated, isLoading, logout } = useAuth();
+  const { role, isAdmin, isReviewer, canViewReviewQueue, isAuthenticated, isLoading, logout, reviewerName, reviewerCpse } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -131,17 +131,35 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
             </div>
 
             <div className="flex items-center gap-2.5">
-              {role && (
-                <Badge
-                  variant="outline"
-                  className={`text-xs px-2.5 py-0.5 capitalize border ${
-                    role === 'admin'
-                      ? 'border-primary/40 bg-primary/10 text-primary'
-                      : 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                  }`}
-                >
-                  {role}
+              {/* ── Identity pill ── */}
+              {isAdmin && (
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/8 border border-primary/20">
+                  <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <div className="flex flex-col leading-none">
+                    <span className="text-[11px] font-semibold text-foreground">Central Admin</span>
+                    <span className="text-[9px] text-muted-foreground">National Platform · All CPSEs</span>
+                  </div>
+                </div>
+              )}
+              {isAdmin && (
+                <Badge variant="outline" className="text-xs px-2 py-0.5 border-primary/40 bg-primary/10 text-primary sm:hidden">
+                  Admin
                 </Badge>
+              )}
+              {isReviewer && (
+                <div className="flex items-center gap-2 pl-3 pr-2.5 py-1 rounded-lg border border-border bg-card">
+                  <div className="flex flex-col leading-none">
+                    <span className="text-[11px] font-semibold text-foreground hidden sm:block">
+                      {reviewerName || 'Reviewer'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] font-bold text-primary uppercase tracking-wide">
+                        {reviewerCpse || 'CPSE'}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground hidden sm:inline">· Reviewer</span>
+                    </div>
+                  </div>
+                </div>
               )}
 
               <Button
