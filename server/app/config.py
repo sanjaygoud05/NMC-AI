@@ -57,8 +57,13 @@ class Settings(BaseSettings):
     def effective_db_url(self) -> str:
         env_url = self.DATABASE_URL
         if env_url and (env_url.startswith("postgresql") or env_url.startswith("postgres://")):
-            return env_url.replace("postgres://", "postgresql://", 1)
-        # SQLite fallback
+            # Normalize postgres:// → postgresql:// (Render uses the short form)
+            url = env_url.replace("postgres://", "postgresql://", 1)
+            # Force psycopg2 driver — SQLAlchemy 2.x defaults to psycopg3 which is not installed
+            if url.startswith("postgresql://") and "+psycopg" not in url:
+                url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+            return url
+        # SQLite fallback for local dev
         data_dir = Path(__file__).resolve().parent.parent.parent / "data"
         data_dir.mkdir(parents=True, exist_ok=True)
         return f"sqlite:///{data_dir / 'nmc.db'}"
