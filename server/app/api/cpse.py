@@ -27,8 +27,16 @@ router = APIRouter()
 REQUIRED_COLUMNS = {"material_code", "description"}
 # Acceptable aliases for those columns
 COLUMN_ALIASES = {
-    "material_code": ["material_code", "mat_code", "code", "item_code", "material code"],
-    "description": ["description", "material_description", "desc", "item_description", "short_text"],
+    "material_code": [
+        "material_code", "mat_code", "code", "item_code", "material code",
+        "item_no", "item_number", "part_no", "part_number", "matnr",
+        "material_id", "item_id", "mat_no", "material_no", "sku",
+    ],
+    "description": [
+        "description", "material_description", "desc", "item_description",
+        "short_text", "material_name", "item_name", "product_name",
+        "title", "details", "specification", "item_desc", "name",
+    ],
 }
 
 
