@@ -50,10 +50,21 @@ const RootRoute = () => {
 
 const LoginRoute = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  const location = useLocation();
+  const locationState = location.state as any;
+
   if (isLoading) return null;
+
+  // If an authenticated admin is here specifically to enter a reviewer key, show the login page
+  if (isAuthenticated && locationState?.tab === 'reviewer') {
+    return <Login />;
+  }
+
+  // Otherwise redirect authenticated users to their home page
   if (isAuthenticated) {
     return <Navigate to={isAdmin ? '/dashboard' : '/review'} replace />;
   }
+
   return <Login />;
 };
 

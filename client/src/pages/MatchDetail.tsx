@@ -18,7 +18,6 @@ import {
   Sparkles,
   Building2,
   AlertTriangle,
-  Lock,
   LinkIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -33,6 +32,7 @@ export default function MatchDetail() {
   const [decision, setDecision] = useState<'ACCEPT' | 'REJECT' | 'DIFFERENT' | 'OVERRIDE'>('ACCEPT');
   const [overrideOutcome, setOverrideOutcome] = useState<'EQUIVALENT' | 'DIFFERENT' | null>(null);
   const [reason, setReason] = useState('');
+  const [isOverriding, setIsOverriding] = useState(false);
 
   const { data: match, isLoading } = useQuery({
     queryKey: ['nmc', 'match-detail', id],
@@ -55,6 +55,7 @@ export default function MatchDetail() {
       }),
     onSuccess: (res) => {
       toast.success(res.message || 'Review decision submitted successfully');
+      setIsOverriding(false);
       queryClient.invalidateQueries({ queryKey: ['nmc', 'match-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['nmc', 'review-queue'] });
       queryClient.invalidateQueries({ queryKey: ['nmc', 'dashboard-metrics'] });
@@ -109,13 +110,12 @@ export default function MatchDetail() {
               Status: <strong className="ml-1 text-foreground">{match.status}</strong>
             </Badge>
             <Badge
-              className={`text-xs ${
-                match.confidence_label === 'HIGH'
+              className={`text-xs ${match.confidence_label === 'HIGH'
                   ? 'bg-emerald-600 text-white'
                   : match.confidence_label === 'MEDIUM'
-                  ? 'bg-sky-600 text-white'
-                  : 'bg-muted text-muted-foreground'
-              }`}
+                    ? 'bg-sky-600 text-white'
+                    : 'bg-muted text-muted-foreground'
+                }`}
             >
               {match.confidence_label || 'LOW'} CONFIDENCE ({confScore}%)
             </Badge>
@@ -320,195 +320,254 @@ export default function MatchDetail() {
           </Card>
         )}
 
-        {/* Review Action Form — only for PENDING_REVIEW matches */}
-        {match.status === 'PENDING_REVIEW' ? (
-        <Card className="border-border/60">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Submit Reviewer Determination</CardTitle>
-                <CardDescription className="text-xs mt-0.5">
-                  Every action is recorded in the append-only audit trail and establishes or updates Common Material Master records.
-                </CardDescription>
-              </div>
-              {!canSubmitDecisions && (
-                <Badge variant="outline" className="text-muted-foreground border-border bg-muted/40 text-[11px] gap-1">
-                  <Lock className="h-3 w-3" /> Read-Only (Admin)
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!canSubmitDecisions && (
-              <div className="p-3 rounded-lg bg-muted/60 border border-border flex items-center gap-2.5 text-xs text-muted-foreground">
-                <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span>
-                  <strong>Admin Read-Only:</strong> You can inspect match evidence, scores, and attributes. Decision actions (Accept, Reject, Mark Different, Override) are strictly reserved for verified Reviewers.
-                </span>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label className="text-xs">Select Action</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <Button
-                  type="button"
-                  disabled={!canSubmitDecisions}
-                  variant={decision === 'ACCEPT' ? 'default' : 'outline'}
-                  onClick={() => setDecision('ACCEPT')}
-                  className={'text-xs h-9 gap-1.5 ' + (decision === 'ACCEPT' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : '')}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Accept & Harmonize
-                </Button>
-
-                <Button
-                  type="button"
-                  disabled={!canSubmitDecisions}
-                  variant={decision === 'DIFFERENT' ? 'default' : 'outline'}
-                  onClick={() => setDecision('DIFFERENT')}
-                  className={'text-xs h-9 gap-1.5 ' + (decision === 'DIFFERENT' ? 'bg-slate-700 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white' : '')}
-                >
-                  <Split className="h-3.5 w-3.5" />
-                  Mark as Different
-                </Button>
-
-                <Button
-                  type="button"
-                  disabled={!canSubmitDecisions}
-                  variant={decision === 'REJECT' ? 'default' : 'outline'}
-                  onClick={() => setDecision('REJECT')}
-                  className={'text-xs h-9 gap-1.5 ' + (decision === 'REJECT' ? 'bg-destructive hover:bg-destructive/90 text-white' : '')}
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  Reject Match
-                </Button>
-
-                <Button
-                  type="button"
-                  disabled={!canSubmitDecisions}
-                  variant={decision === 'OVERRIDE' ? 'default' : 'outline'}
-                  onClick={() => setDecision('OVERRIDE')}
-                  className={'text-xs h-9 gap-1.5 ' + (decision === 'OVERRIDE' ? 'bg-purple-600 hover:bg-purple-700 text-white' : '')}
-                >
-                  Override Rule
-                </Button>
-              </div>
-            </div>
-
-            {decision === 'OVERRIDE' && (
-              <div className="p-4 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>Override Determination Required:</span>
+        {/* Review Action Form — for PENDING_REVIEW matches or when overriding */}
+        {(match.status === 'PENDING_REVIEW' || isOverriding) ? (
+          <Card className="border-border/60">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">
+                    {isOverriding ? 'Override Match Determination' : 'Submit Reviewer Determination'}
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Every action is recorded in the append-only audit trail and establishes or updates Common Material Master records.
+                  </CardDescription>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  When overriding automated rules, you must explicitly choose whether this pair is an <strong>Equivalent</strong> engineering match (which creates or updates the Common Material Master record and maps both items) or confirmed as <strong>Different</strong> materials (which records the decision without creating a mapping).
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1">
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Select Action</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {/* ACCEPT */}
                   <Button
                     type="button"
-                    size="sm"
-                    disabled={!canSubmitDecisions}
-                    variant={overrideOutcome === 'EQUIVALENT' ? 'default' : 'outline'}
-                    onClick={() => setOverrideOutcome('EQUIVALENT')}
-                    className={'text-xs h-8 gap-1.5 ' + (
-                      overrideOutcome === 'EQUIVALENT'
-                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                        : 'border-purple-500/30 hover:bg-purple-500/10'
-                    )}
+                    variant="outline"
+                    onClick={() => setDecision('ACCEPT')}
+                    className={
+                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all duration-150 ' +
+                      (decision === 'ACCEPT'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white shadow-md shadow-emerald-500/30'
+                        : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 dark:text-emerald-400 dark:hover:bg-emerald-950/40')
+                    }
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    Equivalent (Harmonize & Map to CMM)
+                    Accept
                   </Button>
+
+                  {/* REJECT */}
                   <Button
                     type="button"
-                    size="sm"
-                    disabled={!canSubmitDecisions}
-                    variant={overrideOutcome === 'DIFFERENT' ? 'default' : 'outline'}
-                    onClick={() => setOverrideOutcome('DIFFERENT')}
-                    className={'text-xs h-8 gap-1.5 ' + (
-                      overrideOutcome === 'DIFFERENT'
-                        ? 'bg-slate-700 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white'
-                        : 'border-border hover:bg-muted'
-                    )}
+                    variant="outline"
+                    onClick={() => setDecision('REJECT')}
+                    className={
+                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all duration-150 ' +
+                      (decision === 'REJECT'
+                        ? 'bg-red-600 hover:bg-red-700 border-red-600 text-white shadow-md shadow-red-500/30'
+                        : 'border-red-400/40 text-red-600 hover:bg-red-50 hover:border-red-500 dark:text-red-400 dark:hover:bg-red-950/40')
+                    }
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Reject
+                  </Button>
+
+                  {/* MARK AS DIFFERENT */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDecision('DIFFERENT')}
+                    className={
+                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all duration-150 ' +
+                      (decision === 'DIFFERENT'
+                        ? 'bg-amber-500 hover:bg-amber-600 border-amber-500 text-white shadow-md shadow-amber-500/30'
+                        : 'border-amber-400/40 text-amber-600 hover:bg-amber-50 hover:border-amber-500 dark:text-amber-400 dark:hover:bg-amber-950/40')
+                    }
                   >
                     <Split className="h-3.5 w-3.5" />
-                    Different (Record Decision, Do Not Map)
+                    Different
+                  </Button>
+
+                  {/* OVERRIDE */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setDecision('OVERRIDE');
+                      if (!overrideOutcome) setOverrideOutcome('EQUIVALENT');
+                    }}
+                    className={
+                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all duration-150 ' +
+                      (decision === 'OVERRIDE'
+                        ? 'bg-purple-600 hover:bg-purple-700 border-purple-600 text-white shadow-md shadow-purple-500/30'
+                        : 'border-purple-400/40 text-purple-600 hover:bg-purple-50 hover:border-purple-500 dark:text-purple-400 dark:hover:bg-purple-950/40')
+                    }
+                  >
+                    Override
                   </Button>
                 </div>
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="review-reason" className="text-xs">
-                Engineering Rationale / Notes (Optional)
-              </Label>
-              <Textarea
-                id="review-reason"
-                placeholder="Document justification for acceptance, rejection, or technical differences..."
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={2}
-                disabled={!canSubmitDecisions}
+              {decision === 'OVERRIDE' && (
+                <div className="p-4 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Override Determination Required:</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    When overriding automated rules, you must choose whether this pair is an <strong>Equivalent</strong> engineering match (creates or updates Common Material Master and maps both items) or confirmed as <strong>Different</strong> materials (records the decision without mapping).
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!canSubmitDecisions}
+                      variant={overrideOutcome === 'EQUIVALENT' ? 'default' : 'outline'}
+                      onClick={() => setOverrideOutcome('EQUIVALENT')}
+                      className={'text-xs h-8 gap-1.5 ' + (
+                        overrideOutcome === 'EQUIVALENT'
+                          ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                          : 'border-purple-500/30 hover:bg-purple-500/10'
+                      )}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Equivalent (Harmonize & Map to CMM)
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!canSubmitDecisions}
+                      variant={overrideOutcome === 'DIFFERENT' ? 'default' : 'outline'}
+                      onClick={() => setOverrideOutcome('DIFFERENT')}
+                      className={'text-xs h-8 gap-1.5 ' + (
+                        overrideOutcome === 'DIFFERENT'
+                          ? 'bg-slate-700 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white'
+                          : 'border-border hover:bg-muted'
+                      )}
+                    >
+                      <Split className="h-3.5 w-3.5" />
+                      Different (Record Decision, Do Not Map)
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="review-reason" className="text-xs">
+                  Engineering Rationale / Notes (Optional)
+                </Label>
+                <Textarea
+                  id="review-reason"
+                  placeholder="Document justification for acceptance, rejection, or technical differences..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={2}
+                  disabled={!canSubmitDecisions}
+                  className="text-xs"
+                />
+              </div>
+            </CardContent>
+
+            <CardFooter className="pt-2 flex justify-between border-t border-border/40">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (isOverriding) {
+                    setIsOverriding(false);
+                  } else {
+                    navigate('/review');
+                  }
+                }}
                 className="text-xs"
-              />
-            </div>
-          </CardContent>
-
-          <CardFooter className="pt-2 flex justify-between border-t border-border/40">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/review')} className="text-xs">
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={
-                decisionMutation.isPending ||
-                !canSubmitDecisions ||
-                (decision === 'OVERRIDE' && !overrideOutcome)
-              }
-              onClick={() =>
-                decisionMutation.mutate({
-                  decision,
-                  override_outcome: decision === 'OVERRIDE' ? overrideOutcome! : undefined,
-                  reason,
-                })
-              }
-              className="gap-2"
-            >
-              {decisionMutation.isPending
-                ? 'Recording Decision...'
-                : decision === 'OVERRIDE'
-                ? overrideOutcome
-                  ? 'Confirm Override (' + overrideOutcome + ')'
-                  : 'Select Override Outcome Above'
-                : 'Confirm Decision (' + decision + ')'}
-            </Button>
-          </CardFooter>
-        </Card>
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={
+                  decisionMutation.isPending ||
+                  (decision === 'OVERRIDE' && !overrideOutcome)
+                }
+                onClick={() =>
+                  decisionMutation.mutate({
+                    decision,
+                    override_outcome: decision === 'OVERRIDE' ? overrideOutcome! : undefined,
+                    reason,
+                  })
+                }
+                className={
+                  'gap-2 font-semibold px-5 transition-all duration-150 ' +
+                  (decisionMutation.isPending
+                    ? 'opacity-70 cursor-wait'
+                    : decision === 'ACCEPT'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20'
+                      : decision === 'REJECT'
+                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/20'
+                        : decision === 'DIFFERENT'
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20'
+                          : decision === 'OVERRIDE'
+                            ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/20'
+                            : '')
+                }
+              >
+                {decisionMutation.isPending
+                  ? '⏳ Recording...'
+                  : decision === 'ACCEPT'
+                    ? '✓ Confirm Accept'
+                    : decision === 'REJECT'
+                      ? '✕ Confirm Reject'
+                      : decision === 'DIFFERENT'
+                        ? '⇌ Confirm Different'
+                        : decision === 'OVERRIDE'
+                          ? overrideOutcome
+                            ? '⚡ Confirm Override (' + overrideOutcome + ')'
+                            : 'Select Override Outcome Above'
+                          : 'Confirm'}
+              </Button>
+            </CardFooter>
+          </Card>
         ) : (
-          /* Already decided — show read-only status banner */
+          /* Already decided — show read-only status banner with Override option */
           <Card className="border-border/60">
             <CardContent className="pt-4 pb-4">
-              <div className={'p-3 rounded-lg border flex items-center gap-2.5 text-xs ' + (
-                match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN'
-                  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                  : match.status === 'DIFFERENT' || match.status === 'REJECTED'
-                  ? 'bg-muted/50 border-border text-foreground dark:text-zinc-300'
-                  : 'bg-muted/60 border-border text-muted-foreground'
-              )}>
-                {match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN' ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                ) : (
-                  <XCircle className="h-4 w-4 shrink-0" />
-                )}
-                <span>
-                  <strong>Decision recorded:</strong> This match was marked as <strong>{match.status}</strong>.
-                  {match.cmm && (
-                    <> Assigned NMC Code: <strong className="font-mono">{match.cmm.national_material_code}</strong>.</>  
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className={'p-3 rounded-lg border flex items-center gap-2.5 text-xs flex-1 ' + (
+                  match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN'
+                    ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                    : match.status === 'DIFFERENT' || match.status === 'REJECTED'
+                      ? 'bg-muted/50 border-border text-foreground dark:text-zinc-300'
+                      : 'bg-muted/60 border-border text-muted-foreground'
+                )}>
+                  {match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN' ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <XCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
                   )}
-                  {' '}No further actions are available.
-                </span>
+                  <span>
+                    <strong>Decision recorded:</strong> This match is marked as <strong>{match.status}</strong>.
+                    {match.override_outcome && ` (Override: ${match.override_outcome})`}
+                    {match.cmm && (
+                      <> Assigned NMC Code: <strong className="font-mono">{match.cmm.national_material_code}</strong>.</>
+                    )}
+                  </span>
+                </div>
+
+                {canSubmitDecisions && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs font-semibold text-purple-600 border-purple-500/40 hover:bg-purple-500/10 dark:text-purple-400 shrink-0"
+                    onClick={() => {
+                      setDecision('OVERRIDE');
+                      setOverrideOutcome('EQUIVALENT');
+                      setIsOverriding(true);
+                    }}
+                  >
+                    <Split className="h-3.5 w-3.5" />
+                    Override Decision
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

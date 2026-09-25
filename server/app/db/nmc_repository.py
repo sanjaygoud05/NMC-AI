@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import create_engine, select, func, and_, or_, desc, text
+from sqlalchemy import create_engine, select, func, and_, or_, desc, text, update
 from sqlalchemy.orm import sessionmaker, Session, aliased
 
 try:
@@ -333,7 +333,14 @@ class NMCRepository:
                     cpse_id=m["cpse_id"],
                     original_material_code=m.get("original_material_code"),
                     original_description=m["original_description"],
-                    processing_status="RAW",
+                    grade=m.get("grade"),
+                    dimensions=m.get("dimensions"),
+                    specifications=m.get("specifications"),
+                    uom=m.get("uom"),
+                    material_family=m.get("material_family"),
+                    material_type=m.get("material_type"),
+                    attributes=m.get("attributes"),
+                    processing_status=m.get("processing_status", "RAW"),
                 )
                 objs.append(obj)
             session.add_all(objs)
@@ -551,6 +558,9 @@ class NMCRepository:
         cpse_id: Optional[str] = None,
         match_category: Optional[str] = None,
         status: Optional[str] = None,
+        confidence_label: Optional[str] = None,
+        min_confidence: Optional[float] = None,
+        max_confidence: Optional[float] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> Dict[str, Any]:
@@ -583,13 +593,46 @@ class NMCRepository:
                 stmt = stmt.where(MaterialMatch.match_category == match_category)
 
             # CPSE filter: show matches where source OR candidate belongs to that CPSE
-            if cpse_id:
+            if cpse_id and cpse_id.upper() != "ALL":
                 stmt = stmt.where(
                     or_(
                         SrcMat.cpse_id == cpse_id,
                         CandMat.cpse_id == cpse_id,
                     )
                 )
+
+            # Confidence level filtering (HIGH >= 70%, MEDIUM 40-69%, LOW < 40%)
+            if confidence_label and confidence_label.strip().upper() != "ALL":
+                clabel = confidence_label.strip().upper()
+                if clabel == "HIGH":
+                    stmt = stmt.where(
+                        or_(
+                            MaterialMatch.confidence_label == "HIGH",
+                            MaterialMatch.final_confidence >= 0.70,
+                        )
+                    )
+                elif clabel == "MEDIUM":
+                    stmt = stmt.where(
+                        or_(
+                            MaterialMatch.confidence_label == "MEDIUM",
+                            and_(
+                                MaterialMatch.final_confidence >= 0.40,
+                                MaterialMatch.final_confidence < 0.70,
+                            ),
+                        )
+                    )
+                elif clabel == "LOW":
+                    stmt = stmt.where(
+                        or_(
+                            MaterialMatch.confidence_label == "LOW",
+                            MaterialMatch.final_confidence < 0.40,
+                        )
+                    )
+
+            if min_confidence is not None:
+                stmt = stmt.where(MaterialMatch.final_confidence >= min_confidence)
+            if max_confidence is not None:
+                stmt = stmt.where(MaterialMatch.final_confidence <= max_confidence)
 
             total = session.execute(select(func.count()).select_from(stmt.subquery())).scalar() or 0
             stmt = stmt.order_by(desc(MaterialMatch.final_confidence)).offset((page - 1) * page_size).limit(page_size)
@@ -691,7 +734,8 @@ class NMCRepository:
 
             return {
                 "pending": _count(["PENDING_REVIEW"]),
-                "different": _count(["DIFFERENT", "REJECTED"]),
+                "different": _count(["DIFFERENT"]),
+                "rejected": _count(["REJECTED"]),
                 "mapped": _count(["ACCEPTED", "OVERRIDDEN"]),
             }
 
@@ -837,7 +881,7 @@ class NMCRepository:
                             )
                             return cmm.to_dict(), False
 
-            # No existing CMM — create new one
+            # No existing CMM — build canonical description first
             src_cpse = session.get(CPSE, src_mat.cpse_id) if src_mat else None
             cand_cpse = session.get(CPSE, cand_mat.cpse_id) if cand_mat else None
             cpse_codes = list({
@@ -850,6 +894,35 @@ class NMCRepository:
                 (cand_mat.standardized_description or cand_mat.normalized_description or cand_mat.original_description)
                 if cand_mat else "Unknown Material"
             )
+
+            # ── Deduplication by canonical description ──
+            # If a CMM with the same canonical description already exists, reuse it.
+            existing_by_canonical = session.execute(
+                select(NMCCommonMaterial).where(
+                    and_(
+                        NMCCommonMaterial.canonical_description == canonical,
+                        NMCCommonMaterial.status == "ACTIVE",
+                    )
+                )
+            ).scalars().first()
+
+            if existing_by_canonical:
+                cmm = existing_by_canonical
+                current_cpses = list(cmm.source_cpses or [])
+                for code in cpse_codes:
+                    if code not in current_cpses:
+                        current_cpses.append(code)
+                cmm.source_cpses = current_cpses
+                cmm.updated_at = datetime.now(timezone.utc)
+                session.commit()
+                self.log_action(
+                    reviewer,
+                    ",".join(current_cpses),
+                    "CMM_UPDATED",
+                    new_status="ACTIVE",
+                    metadata={"national_material_code": cmm.national_material_code, "canonical": cmm.canonical_description},
+                )
+                return cmm.to_dict(), False
 
             mat_attrs = (src_mat.attributes if src_mat else None) or (cand_mat.attributes if cand_mat else None)
             code = self._generate_nmc_code(session, family, canonical, mat_attrs)
@@ -877,6 +950,7 @@ class NMCRepository:
                 metadata={"national_material_code": code, "canonical": canonical},
             )
             return cmm.to_dict(), True
+
 
     def get_cmm(self, cmm_id: str) -> Optional[Dict[str, Any]]:
         with self.get_session() as session:

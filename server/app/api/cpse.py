@@ -230,13 +230,90 @@ def _ingest_dataset_background(
             session.execute(text("DELETE FROM materials WHERE dataset_id=:did"), {"did": dataset_id})
             session.commit()
 
+        # Detect structured material attribute fields from uploaded columns
+        grade_col = _find_field(df.columns, ["material_grade", "grade", "materialgrade", "mat_grade", "item_grade"])
+        spec_col = _find_field(df.columns, ["specification", "specifications", "specification_standard", "spec_standard", "standard", "standards", "spec", "industry_standard"])
+        size_col = _find_field(df.columns, ["size", "dimensions", "dimension", "nominal_size", "dimensions_size", "dim", "item_size"])
+        cat_col = _find_field(df.columns, ["material_category", "category", "material_family", "family", "mat_category", "mat_family", "item_category"])
+        type_col = _find_field(df.columns, ["material_type", "type", "materialtype", "mat_type", "item_type"])
+        uom_col = _find_field(df.columns, ["unit", "uom", "unit_of_measure", "base_unit", "unit_measure", "primary_uom", "item_uom"])
+        coat_col = _find_field(df.columns, ["coating", "coat", "surface_finish"])
+        len_col = _find_field(df.columns, ["length", "len"])
+        diam_col = _find_field(df.columns, ["diameter", "dia"])
+        press_col = _find_field(df.columns, ["pressure_rating", "pressure_class", "rating", "class"])
+        end_col = _find_field(df.columns, ["end_type", "connection_type", "end_connection"])
+        mfg_col = _find_field(df.columns, ["manufacturer", "supplier", "vendor", "supplier_name", "oem"])
+        part_col = _find_field(df.columns, ["manufacturer_part_no", "part_no", "part_number", "partno", "model_number"])
+
         materials = []
         for _, row in df.iterrows():
+            m_grade = str(row.get(grade_col, "")).strip() if grade_col else None
+            m_grade = None if not m_grade or m_grade.lower() in ("nan", "none", "null") else m_grade
+
+            m_spec = str(row.get(spec_col, "")).strip() if spec_col else None
+            m_spec = None if not m_spec or m_spec.lower() in ("nan", "none", "null") else m_spec
+
+            m_size = str(row.get(size_col, "")).strip() if size_col else None
+            m_size = None if not m_size or m_size.lower() in ("nan", "none", "null") else m_size
+
+            m_uom = str(row.get(uom_col, "")).strip() if uom_col else None
+            m_uom = None if not m_uom or m_uom.lower() in ("nan", "none", "null") else m_uom
+
+            m_cat = str(row.get(cat_col, "")).strip() if cat_col else None
+            m_cat = None if not m_cat or m_cat.lower() in ("nan", "none", "null") else m_cat.lower()
+
+            m_type = str(row.get(type_col, "")).strip() if type_col else None
+            m_type = None if not m_type or m_type.lower() in ("nan", "none", "null") else m_type.lower()
+
+            raw_attrs = {
+                "Material_Grade": m_grade,
+                "Specification": m_spec,
+                "Size": m_size,
+                "Unit": m_uom,
+                "Material_Category": m_cat,
+                "Material_Type": m_type,
+            }
+            if len_col:
+                v = str(row.get(len_col, "")).strip()
+                if v and v.lower() not in ("nan", "none", "null"):
+                    raw_attrs["Length"] = v
+            if diam_col:
+                v = str(row.get(diam_col, "")).strip()
+                if v and v.lower() not in ("nan", "none", "null"):
+                    raw_attrs["Diameter"] = v
+            if coat_col:
+                v = str(row.get(coat_col, "")).strip()
+                if v and v.lower() not in ("nan", "none", "null"):
+                    raw_attrs["Coating"] = v
+            if press_col:
+                v = str(row.get(press_col, "")).strip()
+                if v and v.lower() not in ("nan", "none", "null"):
+                    raw_attrs["Pressure_Rating"] = v
+            if end_col:
+                v = str(row.get(end_col, "")).strip()
+                if v and v.lower() not in ("nan", "none", "null"):
+                    raw_attrs["End_Type"] = v
+            if mfg_col:
+                v = str(row.get(mfg_col, "")).strip()
+                if v and v.lower() not in ("nan", "none", "null"):
+                    raw_attrs["Manufacturer"] = v
+            if part_col:
+                v = str(row.get(part_col, "")).strip()
+                if v and v.lower() not in ("nan", "none", "null"):
+                    raw_attrs["Manufacturer_Part_No"] = v
+
             materials.append({
                 "dataset_id": dataset_id,
                 "cpse_id": cpse_id,
                 "original_material_code": str(row.get(col_map.get("material_code", ""), "")).strip() or None,
                 "original_description": str(row[col_map["description"]]).strip(),
+                "grade": m_grade,
+                "dimensions": m_size,
+                "specifications": m_spec,
+                "uom": m_uom,
+                "material_family": m_cat,
+                "material_type": m_type,
+                "attributes": raw_attrs,
             })
 
         inserted_records = nmc_repo.bulk_insert_materials(materials)
