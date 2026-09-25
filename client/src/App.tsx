@@ -32,19 +32,13 @@ const queryClient = new QueryClient({
 
 const RootRoute = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Initializing NMC-AI...</p>
-        </div>
-      </div>
-    );
-  }
-  if (!isAuthenticated) {
+
+  // Still resolving auth state — send to login immediately so
+  // the login page is always the first thing the user sees.
+  if (isLoading || !isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
   return <Navigate to={isAdmin ? '/dashboard' : '/review'} replace />;
 };
 
@@ -53,7 +47,8 @@ const LoginRoute = () => {
   const location = useLocation();
   const locationState = location.state as any;
 
-  if (isLoading) return null;
+  // While loading, render the login page directly so there is no blank flash.
+  if (isLoading) return <Login />;
 
   // If an authenticated admin is here specifically to enter a reviewer key, show the login page
   if (isAuthenticated && locationState?.tab === 'reviewer') {

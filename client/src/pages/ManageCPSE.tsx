@@ -32,7 +32,6 @@ import {
   Cpu,
   Sparkles,
   ArrowRight,
-  Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -328,86 +327,89 @@ export default function ManageCPSE() {
       <div className="space-y-4">
 
         {/* ── Page Header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          {/* Left: Title + subtitle + readiness badge */}
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              Central Public Sector Enterprises
-            </h1>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-muted-foreground">
-                {totalCpses} {totalCpses === 1 ? 'enterprise' : 'enterprises'} registered
-              </span>
-              {readiness && (
-                <Badge
-                  variant="outline"
-                  className={`text-xs gap-1.5 px-2.5 py-0.5 font-normal transition-colors ${allReady
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                      : 'bg-muted/70 text-muted-foreground border-border/80 hover:bg-muted'
+        <div className="flex flex-col gap-3">
+          {/* Title row */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div className="space-y-1 min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                Central Public Sector Enterprises
+              </h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">
+                  {totalCpses} {totalCpses === 1 ? 'enterprise' : 'enterprises'} registered
+                </span>
+                {readiness && (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs gap-1.5 px-2.5 py-0.5 font-normal transition-colors ${
+                      allReady
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                        : 'bg-muted/70 text-muted-foreground border-border/80 hover:bg-muted'
                     }`}
-                >
-                  {allReady ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  ) : (
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                  <span>
-                    Normalization: <span className="font-semibold text-foreground">{normalizedCount}/{totalMaterials}</span> ready
-                  </span>
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          {/* Right: Action buttons - aligned on the same horizontal axis */}
-          <div className="flex items-start gap-2 flex-wrap">
-            {/* Action button + red message directly below */}
-            <div className="flex flex-col items-start gap-1">
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-1.5 shadow-sm"
-                disabled={!allReady || isMatchingRunning}
-                onClick={startMatching}
-                title={allReady ? 'Run cross-CPSE matching' : 'Normalize all CPSE materials before matching'}
-              >
-                {isMatchingRunning ? (
-                  <>
-                    <Cpu className="h-3.5 w-3.5 animate-spin" />
-                    Running Matching...
-                  </>
-                ) : (
-                  <>
-                    <GitMerge className="h-3.5 w-3.5" />
-                    Find Matches Across All CPSEs
-                  </>
+                  >
+                    {allReady ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                    <span>
+                      Normalization: <span className="font-semibold text-foreground">{normalizedCount}/{totalMaterials}</span> ready
+                    </span>
+                  </Badge>
                 )}
-              </Button>
-              {!allReady && totalCpses > 0 && (
-                <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">
-                  Normalize all CPSE materials before matching.
-                </p>
-              )}
+              </div>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5"
-              onClick={handleRefresh}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh
-            </Button>
-
-            {/* Add CPSE dialog trigger */}
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="default" className="h-8 text-xs gap-1.5">
-                  <Plus className="h-3.5 w-3.5" />
-                  Add CPSE
+            {/* Action buttons — row on sm+, 2-col grid on mobile */}
+            <div className="grid grid-cols-2 sm:flex sm:items-start gap-2 w-full sm:w-auto shrink-0">
+              {/* Find Matches — spans full width on mobile */}
+              <div className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+                <Button
+                  size="sm"
+                  className="h-9 sm:h-8 text-xs gap-1.5 shadow-sm w-full sm:w-auto"
+                  disabled={!allReady || isMatchingRunning}
+                  onClick={startMatching}
+                  title={allReady ? 'Run cross-CPSE matching' : 'Normalize all CPSE materials before matching'}
+                >
+                  {isMatchingRunning ? (
+                    <>
+                      <Cpu className="h-3.5 w-3.5 animate-spin" />
+                      Running Matching...
+                    </>
+                  ) : (
+                    <>
+                      <GitMerge className="h-3.5 w-3.5" />
+                      <span>Find Matches</span>
+                      <span className="hidden sm:inline"> Across All CPSEs</span>
+                    </>
+                  )}
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
+                {!allReady && totalCpses > 0 && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">
+                    Normalize all CPSEs first.
+                  </p>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 sm:h-8 text-xs gap-1.5 w-full sm:w-auto"
+                onClick={handleRefresh}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </Button>
+
+              {/* Add CPSE dialog trigger */}
+              <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="default" className="h-9 sm:h-8 text-xs gap-1.5 w-full sm:w-auto">
+                    <Plus className="h-3.5 w-3.5" />
+                    Add CPSE
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-md sm:max-w-lg rounded-lg">
                 <DialogHeader>
                   <DialogTitle>Register CPSE Enterprise</DialogTitle>
                   <DialogDescription>
@@ -459,8 +461,9 @@ export default function ManageCPSE() {
                     </Button>
                   </DialogFooter>
                 </form>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
 
@@ -472,21 +475,21 @@ export default function ManageCPSE() {
               <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <span className="text-sm font-semibold text-foreground">Matching and Harmonization Completed</span>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-lg bg-card border border-border/60 p-3 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+              <div className="flex sm:block items-center justify-between rounded-lg bg-card border border-border/60 px-4 py-2.5 sm:p-3 sm:text-center">
                 <p className="text-xs text-muted-foreground">Materials Scanned</p>
-                <p className="text-xl font-bold text-foreground mt-1">{matchResult.materials_count ?? '—'}</p>
+                <p className="text-lg sm:text-xl font-bold text-foreground sm:mt-1">{matchResult.materials_count ?? '—'}</p>
               </div>
-              <div className="rounded-lg bg-card border border-border/60 p-3 text-center">
+              <div className="flex sm:block items-center justify-between rounded-lg bg-card border border-border/60 px-4 py-2.5 sm:p-3 sm:text-center">
                 <p className="text-xs text-muted-foreground">Pairs Evaluated</p>
-                <p className="text-xl font-bold text-foreground mt-1">{matchResult.pairs_evaluated ?? '—'}</p>
+                <p className="text-lg sm:text-xl font-bold text-foreground sm:mt-1">{matchResult.pairs_evaluated ?? '—'}</p>
               </div>
-              <div className="rounded-lg bg-card border border-border/60 p-3 text-center">
+              <div className="flex sm:block items-center justify-between rounded-lg bg-card border border-border/60 px-4 py-2.5 sm:p-3 sm:text-center">
                 <p className="text-xs text-muted-foreground">Matches Created</p>
-                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{matchResult.matches_created ?? 0}</p>
+                <p className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 sm:mt-1">{matchResult.matches_created ?? 0}</p>
               </div>
             </div>
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
               <span className="text-[11px] text-muted-foreground">
                 Queued for certified Reviewer evaluation.
               </span>
@@ -502,49 +505,25 @@ export default function ManageCPSE() {
 
         {/* ── Upload Dataset Dialog ── */}
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader className="space-y-3 pb-1">
-              {/* Enterprise Indicator Pill */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs font-semibold font-mono">
-                  <Building2 className="h-3.5 w-3.5" />
-                  {targetCpse?.code || 'CPSE'}
-                </span>
-                <span className="text-xs font-medium text-muted-foreground truncate max-w-[340px]">
-                  {targetCpse?.name}
-                </span>
-              </div>
-
-              {/* Clean, Simple Dialog Title */}
-              <DialogTitle className="text-lg font-heading font-semibold tracking-tight text-foreground">
-                {targetCpse?.active_dataset ? 'Replace Material Dataset' : 'Upload Material Dataset'}
+          <DialogContent>
+            <DialogHeader className="space-y-2">
+              <DialogTitle>
+                {targetCpse?.active_dataset ? 'Replace Dataset' : 'Upload Dataset'} for{' '}
+                {targetCpse?.name}
               </DialogTitle>
-
-              {/* Description with clear margins down between sentences */}
-              <DialogDescription className="text-xs text-muted-foreground pt-1">
-                <p className="leading-relaxed mb-3">
-                  Upload an enterprise material catalog file to ingest and harmonize records across Central Public Sector Enterprises.
+              <DialogDescription className="space-y-1.5 text-xs text-muted-foreground pt-1">
+                <p>Upload a CSV (.csv) or Excel (.xlsx) file.</p>
+                <p className="font-medium text-foreground/90">
+                  Required columns: Material Code and Description.
                 </p>
-
-                <div className="p-3 rounded-lg bg-muted/30 border border-border/70 mb-3 space-y-2">
-                  <p className="font-medium text-foreground text-xs leading-relaxed mb-2 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                    <span>
-                      Required columns: <strong className="text-foreground font-mono">Material Code</strong> and <strong className="text-foreground font-mono">Description</strong>
-                    </span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed pl-6">
-                    Optional attributes (Grade, Specification, Size, Unit, Unit Price, and Plant) will be automatically detected and mapped.
-                  </p>
-                </div>
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleUploadSubmit} className="space-y-4 pt-2 pb-2">
-              <div className="space-y-3">
-                <Label htmlFor="file-input" className="text-xs font-medium">Select Material Master File</Label>
+            <form onSubmit={handleUploadSubmit} className="space-y-4 pt-3 pb-2">
+              <div className="space-y-2.5">
+                <Label htmlFor="file-input" className="text-xs font-medium">Select File</Label>
 
-                {/* File picker button and selected file display */}
+                {/* Only 'Choose File' button — no browser default 'No file chosen' text */}
                 <div className="flex items-center gap-3">
                   <input
                     id="file-input"
@@ -561,25 +540,16 @@ export default function ManageCPSE() {
                     <Upload className="h-3.5 w-3.5 text-muted-foreground" />
                     Choose File
                   </label>
-                  {selectedFile ? (
-                    <span className="text-xs text-foreground font-medium truncate max-w-[240px]">
+                  {selectedFile && (
+                    <span className="text-xs text-foreground font-medium truncate max-w-[220px]">
                       {selectedFile.name}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground italic">
-                      No file selected yet
                     </span>
                   )}
                 </div>
 
-                <div className="pt-1.5 space-y-1.5 text-xs text-muted-foreground border-t border-border/40">
-                  <p className="leading-relaxed mb-2">
-                    Accepted formats: <span className="font-semibold text-foreground">CSV (.csv)</span> or <span className="font-semibold text-foreground">Excel (.xlsx, .xls)</span>.
-                  </p>
-                  <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
-                    Duplicate item records and empty descriptions are automatically reconciled during schema validation.
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Accepted formats: CSV, XLSX. Duplicate records will be pruned automatically.
+                </p>
               </div>
 
               {selectedFile && (
@@ -632,14 +602,14 @@ export default function ManageCPSE() {
           </DialogContent>
         </Dialog>
 
-        {/* ── Enterprise Table ── */}
+        {/* ── Enterprise List ── */}
         <div className="rounded-lg border border-border/60 overflow-hidden bg-card">
           {isLoading ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               Loading enterprise list...
             </div>
           ) : !cpses || cpses.length === 0 ? (
-            <div className="py-14 text-center space-y-3">
+            <div className="py-14 text-center space-y-3 px-4">
               <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
                 <Plus className="h-5 w-5" />
               </div>
@@ -656,58 +626,43 @@ export default function ManageCPSE() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              {/* ── Desktop Table (hidden on mobile) ── */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left text-xs table-fixed">
                   <colgroup>
-                    <col className="w-8" />        {/* # */}
-                    <col />                         {/* Enterprise Name — flexible */}
-                    <col className="w-36" />        {/* Enterprise Code */}
-                    <col className="w-32" />        {/* Registered */}
-                    <col className="w-64" />        {/* Action — fixed wide enough for buttons */}
+                    <col className="w-8" />
+                    <col />
+                    <col className="w-36" />
+                    <col className="w-32" />
+                    <col className="w-64" />
                   </colgroup>
-
-                  {/* Table Header */}
                   <thead className="bg-muted/30 border-b border-border/50">
                     <tr>
                       <th className="px-4 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">#</th>
                       <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Enterprise Name</th>
-                      <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Enterprise Code</th>
+                      <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Code</th>
                       <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Registered</th>
                       <th className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide text-right">Action</th>
                     </tr>
                   </thead>
-
-                  {/* Table Body */}
                   <tbody className="divide-y divide-border/40">
-                    {cpses.map((c: any, idx: number) => {
+                    {cpses.map((c: any) => {
                       const isSelected = selectedId === c.id;
                       const activeDs = c.active_dataset;
                       const status = activeDs?.status || 'NO_DATASET';
-                      const isProcessing = status === 'PROCESSING';
-                      const canNormalize = status === 'VALIDATED' || status === 'NORMALIZED';
                       const hasDataset = !!activeDs;
                       const materialCount = activeDs?.record_count ?? 0;
-
                       return (
                         <tr
                           key={c.id}
                           onClick={() => setSelectedId(isSelected ? null : c.id)}
-                          className={`cursor-pointer transition-colors select-none ${isSelected
-                            ? 'bg-primary/5 border-l-2 border-l-primary'
-                            : 'hover:bg-muted/30'
-                            }`}
+                          className={`cursor-pointer transition-colors select-none ${isSelected ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/30'}`}
                         >
-                          {/* # — radio indicator */}
-                          <td className={`py-2.5 text-xs text-muted-foreground ${isSelected ? 'pl-[14px] pr-3' : 'px-4'}`}>
-                            <span
-                              className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-border bg-transparent'
-                                }`}
-                            >
+                          <td className={`py-2.5 ${isSelected ? 'pl-[14px] pr-3' : 'px-4'}`}>
+                            <span className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-border bg-transparent'}`}>
                               {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                             </span>
                           </td>
-
-                          {/* Enterprise Name */}
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
@@ -717,83 +672,40 @@ export default function ManageCPSE() {
                               )}
                             </div>
                           </td>
-
-                          {/* Enterprise Code — fixed column, never moves */}
                           <td className="px-3 py-2.5">
                             <span className="font-mono text-xs text-muted-foreground">{c.code}</span>
                           </td>
-
-                          {/* Registered — fixed column, never moves */}
                           <td className="px-3 py-2.5">
                             <span className="text-xs text-muted-foreground">{formatDate(c.created_at)}</span>
                           </td>
-
-                          {/* Actions — fixed column */}
                           <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5 justify-end">
                               {isSelected ? (
                                 !hasDataset ? (
                                   <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs gap-1"
-                                      onClick={() => openUpload(c)}
-                                      disabled={uploadMutation.isPending}
-                                    >
-                                      <Upload className="h-3 w-3" />
-                                      Upload File
+                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => openUpload(c)} disabled={uploadMutation.isPending}>
+                                      <Upload className="h-3 w-3" />Upload File
                                     </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                                      onClick={() => openDelete(c)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                      Delete
+                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => openDelete(c)}>
+                                      <Trash2 className="h-3 w-3" />Delete
                                     </Button>
                                   </>
                                 ) : (
                                   <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                                      onClick={() => openDelete(c)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                      Delete
+                                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => openDelete(c)}>
+                                      <Trash2 className="h-3 w-3" />Delete
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      className="h-7 text-xs gap-1"
-                                      onClick={() => openMaterials(c)}
-                                    >
-                                      Open Materials
-                                      <ExternalLink className="h-3 w-3" />
+                                    <Button size="sm" className="h-7 text-xs gap-1" onClick={() => openMaterials(c)}>
+                                      Open Materials<ExternalLink className="h-3 w-3" />
                                     </Button>
                                   </>
                                 )
                               ) : (
                                 <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                    onClick={() => openDelete(c)}
-                                    title={`Delete ${c.name}`}
-                                  >
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => openDelete(c)} title={`Delete ${c.name}`}>
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                                    onClick={() => setSelectedId(c.id)}
-                                  >
-                                    Select
-                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelectedId(c.id)}>Select</Button>
                                 </>
                               )}
                             </div>
@@ -805,10 +717,101 @@ export default function ManageCPSE() {
                 </table>
               </div>
 
-              {/* Table Footer */}
-              <div className="px-4 py-2.5 bg-muted/20 border-t border-border/40 flex items-center justify-between">
+              {/* ── Mobile Card List (hidden on sm+) ── */}
+              <div className="sm:hidden divide-y divide-border/40">
+                {cpses.map((c: any) => {
+                  const isSelected = selectedId === c.id;
+                  const activeDs = c.active_dataset;
+                  const status = activeDs?.status || 'NO_DATASET';
+                  const hasDataset = !!activeDs;
+                  const materialCount = activeDs?.record_count ?? 0;
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => setSelectedId(isSelected ? null : c.id)}
+                      className={`px-4 py-3.5 transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-primary/5 border-l-2 border-l-primary'
+                          : 'hover:bg-muted/30'
+                      }`}
+                    >
+                      {/* Top row: radio + name + badge */}
+                      <div className="flex items-start gap-3">
+                        <span className={`mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${
+                          isSelected ? 'border-primary bg-primary' : 'border-border bg-transparent'
+                        }`}>
+                          {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-foreground leading-snug">{c.name}</span>
+                            <DatasetStatusBadge status={status} />
+                          </div>
+                          {/* Meta row */}
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            <span className="font-mono text-[11px] text-muted-foreground">{c.code}</span>
+                            <span className="text-[11px] text-muted-foreground">{formatDate(c.created_at)}</span>
+                            {hasDataset && materialCount > 0 && (
+                              <span className="text-[11px] text-muted-foreground">{materialCount} items</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons — only shown when selected */}
+                      {isSelected && (
+                        <div className="mt-3 flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                          {!hasDataset ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs gap-1.5 flex-1"
+                                onClick={() => openUpload(c)}
+                                disabled={uploadMutation.isPending}
+                              >
+                                <Upload className="h-3.5 w-3.5" />Upload Dataset
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={() => openDelete(c)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                className="h-8 text-xs gap-1.5 flex-1"
+                                onClick={() => openMaterials(c)}
+                              >
+                                Open Materials<ExternalLink className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                onClick={() => openDelete(c)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="px-4 py-2.5 bg-muted/20 border-t border-border/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                 <span className="text-xs text-muted-foreground">Total CPSEs registered: {totalCpses}</span>
-                <span className="text-xs text-muted-foreground">Click a row to select the enterprise workspace.</span>
+                <span className="text-xs text-muted-foreground hidden sm:block">Click a row to select the enterprise workspace.</span>
+                <span className="text-xs text-muted-foreground sm:hidden">Tap a row to select it.</span>
               </div>
             </>
           )}
