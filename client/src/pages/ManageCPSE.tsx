@@ -164,6 +164,8 @@ export default function ManageCPSE() {
   const [cpseName, setCpseName] = useState('');
   const [cpseCode, setCpseCode] = useState('');
   const [cpseDesc, setCpseDesc] = useState('');
+  const [createFile, setCreateFile] = useState<File | null>(null);
+  const [isCreatingWithUpload, setIsCreatingWithUpload] = useState(false);
 
   // Upload Dataset state
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -269,14 +271,42 @@ export default function ManageCPSE() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cpseName || !cpseCode) return;
-    createMutation.mutate({
-      name: cpseName.trim(),
-      code: cpseCode.trim().toUpperCase(),
-      description: cpseDesc.trim(),
-    });
+    setIsCreatingWithUpload(true);
+    try {
+      const created = await nmcApi.cpses.create({
+        name: cpseName.trim(),
+        code: cpseCode.trim().toUpperCase(),
+        description: cpseDesc.trim(),
+      });
+      toast.success('CPSE enterprise registered successfully');
+
+      if (createFile && created?.id) {
+        toast.info(`Uploading material dataset for ${created.name}...`);
+        try {
+          const uploadRes = await nmcApi.cpses.uploadDataset(created.id, createFile);
+          toast.success(uploadRes.message || 'Dataset uploaded successfully');
+        } catch (uploadErr: any) {
+          toast.error(uploadErr.message || 'CPSE created, but dataset upload failed');
+        }
+      }
+
+      setCreateOpen(false);
+      setCpseName('');
+      setCpseCode('');
+      setCpseDesc('');
+      setCreateFile(null);
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'cpses-list'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'dashboard-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'materials'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'matching-readiness'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to register CPSE');
+    } finally {
+      setIsCreatingWithUpload(false);
+    }
   };
 
   const handleUploadSubmit = (e: React.FormEvent) => {
@@ -445,19 +475,85 @@ export default function ManageCPSE() {
                       placeholder="Brief description of enterprise domain or plants..."
                       value={cpseDesc}
                       onChange={(e) => setCpseDesc(e.target.value)}
-                      rows={3}
+                      rows={2}
                     />
                   </div>
+
+                  {/* ── Dataset File Upload (Integrated right in form) ── */}
+                  <div className="space-y-2 pt-2 border-t border-border/50">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="create-file-input" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
+                        Initial Material Dataset (Optional)
+                      </Label>
+                      {createFile && (
+                        <button
+                          type="button"
+                          onClick={() => setCreateFile(null)}
+                          className="text-[11px] text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <input
+                        id="create-file-input"
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        className="hidden"
+                        onChange={(e) => setCreateFile(e.target.files?.[0] || null)}
+                      />
+                      <label
+                        htmlFor="create-file-input"
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-border bg-background hover:bg-muted text-foreground rounded-md cursor-pointer transition-colors shadow-2xs shrink-0"
+                      >
+                        <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+                        {createFile ? 'Change File' : 'Choose CSV / Excel'}
+                      </label>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {createFile ? (
+                          <span className="text-foreground font-medium">{createFile.name}</span>
+                        ) : (
+                          'No file chosen (can upload later)'
+                        )}
+                      </span>
+                    </div>
+
+                    {createFile && (
+                      <div className="p-2.5 rounded-lg bg-muted/60 flex items-center gap-2.5 text-xs border border-border/50">
+                        <FileSpreadsheet className="h-4 w-4 text-primary shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-foreground truncate">{createFile.name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {(createFile.size / 1024).toFixed(1)} KB • Auto-uploads & validates with enterprise
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[11px] text-muted-foreground">
+                      Upload a CSV (.csv) or Excel (.xlsx) file with Material Code & Description.
+                    </p>
+                  </div>
+
                   <DialogFooter className="pt-2">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setCreateOpen(false)}
+                      onClick={() => {
+                        setCreateOpen(false);
+                        setCreateFile(null);
+                      }}
+                      disabled={isCreatingWithUpload}
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createMutation.isPending}>
-                      {createMutation.isPending ? 'Registering...' : 'Register CPSE'}
+                    <Button type="submit" disabled={isCreatingWithUpload || !cpseName || !cpseCode}>
+                      {isCreatingWithUpload
+                        ? (createFile ? 'Creating & Uploading...' : 'Registering...')
+                        : (createFile ? 'Register & Upload Dataset' : 'Register CPSE')}
                     </Button>
                   </DialogFooter>
                 </form>
