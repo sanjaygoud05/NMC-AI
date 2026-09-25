@@ -3,15 +3,19 @@ NMC Analytics API — Full Comprehensive Endpoint
 All data derived from real DB tables. No hardcoded values.
 """
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, and_, text
+from sqlalchemy.orm import aliased
 from app.db.nmc_repository import nmc_repo
 from app.api.nmc_auth import verify_reviewer_access
 from app.models.nmc_models import (
     CPSE, Dataset, Material, MaterialMatch,
     NMCCommonMaterial, MaterialMapping, ReviewDecision, AuditLog,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/nmc/analytics", tags=["NMC Analytics"])
 
@@ -149,27 +153,40 @@ def get_full_analytics(role: str = Depends(verify_reviewer_access)):
         ).scalar()
 
         # Cross-CPSE pair relationships
-        pair_rows = s.execute(text("""
-            SELECT c1.code, c2.code, COUNT(*) as match_count,
-                   AVG(mm.final_confidence) as avg_conf
-            FROM material_matches mm
-            JOIN materials src  ON src.id  = mm.source_material_id
-            JOIN materials cand ON cand.id = mm.candidate_material_id
-            JOIN cpsEs c1 ON c1.id = src.cpse_id
-            JOIN cpsEs c2 ON c2.id = cand.cpse_id
-            WHERE src.cpse_id != cand.cpse_id
-            GROUP BY c1.code, c2.code
-            ORDER BY match_count DESC
-        """)).all()
-        cpse_pairs = [
-            {
-                "source_cpse": r[0],
-                "target_cpse": r[1],
-                "match_count": r[2],
-                "avg_confidence": round(r[3] * 100, 1) if r[3] else None,
-            }
-            for r in pair_rows
-        ]
+        SrcMat = aliased(Material)
+        CandMat = aliased(Material)
+        Cpse1 = aliased(CPSE)
+        Cpse2 = aliased(CPSE)
+        try:
+            pair_stmt = (
+                select(
+                    Cpse1.code,
+                    Cpse2.code,
+                    func.count().label("match_count"),
+                    func.avg(MaterialMatch.final_confidence).label("avg_conf"),
+                )
+                .select_from(MaterialMatch)
+                .join(SrcMat, SrcMat.id == MaterialMatch.source_material_id)
+                .join(CandMat, CandMat.id == MaterialMatch.candidate_material_id)
+                .join(Cpse1, Cpse1.id == SrcMat.cpse_id)
+                .join(Cpse2, Cpse2.id == CandMat.cpse_id)
+                .where(SrcMat.cpse_id != CandMat.cpse_id)
+                .group_by(Cpse1.code, Cpse2.code)
+                .order_by(func.count().desc())
+            )
+            pair_rows = s.execute(pair_stmt).all()
+            cpse_pairs = [
+                {
+                    "source_cpse": r[0],
+                    "target_cpse": r[1],
+                    "match_count": r[2],
+                    "avg_confidence": round(r[3] * 100, 1) if r[3] else None,
+                }
+                for r in pair_rows
+            ]
+        except Exception as exc:
+            logger.warning("Error computing cross-CPSE pairs: %s", exc)
+            cpse_pairs = []
 
         # ── ReviewDecisions ────────────────────────────────────────────
         total_decisions = s.execute(select(func.count(ReviewDecision.id))).scalar() or 0
@@ -179,13 +196,18 @@ def get_full_analytics(role: str = Depends(verify_reviewer_access)):
         decisions_by_type = {r[0]: r[1] for r in rd_rows}
 
         # Review trend (daily)
-        trend_rows = s.execute(text("""
-            SELECT date(timestamp) as day, COUNT(*) as count
-            FROM review_decisions
-            GROUP BY day
-            ORDER BY day
-        """)).all()
-        review_trend = [{"date": str(r[0]), "decisions": r[1]} for r in trend_rows]
+        try:
+            day_col = func.date(ReviewDecision.timestamp)
+            trend_stmt = (
+                select(day_col.label("day"), func.count().label("count"))
+                .group_by(day_col)
+                .order_by(day_col)
+            )
+            trend_rows = s.execute(trend_stmt).all()
+            review_trend = [{"date": str(r[0]), "decisions": r[1]} for r in trend_rows]
+        except Exception as exc:
+            logger.warning("Error computing review trend: %s", exc)
+            review_trend = []
 
         # Total reviewable = pending + decided
         total_reviewable = (
@@ -398,28 +420,40 @@ def get_topology_data(role: str = Depends(verify_reviewer_access)):
         cpse_mat = {cpse_lookup.get(r[0], r[0]): r[1] for r in cpse_mat_rows}
 
         # Cross-CPSE match pairs with avg confidence
-        pair_sql = """
-            SELECT c1.code, c2.code, COUNT(DISTINCT mm.id) as pairs,
-                   AVG(mm.final_confidence) as avg_conf
-            FROM material_matches mm
-            JOIN materials src ON src.id = mm.source_material_id
-            JOIN materials cand ON cand.id = mm.candidate_material_id
-            JOIN cpses c1 ON c1.id = src.cpse_id
-            JOIN cpses c2 ON c2.id = cand.cpse_id
-            WHERE src.cpse_id != cand.cpse_id
-            GROUP BY c1.code, c2.code
-            ORDER BY pairs DESC
-        """
-        pair_rows = s.execute(sa_text(pair_sql)).all()
-        cpse_pairs = [
-            {
-                "source": r[0],
-                "target": r[1],
-                "match_count": r[2],
-                "avg_confidence": round(r[3] * 100, 1) if r[3] else None,
-            }
-            for r in pair_rows
-        ]
+        SrcMat = aliased(Material)
+        CandMat = aliased(Material)
+        Cpse1 = aliased(CPSE)
+        Cpse2 = aliased(CPSE)
+        try:
+            pair_stmt = (
+                select(
+                    Cpse1.code,
+                    Cpse2.code,
+                    func.count(func.distinct(MaterialMatch.id)).label("pairs"),
+                    func.avg(MaterialMatch.final_confidence).label("avg_conf"),
+                )
+                .select_from(MaterialMatch)
+                .join(SrcMat, SrcMat.id == MaterialMatch.source_material_id)
+                .join(CandMat, CandMat.id == MaterialMatch.candidate_material_id)
+                .join(Cpse1, Cpse1.id == SrcMat.cpse_id)
+                .join(Cpse2, Cpse2.id == CandMat.cpse_id)
+                .where(SrcMat.cpse_id != CandMat.cpse_id)
+                .group_by(Cpse1.code, Cpse2.code)
+                .order_by(func.count(func.distinct(MaterialMatch.id)).desc())
+            )
+            pair_rows = s.execute(pair_stmt).all()
+            cpse_pairs = [
+                {
+                    "source": r[0],
+                    "target": r[1],
+                    "match_count": r[2],
+                    "avg_confidence": round(r[3] * 100, 1) if r[3] else None,
+                }
+                for r in pair_rows
+            ]
+        except Exception as exc:
+            logger.warning("Error computing topology cross-CPSE pairs: %s", exc)
+            cpse_pairs = []
 
         seen = set()
         unique_pairs = []
@@ -443,22 +477,26 @@ def get_topology_data(role: str = Depends(verify_reviewer_access)):
             reverse=True,
         )
 
-        cmm_sql = """
-            SELECT cmm.national_material_code, cmm.source_cpses,
-                   cmm.canonical_description, cmm.material_family,
-                   AVG(mm.final_confidence) as avg_conf,
-                   COUNT(DISTINCT mp.id) as mapping_count
-            FROM nmc_common_materials cmm
-            LEFT JOIN material_mappings mp ON mp.cmm_id = cmm.id
-            LEFT JOIN material_matches mm ON (
-                mm.source_material_id = mp.material_id
-                OR mm.candidate_material_id = mp.material_id
-            )
-            WHERE cmm.status = 'ACTIVE'
-            GROUP BY cmm.id
-            ORDER BY mapping_count DESC, avg_conf DESC
-        """
-        cmm_detail = s.execute(sa_text(cmm_sql)).all()
+        try:
+            cmm_sql = """
+                SELECT cmm.national_material_code, cmm.source_cpses,
+                       cmm.canonical_description, cmm.material_family,
+                       AVG(mm.final_confidence) as avg_conf,
+                       COUNT(DISTINCT mp.id) as mapping_count
+                FROM nmc_common_materials cmm
+                LEFT JOIN material_mappings mp ON mp.cmm_id = cmm.id
+                LEFT JOIN material_matches mm ON (
+                    mm.source_material_id = mp.material_id
+                    OR mm.candidate_material_id = mp.material_id
+                )
+                WHERE cmm.status = 'ACTIVE'
+                GROUP BY cmm.id, cmm.national_material_code, cmm.source_cpses, cmm.canonical_description, cmm.material_family
+                ORDER BY mapping_count DESC, avg_conf DESC
+            """
+            cmm_detail = s.execute(sa_text(cmm_sql)).all()
+        except Exception as exc:
+            logger.warning("Error fetching cmm_detail in topology: %s", exc)
+            cmm_detail = []
         cmm_list = []
         for r in cmm_detail:
             cpses = _clean_cpses(r[1])
