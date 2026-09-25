@@ -14,12 +14,17 @@ export default function Login() {
   const location = useLocation();
   const { loginAdmin, loginReviewer } = useAuth();
 
+  const locationState = location.state as any;
+  // If coming from the Review Queue gate, auto-open the Reviewer tab
+  const defaultTab = locationState?.tab === 'reviewer' ? 'reviewer' : 'admin';
+  const fromReviewGate = locationState?.tab === 'reviewer';
+
   const [adminPassword, setAdminPassword] = useState('');
   const [reviewerKey, setReviewerKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const adminDestination = (location.state as any)?.from || '/dashboard';
+  const adminDestination = locationState?.from || '/dashboard';
   const reviewerDestination = '/review';
 
   const handleAdminSubmit = async (e: React.FormEvent) => {
@@ -54,6 +59,7 @@ export default function Login() {
     }
   };
 
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-muted/30">
       <div className="w-full max-w-md space-y-6">
@@ -84,7 +90,7 @@ export default function Login() {
               </div>
             )}
 
-            <Tabs defaultValue="admin" className="w-full">
+            <Tabs defaultValue={defaultTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="admin" className="gap-2" onClick={() => setError(null)}>
                   <Shield className="h-3.5 w-3.5" />

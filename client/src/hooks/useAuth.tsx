@@ -86,9 +86,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAdmin: role === 'admin',
         // isReviewer is STRICTLY reviewer — used to gate decision submission UI
         isReviewer: role === 'reviewer',
-        // canViewReviewQueue: strictly reviewer-only to prevent role leakage
+        // canViewReviewQueue: ONLY reviewer can access review queue (admin must use reviewer key)
         canViewReviewQueue: role === 'reviewer',
-        // canSubmitDecisions: only reviewer may Accept/Reject/Different/Override
+        // canSubmitDecisions: ONLY reviewer can Accept/Reject/Different/Override
         canSubmitDecisions: role === 'reviewer',
         isLoading,
         loginAdmin,

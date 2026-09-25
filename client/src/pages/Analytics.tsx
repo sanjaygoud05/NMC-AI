@@ -15,6 +15,7 @@ import {
 import {
   Building2, Database, GitMerge, Layers,
   RotateCw, ArrowRight, Search, ChevronLeft, ChevronRight,
+  Clock, Split, XCircle, CheckCircle2, PieChart as PieIcon, BarChart2,
 } from 'lucide-react';
 
 // ─── Color Palette ────────────────────────────────────────────────────────────
@@ -91,34 +92,60 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 const PieTooltip = ({ active, payload }: any) => {
   if (!active || !payload?.length) return null;
   const slice = payload[0];
-  const name  = slice.name  || slice.payload?.name  || '';
-  const value = Number(slice.value  ?? slice.payload?.value ?? 0);
-  const color = slice.payload?.color || slice.color || slice.fill || '#10b981';
-  const total = slice.payload?._total ?? 0;
-  const pct   = total > 0 ? Math.round((value / total) * 100) : null;
+  const rawItem = slice.payload || {};
+  const name  = rawItem.name || slice.name || '';
+  const value = Number(rawItem.value ?? slice.value ?? 0);
+  const color = rawItem.color || slice.color || slice.fill || '#10b981';
+  const desc  = rawItem.desc || '';
+  const total = rawItem._total || rawItem.payload?._total || 0;
+  const pct   = total > 0 ? ((value / total) * 100).toFixed(1) : (rawItem.pct ?? null);
+
   return (
     <div
       style={{
-        background: 'rgba(15,23,42,0.97)',
-        border: `1.5px solid ${color}66`,
+        background: 'rgba(15,23,42,0.96)',
+        border: `1.5px solid ${color}`,
         borderRadius: 8,
-        padding: '8px 14px',
+        padding: '10px 14px',
         fontSize: 12,
-        minWidth: 160,
-        boxShadow: `0 8px 28px rgba(0,0,0,0.5), 0 0 0 1px ${color}22`,
+        minWidth: 175,
+        boxShadow: `0 10px 30px rgba(0,0,0,0.6), 0 0 16px ${color}33`,
         pointerEvents: 'none',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
-        <span style={{ color: FG_COLOR, fontWeight: 700, fontSize: 13 }}>{name}</span>
-      </div>
-      <div style={{ paddingLeft: 18, fontSize: 12 }}>
-        <span style={{ color: FG_COLOR, fontWeight: 700 }}>{value.toLocaleString()}</span>
-        <span style={{ color: TICK_COLOR }}> pairs</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: color, flexShrink: 0 }} />
+          <span style={{ color: '#ffffff', fontWeight: 700, fontSize: 13 }}>{name}</span>
+        </div>
         {pct !== null && (
-          <span style={{ marginLeft: 6, color, fontWeight: 600 }}>({pct}%)</span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: '2px 7px',
+              borderRadius: 12,
+              background: `${color}25`,
+              color: color,
+              border: `1px solid ${color}55`,
+            }}
+          >
+            {pct}%
+          </span>
         )}
+      </div>
+
+      {desc && (
+        <p style={{ color: '#94a3b8', fontSize: 11, marginBottom: 6, paddingLeft: 15 }}>
+          {desc}
+        </p>
+      )}
+
+      <div style={{ paddingLeft: 15, fontSize: 12, display: 'flex', alignItems: 'baseline', gap: 5 }}>
+        <span style={{ color: '#ffffff', fontWeight: 800, fontSize: 14, fontFamily: 'monospace' }}>
+          {value.toLocaleString()}
+        </span>
+        <span style={{ color: '#94a3b8', fontSize: 11 }}>candidate pairs</span>
       </div>
     </div>
   );
@@ -161,6 +188,15 @@ export default function Analytics() {
     refetchInterval: 30000,
   });
 
+  // ── Review stats for real-time queue synchronization ────────────────────
+  const { data: reviewStats } = useQuery({
+    queryKey: ['nmc', 'review-stats', 'all'],
+    queryFn: () => nmcApi.review.getStats(),
+    refetchInterval: 15000,
+  });
+
+  const [hoveredStatus, setHoveredStatus] = useState<string | null>(null);
+
   const isLoading = fullLoading;
   const isFetching = fullFetching;
 
@@ -193,20 +229,31 @@ export default function Analytics() {
   })();
   const cpseYTicks = [0, Math.round(cpseYMax * 0.25), Math.round(cpseYMax * 0.5), Math.round(cpseYMax * 0.75), cpseYMax];
 
-  // ── Harmonization Status Donut ───────────────────────────────────────────
+  // ── Harmonization Status Breakdown (Pending, Different, Rejected, Accepted) ─
   const harmonizationStatusData = useMemo(() => {
-    if (!d) return [];
     const ms = d?.match_by_status || {};
-    const mc = d?.match_by_category || {};
-    return [
-      { name: 'Potentially Same',      value: mc.POTENTIALLY_SAME || 0,  color: C.amber   },
-      { name: 'Accepted / Harmonized', value: ms.ACCEPTED || 0,          color: C.emerald },
-      { name: 'Different',             value: ms.DIFFERENT || 0,         color: C.indigo  },
-      { name: 'Pending Review',        value: ms.PENDING_REVIEW || 0,    color: C.cyan    },
-    ].filter(item => item.value > 0);
-  }, [d]);
+    const pending   = reviewStats?.pending   ?? (ms.PENDING_REVIEW || 0);
+    const different = reviewStats?.different ?? (ms.DIFFERENT || 0);
+    const rejected  = reviewStats?.rejected  ?? (ms.REJECTED || 0);
+    const accepted  = reviewStats?.mapped    ?? ((ms.ACCEPTED || 0) + (ms.OVERRIDDEN || 0));
+    const total     = pending + different + rejected + accepted;
 
-  const totalStatusCount = harmonizationStatusData.reduce((s, i) => s + i.value, 0);
+    return [
+      { name: 'Pending',   value: pending,   color: '#0284c7', icon: Clock,        desc: 'Awaiting reviewer decision',  _total: total },
+      { name: 'Different', value: different, color: '#8b5cf6', icon: Split,        desc: 'Marked as distinct items',    _total: total },
+      { name: 'Rejected',  value: rejected,  color: '#f43f5e', icon: XCircle,      desc: 'Candidate match rejected',    _total: total },
+      { name: 'Accepted',  value: accepted,  color: '#10b981', icon: CheckCircle2, desc: 'Verified & harmonized NMC',  _total: total },
+    ];
+  }, [d, reviewStats]);
+
+  const totalStatusCount = useMemo(() => {
+    return harmonizationStatusData.reduce((s, i) => s + i.value, 0);
+  }, [harmonizationStatusData]);
+
+  const activeStatusItem = useMemo(() => {
+    if (!hoveredStatus) return null;
+    return harmonizationStatusData.find(item => item.name === hoveredStatus) || null;
+  }, [hoveredStatus, harmonizationStatusData]);
 
   // ── AI Confidence Distribution ───────────────────────────────────────────
   const confidenceData = useMemo(() => {
@@ -444,122 +491,179 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          {/* Right: Harmonization Status — Radar Chart */}
+          {/* Right: Harmonization Status — Interactive Graph (Donut / Bar) */}
           <Card className="border-border/60">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-bold text-foreground">Harmonization Status</CardTitle>
-              <CardDescription className="text-xs">
-                Candidate pair evaluation and review status breakdown
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold text-foreground">Harmonization Status</CardTitle>
+                  <CardDescription className="text-xs">
+                    Candidate evaluation across Pending, Different, Rejected, and Accepted
+                  </CardDescription>
+                </div>
+                {totalStatusCount > 0 && (
+                  <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground border border-border/50">
+                    {totalStatusCount.toLocaleString()} Total Pairs
+                  </span>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-4 pt-2">
               {isLoading ? (
                 <Spinner color="text-emerald-500" />
-              ) : harmonizationStatusData.length === 0 ? (
-                <div className="flex items-center justify-center h-44 text-xs text-muted-foreground">
-                  No harmonization status data. Run AI matching first.
+              ) : totalStatusCount === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-center p-4">
+                  <div className="h-10 w-10 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+                    <GitMerge className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <p className="text-xs font-semibold text-foreground">No candidate pairs evaluated yet</p>
+                  <p className="text-[11px] text-muted-foreground max-w-xs mt-1">
+                    Upload CPSE datasets and run the AI Matching Engine to populate Pending candidates.
+                  </p>
                 </div>
-              ) : (() => {
-                const radarData = harmonizationStatusData.map(item => ({
-                  status: item.name,
-                  pct: totalStatusCount > 0 ? parseFloat(((item.value / totalStatusCount) * 100).toFixed(1)) : 0,
-                  count: item.value,
-                  color: item.color,
-                }));
-                return (
-                  <div className="space-y-4">
-                    <div className="h-[220px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart data={radarData} margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
-                          <PolarGrid stroke="rgba(148,163,184,0.15)" strokeDasharray="3 3" />
-                          <PolarAngleAxis
-                            dataKey="status"
-                            tick={({ x, y, payload, textAnchor }: any) => {
-                              const words = (payload.value as string).split(' ');
-                              const lines: string[] = [];
-                              for (let i = 0; i < words.length; i += 2) {
-                                lines.push(words.slice(i, i + 2).join(' '));
-                              }
-                              return (
-                                <g>
-                                  {lines.map((line: string, i: number) => (
-                                    <text
-                                      key={i}
-                                      x={x}
-                                      y={y + i * 12}
-                                      textAnchor={textAnchor}
-                                      fontSize={10}
-                                      fontWeight={600}
-                                      fill="#94a3b8"
-                                    >
-                                      {line}
-                                    </text>
-                                  ))}
-                                </g>
-                              );
-                            }}
-                          />
-                          <PolarRadiusAxis
-                            angle={30}
-                            domain={[0, 100]}
-                            tick={{ fontSize: 9, fill: '#64748b' }}
-                            tickCount={4}
-                            tickFormatter={(v: number) => `${v}%`}
-                            axisLine={false}
-                          />
-                          <Radar
-                            name="Share"
-                            dataKey="pct"
-                            stroke="#6366f1"
-                            fill="#6366f1"
-                            fillOpacity={0.3}
-                            strokeWidth={2.5}
-                            dot={{ r: 4, fill: '#6366f1', strokeWidth: 0 } as any}
-                            activeDot={{ r: 6, fill: '#818cf8', strokeWidth: 0 } as any}
-                          />
-                          <Tooltip
-                            cursor={false}
-                            content={({ active, payload }: any) => {
-                              if (!active || !payload?.length) return null;
-                              const p = payload[0].payload;
-                              return (
-                                <div style={{
-                                  background: 'rgba(9,9,11,0.96)',
-                                  border: '1px solid rgba(99,102,241,0.45)',
-                                  borderRadius: 8,
-                                  padding: '10px 14px',
-                                  fontSize: 12,
-                                  minWidth: 160,
-                                }}>
-                                  <p className="font-bold text-foreground mb-1">{p.status}</p>
-                                  <p className="text-muted-foreground">
-                                    Count: <span className="font-bold text-foreground">{p.count.toLocaleString()}</span>
-                                  </p>
-                                  <p className="text-indigo-400 font-semibold">
-                                    Share: {p.pct}%
-                                  </p>
-                                </div>
-                              );
-                            }}
-                          />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    {/* Legend rows */}
-                    <div className="space-y-1.5 border-t border-border/40 pt-3">
-                      {radarData.map((item) => (
-                        <div key={item.status} className="flex items-center gap-2.5 text-xs">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                          <span className="text-foreground font-medium flex-1 truncate">{item.status}</span>
-                          <span className="tabular-nums font-bold text-foreground">{item.count.toLocaleString()}</span>
-                          <span className="tabular-nums text-muted-foreground w-11 text-right">{item.pct}%</span>
+              ) : (
+                <div className="space-y-4">
+                  {/* Donut Chart */}
+                  <div className="h-[190px] w-full relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={harmonizationStatusData.filter(x => x.value > 0)}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={58}
+                          outerRadius={84}
+                          paddingAngle={3}
+                          dataKey="value"
+                          nameKey="name"
+                          onMouseEnter={(entry: any) => {
+                            const n = entry?.name || entry?.payload?.name;
+                            if (n) setHoveredStatus(n);
+                          }}
+                          onMouseLeave={() => setHoveredStatus(null)}
+                        >
+                          {harmonizationStatusData.filter(x => x.value > 0).map((entry) => (
+                            <Cell
+                              key={entry.name}
+                              fill={entry.color}
+                              stroke={hoveredStatus === entry.name ? '#ffffff' : 'transparent'}
+                              strokeWidth={hoveredStatus === entry.name ? 2.5 : 0}
+                              className="cursor-pointer transition-all duration-200"
+                              onMouseEnter={() => setHoveredStatus(entry.name)}
+                              onMouseLeave={() => setHoveredStatus(null)}
+                            />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    {/* Center Stats Display */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      {activeStatusItem ? (
+                        <div className="text-center animate-in fade-in zoom-in-95 duration-150">
+                          <span className="text-xl font-black text-foreground font-mono block leading-none">
+                            {activeStatusItem.value.toLocaleString()}
+                          </span>
+                          <span
+                            className="text-xs font-bold block mt-1.5"
+                            style={{ color: activeStatusItem.color }}
+                          >
+                            {activeStatusItem.name}
+                          </span>
+                          <span className="text-[11px] font-semibold text-muted-foreground block font-mono mt-0.5">
+                            {totalStatusCount > 0
+                              ? ((activeStatusItem.value / totalStatusCount) * 100).toFixed(1)
+                              : 0}% of pairs
+                          </span>
                         </div>
-                      ))}
+                      ) : (
+                        <div className="text-center">
+                          <span className="text-xl font-black text-foreground font-mono block leading-none">
+                            {totalStatusCount.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground block mt-1.5 tracking-wider">
+                            Total Pairs
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/70 block mt-0.5">
+                            Hover to inspect
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              })()}
+
+                  {/* 4 Status Breakdown Cards: Pending, Different, Rejected, Accepted */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    {harmonizationStatusData.map((item) => {
+                      const Icon = item.icon;
+                      const pct = totalStatusCount > 0
+                        ? ((item.value / totalStatusCount) * 100).toFixed(1)
+                        : '0.0';
+                      const isHovered = hoveredStatus === item.name;
+                      return (
+                        <div
+                          key={item.name}
+                          onMouseEnter={() => setHoveredStatus(item.name)}
+                          onMouseLeave={() => setHoveredStatus(null)}
+                          className={`rounded-lg border p-2.5 transition-all duration-200 cursor-pointer ${
+                            isHovered
+                              ? 'border-foreground/50 shadow-sm bg-muted/40'
+                              : 'border-border/60 bg-muted/15 hover:border-border'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="h-2 w-2 rounded-full shrink-0"
+                                style={{ backgroundColor: item.color }}
+                              />
+                              <span className="text-xs font-semibold text-foreground">{item.name}</span>
+                            </div>
+                            <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />
+                          </div>
+                          <div className="flex items-baseline justify-between mt-1">
+                            <span className="text-base font-bold font-mono text-foreground tabular-nums">
+                              {item.value.toLocaleString()}
+                            </span>
+                            <span
+                              className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full"
+                              style={{
+                                backgroundColor: item.color + '1a',
+                                color: item.color,
+                                border: `1px solid ${item.color}33`,
+                              }}
+                            >
+                              {pct}%
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Footer Linear Distribution Strip & Summary */}
+                  <div className="space-y-1.5 pt-1 border-t border-border/40">
+                    <div className="flex h-2 w-full rounded-full overflow-hidden gap-[2px] bg-muted/40">
+                      {harmonizationStatusData.map((item) => {
+                        const pct = totalStatusCount > 0 ? (item.value / totalStatusCount) * 100 : 0;
+                        return pct > 0 ? (
+                          <div
+                            key={item.name}
+                            title={`${item.name}: ${pct.toFixed(1)}%`}
+                            className="h-full first:rounded-l-full last:rounded-r-full transition-all"
+                            style={{ width: `${pct}%`, backgroundColor: item.color }}
+                          />
+                        ) : null;
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>Total evaluated candidate pairs</span>
+                      <span className="font-bold text-foreground tabular-nums">
+                        {totalStatusCount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

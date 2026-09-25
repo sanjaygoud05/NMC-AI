@@ -381,7 +381,7 @@ export function CpseTopologySection({ data, isLoading }: Props) {
                 Each outer node represents an interconnected public sector enterprise contributing raw material master records.
               </p>
               <p>
-                The central core represents the <strong className="text-foreground">Common National Material Master (CMM)</strong> canonical catalog created through semantic AI clustering and cross-CPSE deduplication.
+                The central core represents the <strong className="text-foreground">Common National Material Master</strong> canonical catalog created through semantic AI clustering and cross-CPSE deduplication.
               </p>
               <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium">
                 Standardization rate is trending upwards by 18.4% across mechanical & piping categories.

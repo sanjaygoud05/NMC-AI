@@ -32,6 +32,7 @@ import {
   Cpu,
   Sparkles,
   ArrowRight,
+  Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -340,11 +341,10 @@ export default function ManageCPSE() {
               {readiness && (
                 <Badge
                   variant="outline"
-                  className={`text-xs gap-1.5 px-2.5 py-0.5 font-normal transition-colors ${
-                    allReady
+                  className={`text-xs gap-1.5 px-2.5 py-0.5 font-normal transition-colors ${allReady
                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                       : 'bg-muted/70 text-muted-foreground border-border/80 hover:bg-muted'
-                  }`}
+                    }`}
                 >
                   {allReady ? (
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
@@ -389,25 +389,25 @@ export default function ManageCPSE() {
               )}
             </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs gap-1.5"
-                onClick={handleRefresh}
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Refresh
-              </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={handleRefresh}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
 
-              {/* Add CPSE dialog trigger */}
-              <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" variant="default" className="h-8 text-xs gap-1.5">
-                    <Plus className="h-3.5 w-3.5" />
-                    Add CPSE
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
+            {/* Add CPSE dialog trigger */}
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="default" className="h-8 text-xs gap-1.5">
+                  <Plus className="h-3.5 w-3.5" />
+                  Add CPSE
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Register CPSE Enterprise</DialogTitle>
                   <DialogDescription>
@@ -502,25 +502,49 @@ export default function ManageCPSE() {
 
         {/* ── Upload Dataset Dialog ── */}
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-          <DialogContent>
-            <DialogHeader className="space-y-2">
-              <DialogTitle>
-                {targetCpse?.active_dataset ? 'Replace Dataset' : 'Upload Dataset'} for{' '}
-                {targetCpse?.name}
+          <DialogContent className="max-w-lg">
+            <DialogHeader className="space-y-3 pb-1">
+              {/* Enterprise Indicator Pill */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs font-semibold font-mono">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {targetCpse?.code || 'CPSE'}
+                </span>
+                <span className="text-xs font-medium text-muted-foreground truncate max-w-[340px]">
+                  {targetCpse?.name}
+                </span>
+              </div>
+
+              {/* Clean, Simple Dialog Title */}
+              <DialogTitle className="text-lg font-heading font-semibold tracking-tight text-foreground">
+                {targetCpse?.active_dataset ? 'Replace Material Dataset' : 'Upload Material Dataset'}
               </DialogTitle>
-              <DialogDescription className="space-y-1.5 text-xs text-muted-foreground pt-1">
-                <p>Upload a CSV (.csv) or Excel (.xlsx) file.</p>
-                <p className="font-medium text-foreground/90">
-                  Required columns: Material Code and Description.
+
+              {/* Description with clear margins down between sentences */}
+              <DialogDescription className="text-xs text-muted-foreground pt-1">
+                <p className="leading-relaxed mb-3">
+                  Upload an enterprise material catalog file to ingest and harmonize records across Central Public Sector Enterprises.
                 </p>
+
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/70 mb-3 space-y-2">
+                  <p className="font-medium text-foreground text-xs leading-relaxed mb-2 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                    <span>
+                      Required columns: <strong className="text-foreground font-mono">Material Code</strong> and <strong className="text-foreground font-mono">Description</strong>
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed pl-6">
+                    Optional attributes (Grade, Specification, Size, Unit, Unit Price, and Plant) will be automatically detected and mapped.
+                  </p>
+                </div>
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleUploadSubmit} className="space-y-4 pt-3 pb-2">
-              <div className="space-y-2.5">
-                <Label htmlFor="file-input" className="text-xs font-medium">Select File</Label>
+            <form onSubmit={handleUploadSubmit} className="space-y-4 pt-2 pb-2">
+              <div className="space-y-3">
+                <Label htmlFor="file-input" className="text-xs font-medium">Select Material Master File</Label>
 
-                {/* Only 'Choose File' button — no browser default 'No file chosen' text */}
+                {/* File picker button and selected file display */}
                 <div className="flex items-center gap-3">
                   <input
                     id="file-input"
@@ -537,16 +561,25 @@ export default function ManageCPSE() {
                     <Upload className="h-3.5 w-3.5 text-muted-foreground" />
                     Choose File
                   </label>
-                  {selectedFile && (
-                    <span className="text-xs text-foreground font-medium truncate max-w-[220px]">
+                  {selectedFile ? (
+                    <span className="text-xs text-foreground font-medium truncate max-w-[240px]">
                       {selectedFile.name}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">
+                      No file selected yet
                     </span>
                   )}
                 </div>
 
-                <p className="text-xs text-muted-foreground pt-1">
-                  Accepted formats: CSV, XLSX. Duplicate records will be pruned automatically.
-                </p>
+                <div className="pt-1.5 space-y-1.5 text-xs text-muted-foreground border-t border-border/40">
+                  <p className="leading-relaxed mb-2">
+                    Accepted formats: <span className="font-semibold text-foreground">CSV (.csv)</span> or <span className="font-semibold text-foreground">Excel (.xlsx, .xls)</span>.
+                  </p>
+                  <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+                    Duplicate item records and empty descriptions are automatically reconciled during schema validation.
+                  </p>
+                </div>
               </div>
 
               {selectedFile && (
@@ -660,8 +693,8 @@ export default function ManageCPSE() {
                           key={c.id}
                           onClick={() => setSelectedId(isSelected ? null : c.id)}
                           className={`cursor-pointer transition-colors select-none ${isSelected
-                              ? 'bg-primary/5 border-l-2 border-l-primary'
-                              : 'hover:bg-muted/30'
+                            ? 'bg-primary/5 border-l-2 border-l-primary'
+                            : 'hover:bg-muted/30'
                             }`}
                         >
                           {/* # — radio indicator */}

@@ -42,10 +42,10 @@
     --border-hover: 210 15% 70%;
 
     --radius: 0;
-    
+
     /* Dot pattern - subtle on light */
     --dot-pattern: 0 0% 0% / 4%;
-    
+
     /* CTA accent color - Blue 500 */
     --cta: 217 91% 60%;
     --cta-foreground: 0 0% 100%;
@@ -101,11 +101,11 @@
     --input: 0 0% 14%;
     --ring: 160 60% 50%;
     --border-hover: 0 1% 28%;
-    
+
     /* CTA accent color - Blue 500 (same in dark mode) */
     --cta: 217 91% 60%;
     --cta-foreground: 0 0% 100%;
-    
+
     /* Dot pattern - subtle on dark */
     --dot-pattern: 0 0% 100% / 5%;
 
@@ -165,10 +165,21 @@
     @apply animate-fade-up;
   }
 
-  .stagger-1 { animation-delay: 50ms; }
-  .stagger-2 { animation-delay: 100ms; }
-  .stagger-3 { animation-delay: 150ms; }
-  .stagger-4 { animation-delay: 200ms; }
+  .stagger-1 {
+    animation-delay: 50ms;
+  }
+
+  .stagger-2 {
+    animation-delay: 100ms;
+  }
+
+  .stagger-3 {
+    animation-delay: 150ms;
+  }
+
+  .stagger-4 {
+    animation-delay: 200ms;
+  }
 
   /* Skeleton loading */
   .skeleton {
@@ -266,6 +277,7 @@
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -277,6 +289,7 @@
     opacity: 0;
     transform: translateX(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -292,6 +305,7 @@
   .xs\:inline {
     display: inline;
   }
+
   .xs\:hidden {
     display: none;
   }
@@ -428,14 +442,16 @@
 /* ============================================
    Mobile & Responsive Enhancements
    ============================================ */
-html, body {
+html,
+body {
   overflow-x: hidden;
   max-width: 100vw;
   -webkit-tap-highlight-color: transparent;
 }
 
 /* Smooth momentum scrolling on iOS/mobile devices */
-.overflow-x-auto, .overflow-y-auto {
+.overflow-x-auto,
+.overflow-y-auto {
   -webkit-overflow-scrolling: touch;
 }
 
@@ -443,14 +459,16 @@ html, body {
 .overflow-x-auto::-webkit-scrollbar {
   height: 6px;
 }
+
 .overflow-x-auto::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .overflow-x-auto::-webkit-scrollbar-thumb {
   background: hsl(var(--border) / 0.7);
   border-radius: 9999px;
 }
+
 .overflow-x-auto::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--border));
 }
-

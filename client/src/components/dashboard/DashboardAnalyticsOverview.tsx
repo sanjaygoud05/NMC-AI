@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, TrendingUp, Clock, BarChart3, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { nmcApi } from '@/services/nmcApi';
 import {
   ResponsiveContainer,
   PieChart,
@@ -91,14 +93,34 @@ export function DashboardAnalyticsOverview({
     return [];
   }, [cpseAnalytics, cpses, totalMaterials]);
 
-  // ─── 2. Candidate Distribution Data (Proportioned so all bars are clearly visible) ───
+  // ─── 2. Review Status Distribution (Pending, Different, Rejected, Accepted) ───
+  const { data: reviewStats } = useQuery({
+    queryKey: ['nmc', 'review-stats', 'all'],
+    queryFn: () => nmcApi.review.getStats(),
+    refetchInterval: 15000,
+  });
+
+  const pendingCount = reviewStats?.pending ?? metrics?.pending_reviews ?? metrics?.needs_review_matches ?? 0;
+  const differentCount = reviewStats?.different ?? metrics?.disqualified_matches ?? 0;
+  const rejectedCount = reviewStats?.rejected ?? 0;
+  const acceptedCount = reviewStats?.mapped ?? metrics?.mapped_materials ?? 0;
+  const totalCandidatePairs = pendingCount + differentCount + rejectedCount + acceptedCount;
+
   const candidateDistributionData = [
-    { name: 'Exact Match',  count: 7850,  fill: '#10b981' },
-    { name: 'Equivalent',   count: 10200, fill: '#3b82f6' },
-    { name: 'Needs Review', count: 12450, fill: '#f59e0b' },
-    { name: 'Disqualified', count: 35500, fill: '#475569' },
+    { name: 'Pending',   count: pendingCount,   fill: '#0284c7' },
+    { name: 'Different', count: differentCount, fill: '#8b5cf6' },
+    { name: 'Rejected',  count: rejectedCount,  fill: '#f43f5e' },
+    { name: 'Accepted',  count: acceptedCount,  fill: '#10b981' },
   ];
-  const totalCandidatePairs = 66000;
+
+  const maxCandidateVal = Math.max(...candidateDistributionData.map(c => c.count), 1);
+  const candidateYMax = (() => {
+    const ceil = maxCandidateVal * 1.35;
+    if (ceil <= 10) return 10;
+    const mag = Math.pow(10, Math.floor(Math.log10(ceil)));
+    return Math.ceil(ceil / mag) * mag;
+  })();
+  const candidateYTicks = [0, Math.round(candidateYMax * 0.25), Math.round(candidateYMax * 0.5), Math.round(candidateYMax * 0.75), candidateYMax];
 
   // ─── 3. Real Harmonization Progress Percentages ─────────────────────────────
   const standardizedCount = metrics?.standardized_records ?? metrics?.normalized_materials ?? 0;
@@ -110,6 +132,7 @@ export function DashboardAnalyticsOverview({
   const qualityScorePct = metrics?.data_quality_score ?? 0;
 
   // Custom Recharts Bar Tooltip
+  // Custom Recharts Bar Tooltip
   const CustomBarTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
@@ -117,6 +140,23 @@ export function DashboardAnalyticsOverview({
         <p className="font-semibold text-foreground">{label}</p>
         <p className="text-muted-foreground mt-0.5">
           Count: <span className="font-mono font-bold text-foreground">{payload[0].value.toLocaleString()}</span> pairs
+        </p>
+      </div>
+    );
+  };
+
+  // Custom Recharts Pie Tooltip
+  const CustomPieTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const item = payload[0]?.payload || {};
+    return (
+      <div className="bg-popover/95 dark:bg-zinc-900/95 border border-border dark:border-zinc-800 rounded-md px-3 py-2 text-xs shadow-xl backdrop-blur-xs">
+        <div className="flex items-center gap-1.5 font-semibold text-foreground">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+          <span>{item.fullName || item.name}</span>
+        </div>
+        <p className="text-muted-foreground mt-1 text-[11px]">
+          Materials: <span className="font-mono font-bold text-foreground">{Number(item.count).toLocaleString()}</span> ({item.pct})
         </p>
       </div>
     );
@@ -444,13 +484,13 @@ export function DashboardAnalyticsOverview({
           </div>
         </div>
 
-        {/* 4. Harmonization Candidate Distribution Card */}
+        {/* 4. Harmonization Review Status Distribution Card */}
         <div className="bg-card dark:bg-black border border-border dark:border-zinc-800/90 rounded-lg p-5 hover:border-foreground/20 dark:hover:border-zinc-700/80 transition-colors shadow-xs">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-emerald-400 stroke-[2]" />
               <span className="text-sm font-semibold text-foreground font-sans">
-                Harmonization Candidate Distribution
+                Harmonization Review Status
               </span>
             </div>
             <Badge
@@ -461,10 +501,10 @@ export function DashboardAnalyticsOverview({
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Candidate relationships categorized by AI match confidence tiers
+            Candidate pairs evaluated across Pending, Different, Rejected, and Accepted
           </p>
 
-          <div className="mt-4 h-[210px] w-full">
+          <div className="mt-4 h-[190px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={candidateDistributionData}
@@ -484,8 +524,8 @@ export function DashboardAnalyticsOverview({
                   axisLine={{ stroke: '#27272a' }}
                 />
                 <YAxis
-                  ticks={[0, 10000, 20000, 30000, 40000]}
-                  domain={[0, 40000]}
+                  ticks={candidateYTicks}
+                  domain={[0, candidateYMax]}
                   stroke="#71717a"
                   fontSize={11}
                   tickLine={false}
@@ -495,8 +535,8 @@ export function DashboardAnalyticsOverview({
                 <Tooltip cursor={false} content={<CustomBarTooltip />} />
                 <Bar
                   dataKey="count"
-                  radius={[3, 3, 0, 0]}
-                  maxBarSize={62}
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={54}
                 >
                   {candidateDistributionData.map((entry, index) => (
                     <Cell key={`bar-${index}`} fill={entry.fill} />
@@ -504,6 +544,27 @@ export function DashboardAnalyticsOverview({
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* 4 Status Pills */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-border/40 mt-3 text-xs">
+            {candidateDistributionData.map((item) => {
+              const pct = totalCandidatePairs > 0
+                ? ((item.count / totalCandidatePairs) * 100).toFixed(1)
+                : '0.0';
+              return (
+                <div key={item.name} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.fill }} />
+                    <span className="text-[11px] text-muted-foreground font-medium">{item.name}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5 pl-3.5">
+                    <span className="font-bold text-foreground font-mono">{item.count.toLocaleString()}</span>
+                    <span className="text-[10px] text-muted-foreground">({pct}%)</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

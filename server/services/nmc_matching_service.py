@@ -186,9 +186,10 @@ def run_cross_cpse_matching() -> Dict[str, Any]:
             "final_confidence": float(score),
             "confidence_label": conf_label,
             "match_category": category,
-            "status": "DIFFERENT" if category == "DIFFERENT" else "PENDING_REVIEW",
+            "status": "PENDING_REVIEW",  # Always PENDING — only reviewer decisions move status
             "explanation": explanation,
         })
+
 
     # Bulk insert
     inserted_count = 0

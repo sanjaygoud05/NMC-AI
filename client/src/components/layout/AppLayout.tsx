@@ -94,7 +94,7 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
                     </Button>
                   </Link>
                 )}
-                <Link to="/login" state={{ from: location.pathname }}>
+                <Link to="/login" state={{ from: location.pathname, tab: 'reviewer' }}>
                   <Button className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
                     Enter Reviewer Key
                   </Button>
@@ -106,6 +106,7 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
       </SidebarProvider>
     );
   }
+
 
   return (
     <SidebarProvider>

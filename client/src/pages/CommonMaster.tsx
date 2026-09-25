@@ -96,7 +96,7 @@ export default function CommonMaster() {
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Common Material Master (CMM)</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Common Material Master</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Harmonized National Material Code registry — single source of truth across CPSEs.</p>
         </div>
 

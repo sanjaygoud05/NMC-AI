@@ -179,7 +179,7 @@ export const nmcApi = {
     getStats: (cpse_id?: string) => {
       const sp = new URLSearchParams();
       if (cpse_id) sp.set('cpse_id', cpse_id);
-      return request<{ pending: number; different: number; mapped: number }>(
+      return request<{ pending: number; different: number; mapped: number; rejected?: number }>(
         `/api/nmc/review/stats?${sp.toString()}`
       );
     },
@@ -187,6 +187,7 @@ export const nmcApi = {
       cpse_id?: string;
       status?: string;
       match_category?: string;
+      confidence_label?: string;
       page?: number;
       page_size?: number;
     }) => {
@@ -194,6 +195,7 @@ export const nmcApi = {
       if (params.cpse_id) sp.set('cpse_id', params.cpse_id);
       if (params.status) sp.set('status', params.status);
       if (params.match_category) sp.set('match_category', params.match_category);
+      if (params.confidence_label) sp.set('confidence_label', params.confidence_label);
       if (params.page) sp.set('page', params.page.toString());
       if (params.page_size) sp.set('page_size', params.page_size.toString());
       return request<{

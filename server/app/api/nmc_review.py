@@ -39,6 +39,7 @@ def get_review_queue(
     cpse_id: Optional[str] = Query(None, description="CPSE filter for review queue"),
     status: Optional[str] = Query("PENDING_REVIEW", description="Match status filter (comma-separated for multiple)"),
     match_category: Optional[str] = Query(None, description="Match category filter"),
+    confidence_label: Optional[str] = Query(None, description="Confidence tier filter: HIGH, MEDIUM, LOW"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     role: str = Depends(verify_reviewer_access),
@@ -51,6 +52,7 @@ def get_review_queue(
         cpse_id=cpse_id,
         match_category=match_category,
         status=status,
+        confidence_label=confidence_label,
         page=page,
         page_size=page_size,
     )

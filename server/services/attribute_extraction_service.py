@@ -340,6 +340,9 @@ class AttributeExtractionService:
         if not _is_null(unit_f):
             _set("unit", unit_f, "structured_field", "high", "UNIT_FROM_FIELD")
 
+        if not _is_null(spec_raw):
+            _set("specification", spec_raw, "structured_field", "high", "SPEC_FROM_FIELD")
+
         # ══════════════════════════════════════════════
         # STEP 2: Material Family from Category field
         # ══════════════════════════════════════════════
