@@ -717,8 +717,98 @@ export default function Review() {
           </Card>
         ) : (
           <>
-            {/* ── Toolbar: tabs scrollable LEFT + filters pinned RIGHT, all on one row ── */}
-            <div className="flex items-center gap-2 w-full min-w-0">
+            {/* ── Mobile Toolbar: Dropdown for Queue Status + Filters ── */}
+            <div className="flex md:hidden flex-col gap-2 w-full">
+              <div className="flex items-center gap-2 w-full">
+                {/* Mobile Queue Status Dropdown */}
+                <div className="flex-1 min-w-0">
+                  <Select
+                    value={activeTab}
+                    onValueChange={(val: any) => {
+                      setActiveTab(val);
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-9 text-xs font-medium bg-card">
+                      <SelectValue placeholder="Queue Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending" className="text-xs">
+                        Pending {pendingCount > 0 ? `(${pendingCount > 9999 ? '9999+' : pendingCount})` : ''}
+                      </SelectItem>
+                      {!isAdmin && (
+                        <SelectItem value="alerts" className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                          Action Alerts {alertsCount > 0 ? `(${alertsCount > 9999 ? '9999+' : alertsCount})` : ''}
+                        </SelectItem>
+                      )}
+                      <SelectItem value="awaiting_peer" className="text-xs">
+                        Awaiting Peer {awaitingPeerCount > 0 ? `(${awaitingPeerCount > 9999 ? '9999+' : awaitingPeerCount})` : ''}
+                      </SelectItem>
+                      <SelectItem value="mapped" className="text-xs">
+                        All Mapped {mappedCount > 0 ? `(${mappedCount > 9999 ? '9999+' : mappedCount})` : ''}
+                      </SelectItem>
+                      <SelectItem value="different" className="text-xs">
+                        Different {differentCount > 0 ? `(${differentCount > 9999 ? '9999+' : differentCount})` : ''}
+                      </SelectItem>
+                      <SelectItem value="rejected" className="text-xs text-rose-600 dark:text-rose-400">
+                        Rejected {rejectedCount > 0 ? `(${rejectedCount > 9999 ? '9999+' : rejectedCount})` : ''}
+                      </SelectItem>
+                      {isAdmin && (
+                        <SelectItem value="conflicts" className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                          Conflicts {conflictsCount > 0 ? `(${conflictsCount > 9999 ? '9999+' : conflictsCount})` : ''}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Mobile Confidence filter on Pending */}
+                {activeTab === 'pending' && (
+                  <div className="w-[125px] shrink-0">
+                    <Select
+                      value={confFilter}
+                      onValueChange={(val) => { setConfFilter(val); setPage(1); }}
+                    >
+                      <SelectTrigger className="w-full h-9 text-xs">
+                        <SelectValue placeholder="Confidence" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONF_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Mobile CPSE Selector for Admin */}
+                {isAdmin && (
+                  <div className="w-[110px] shrink-0">
+                    <Select
+                      value={selectedCpse}
+                      onValueChange={(val) => { setSelectedCpse(val); setPage(1); }}
+                    >
+                      <SelectTrigger className="w-full h-9 text-xs truncate">
+                        <SelectValue placeholder="CPSE" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL" className="text-xs">All CPSEs</SelectItem>
+                        {cpses?.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id} className="text-xs">
+                            {c.code}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Desktop Toolbar: tabs scrollable LEFT + filters pinned RIGHT ── */}
+            <div className="hidden md:flex items-center gap-2 w-full min-w-0">
 
               {/* LEFT: Tabs — scroll horizontally, take remaining width */}
               <div className="flex-1 overflow-x-auto pb-0.5 scrollbar-none min-w-0">

@@ -401,11 +401,27 @@ function InvDonut({ s }: { s: any }) {
 function StatusBadge({ label }: { label: string }) {
   if (!label) return null;
   const l = label.toLowerCase();
+  if (l.includes('consolidation') || l.includes('potential')) {
+    return (
+      <Badge className="text-[10px] px-2 py-0.5 whitespace-nowrap bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-medium">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 shrink-0" />
+        Consolidation Opp.
+      </Badge>
+    );
+  }
   if (l.includes('multi'))
-    return <Badge className="text-[10px] px-2 py-0 bg-blue-500/10 text-blue-400 border border-blue-500/30">Multi-CPSE</Badge>;
+    return <Badge className="text-[10px] px-2 py-0.5 whitespace-nowrap bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/30">Multi-CPSE</Badge>;
   if (l.includes('single'))
-    return <Badge className="text-[10px] px-2 py-0 bg-zinc-800 text-zinc-400 border border-zinc-700">Single-CPSE</Badge>;
-  return <Badge variant="outline" className="text-[10px] px-2 py-0">{label}</Badge>;
+    return <Badge className="text-[10px] px-2 py-0.5 whitespace-nowrap bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border border-zinc-500/30">Single CPSE</Badge>;
+  if (l.includes('no available') || l.includes('no stock'))
+    return <Badge variant="outline" className="text-[10px] px-2 py-0.5 whitespace-nowrap text-muted-foreground border-border/60">No Stock</Badge>;
+  if (l.includes('high'))
+    return <Badge className="text-[10px] px-2 py-0.5 whitespace-nowrap bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">High Potential</Badge>;
+  if (l.includes('medium'))
+    return <Badge className="text-[10px] px-2 py-0.5 whitespace-nowrap bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">Medium Potential</Badge>;
+  if (l.includes('low'))
+    return <Badge className="text-[10px] px-2 py-0.5 whitespace-nowrap bg-zinc-500/10 text-zinc-500 border border-zinc-500/30">Low Potential</Badge>;
+  return <Badge variant="outline" className="text-[10px] px-2 py-0.5 whitespace-nowrap">{label}</Badge>;
 }
 
 // ── View Modal (inventory detail) ─────────────────────────────────────────────
@@ -899,7 +915,7 @@ function InventoryTab({ filters }: { filters: any }) {
             : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[700px]">
                     <thead>
                       <tr className="border-b border-border bg-muted/20 dark:bg-zinc-900/40 text-muted-foreground">
                         <th className="text-left px-4 py-2.5 font-semibold whitespace-nowrap">NMC</th>
@@ -923,7 +939,7 @@ function InventoryTab({ filters }: { filters: any }) {
                           <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{fmt(row.total_on_hand)}</td>
                           <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-foreground">{fmt(row.total_available)}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">{row.uom || '—'}</td>
-                          <td className="px-4 py-2.5"><StatusBadge label={row.consolidation_status} /></td>
+                          <td className="px-4 py-2.5 whitespace-nowrap"><StatusBadge label={row.consolidation_status} /></td>
                           <td className="px-4 py-2.5 text-right">
                             <Button variant="outline" size="sm" className="h-6 px-2.5 text-[11px] gap-1 hover:bg-muted"
                               onClick={() => setViewRow(row)}>
@@ -1041,7 +1057,7 @@ function DemandTab({ filters }: { filters: any }) {
             : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[700px]">
                     <thead>
                       <tr className="border-b border-border bg-muted/20 dark:bg-zinc-900/40 text-muted-foreground">
                         <th className="text-left px-4 py-2.5 font-semibold whitespace-nowrap">NMC</th>
@@ -1072,7 +1088,7 @@ function DemandTab({ filters }: { filters: any }) {
                           </td>
                           <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-foreground">{fmt(row.combined_demand)}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">{row.uom || '—'}</td>
-                          <td className="px-4 py-2.5"><StatusBadge label={row.procurement_opportunity} /></td>
+                          <td className="px-4 py-2.5 whitespace-nowrap"><StatusBadge label={row.procurement_opportunity} /></td>
                           <td className="px-4 py-2.5 text-right">
                             <Button variant="outline" size="sm" className="h-6 px-2.5 text-[11px] gap-1 hover:bg-muted"
                               onClick={() => setViewId(row.cmm_id)}>

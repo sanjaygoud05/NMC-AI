@@ -89,7 +89,7 @@ export default function Materials() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isReviewer, reviewerName, reviewerCpse } = useAuth();
+  const { isAdmin, isReviewer, reviewerName, reviewerCpse } = useAuth();
 
   // If navigated from Manage CPSE with ?cpse_id=xxx, pre-filter to that CPSE
   const cpseIdFromUrl = searchParams.get('cpse_id') || undefined;
@@ -286,18 +286,20 @@ export default function Materials() {
   return (
     <AppLayout>
       <div className="space-y-4">
-        {/* ── Back Navigation Button ── */}
-        <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground font-medium hover:bg-muted"
-            onClick={() => navigate('/manage-cpses')}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Back to CPSEs</span>
-          </Button>
-        </div>
+        {/* ── Back Navigation Button (Admin only) ── */}
+        {isAdmin && (
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground font-medium hover:bg-muted"
+              onClick={() => navigate('/manage-cpses')}
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to CPSEs</span>
+            </Button>
+          </div>
+        )}
 
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">

@@ -130,17 +130,22 @@ export default function MatchDetail() {
     <AppLayout requireReviewer>
       <div className="space-y-6 max-w-6xl mx-auto">
         {/* Navigation Bar */}
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate(backUrl, { state: { tab: fromTab } })} className="gap-2 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(backUrl, { state: { tab: fromTab } })}
+            className="gap-2 text-xs w-fit -ml-2 text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" />
-            {backLabel}
+            <span>{backLabel}</span>
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2">
             <Badge
               variant="outline"
               className={
-                'text-xs font-semibold ' +
+                'text-xs font-semibold px-2.5 py-1 ' +
                 (match.status === 'DIFFERENT'
                   ? 'border-rose-500/40 text-rose-700 dark:text-rose-300 bg-rose-500/10'
                   : match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN'
@@ -150,18 +155,19 @@ export default function MatchDetail() {
                       : 'border-border text-foreground')
               }
             >
-              Status: <strong className="ml-1 uppercase">{match.status}</strong>
+              Status: <span className="ml-1 uppercase font-bold">{match.status}</span>
             </Badge>
             <Badge
-              className={`text-xs ${
+              className={`text-xs px-2.5 py-1 font-medium shadow-none whitespace-nowrap ${
                 match.confidence_label === 'HIGH'
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
                   : match.confidence_label === 'MEDIUM'
-                    ? 'bg-sky-600 text-white'
-                    : 'bg-muted text-muted-foreground'
+                    ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30'
+                    : 'bg-muted text-muted-foreground border border-border'
               }`}
             >
-              {match.confidence_label || 'LOW'} CONFIDENCE ({confScore}%)
+              <Sparkles className="h-3 w-3 mr-1 inline shrink-0" />
+              {match.confidence_label || 'Low'} Confidence ({confScore}%)
             </Badge>
           </div>
         </div>
