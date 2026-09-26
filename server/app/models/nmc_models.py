@@ -5,6 +5,7 @@ All tables share one declarative Base.
 """
 
 import uuid
+from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
