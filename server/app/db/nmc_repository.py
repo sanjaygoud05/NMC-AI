@@ -59,12 +59,20 @@ class NMCRepository:
 
     def _init_db(self):
         Base.metadata.create_all(bind=self.engine)
-        try:
-            with self.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE review_decisions ADD COLUMN override_outcome VARCHAR(32)"))
-                conn.commit()
-        except Exception:
-            pass
+        # Safe self-healing column migrations for existing PostgreSQL databases
+        with self.engine.connect() as conn:
+            migration_statements = [
+                "ALTER TABLE review_decisions ADD COLUMN IF NOT EXISTS override_outcome VARCHAR(32)",
+                "ALTER TABLE material_matches ADD COLUMN IF NOT EXISTS gate1_reviewer VARCHAR(128)",
+                "ALTER TABLE material_matches ADD COLUMN IF NOT EXISTS gate1_cpse_code VARCHAR(32)",
+                "ALTER TABLE material_matches ADD COLUMN IF NOT EXISTS gate1_at TIMESTAMP WITH TIME ZONE",
+            ]
+            for stmt in migration_statements:
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception:
+                    pass
 
     def get_session(self) -> Session:
         return self.SessionLocal()
@@ -2216,40 +2224,39 @@ class NMCRepository:
         search: Optional[str] = None,
     ) -> Dict[str, Any]:
         with self.get_session() as session:
-            # Self-healing bootstrap: if reviewers table is completely empty, seed initial verified reviewer
+            # Self-healing bootstrap: if reviewers table is completely empty, seed verified reviewers for all registered CPSEs
             total_in_db = session.execute(select(func.count(Reviewer.id))).scalar() or 0
             if total_in_db == 0:
-                hpcl_cpse = session.execute(select(CPSE).where(CPSE.code == "HPCL")).scalars().first()
-                bpcl_cpse = session.execute(select(CPSE).where(CPSE.code == "BPCL")).scalars().first()
-                if hpcl_cpse:
+                all_registered_cpses = session.execute(select(CPSE)).scalars().all()
+                default_reviewer_configs = {
+                    "HPCL": ("Rajesh Kumar", "Chief Manager (Materials & Supply Chain)", "Piping, Valves & Static Equipment"),
+                    "BPCL": ("Suresh Nair", "Lead Procurement Engineer (Refining)", "Instrumentation & Process Control Hardware"),
+                    "IOCL": ("Amit Sharma", "Executive Director (Materials Management)", "Refining Equipment & Catalyst"),
+                    "ONGC": ("Vikas Verma", "Chief General Manager (Exploration Stores)", "Offshore & Drilling Equipment"),
+                    "GAIL": ("Pooja Mehta", "DGM (Procurement & Contracts)", "Gas Pipelines & Metering"),
+                    "BHEL": ("Ramesh Patel", "Senior Manager (Supply Chain)", "Electrical & Power Systems"),
+                    "NTPC": ("Sunil Joshi", "Head of Material Planning", "Thermal Turbines & Boilers"),
+                    "OIL": ("Debashish Roy", "Lead Materials Officer", "Drilling Rigs & Production Equipment"),
+                }
+                for cpse in all_registered_cpses:
+                    cfg = default_reviewer_configs.get(
+                        cpse.code,
+                        (f"{cpse.code} Reviewer", "Certified Domain Reviewer", "Materials Management")
+                    )
+                    email_prefix = cfg[0].lower().replace(" ", ".")
                     session.add(Reviewer(
-                        id="HPCL-REV-001",
-                        name="Rajesh Kumar",
-                        cpse_id=hpcl_cpse.id,
-                        cpse_code="HPCL",
-                        designation="Chief Manager (Materials & Supply Chain)",
-                        domain="Piping, Valves & Static Equipment",
-                        email="rajesh.kumar@hpcl.in",
+                        id=f"{cpse.code}-REV-001",
+                        name=cfg[0],
+                        cpse_id=cpse.id,
+                        cpse_code=cpse.code,
+                        designation=cfg[1],
+                        domain=cfg[2],
+                        email=f"{email_prefix}@{cpse.code.lower()}.in",
                         status="ACTIVE",
                         certified_date="2025-08-15",
                         password="nmc-reviewer-key",
                         reviewer_key="nmc-reviewer-key",
-                        authorization_scope="HPCL Catalog Scoped + Cross-CPSE Pairs",
-                    ))
-                if bpcl_cpse:
-                    session.add(Reviewer(
-                        id="BPCL-REV-002",
-                        name="Suresh Nair",
-                        cpse_id=bpcl_cpse.id,
-                        cpse_code="BPCL",
-                        designation="Lead Procurement Engineer (Refining)",
-                        domain="Instrumentation & Process Control Hardware",
-                        email="suresh.nair@bpcl.in",
-                        status="ACTIVE",
-                        certified_date="2025-11-05",
-                        password="nmc-reviewer-key",
-                        reviewer_key="nmc-reviewer-key",
-                        authorization_scope="BPCL Catalog Scoped + Cross-CPSE Pairs",
+                        authorization_scope=f"{cpse.code} Catalog Scoped + Cross-CPSE Pairs",
                     ))
                 session.commit()
 
