@@ -9,7 +9,8 @@ export function getStoredAuth() {
   const reviewerKey = localStorage.getItem('nmc_reviewer_key') || '';
   const reviewerName = localStorage.getItem('nmc_reviewer_name') || '';
   const reviewerCpse = localStorage.getItem('nmc_reviewer_cpse') || '';
-  return { token, role, reviewerKey, reviewerName, reviewerCpse };
+  const reviewerId = localStorage.getItem('nmc_reviewer_id') || '';
+  return { token, role, reviewerKey, reviewerName, reviewerCpse, reviewerId };
 }
 
 export function setStoredAuth(
@@ -17,7 +18,8 @@ export function setStoredAuth(
   role: string,
   reviewerKey?: string,
   reviewerName?: string,
-  reviewerCpse?: string
+  reviewerCpse?: string,
+  reviewerId?: string
 ) {
   localStorage.setItem('nmc_token', token);
   localStorage.setItem('nmc_role', role);
@@ -34,6 +36,11 @@ export function setStoredAuth(
   } else {
     localStorage.removeItem('nmc_reviewer_cpse');
   }
+  if (reviewerId) {
+    localStorage.setItem('nmc_reviewer_id', reviewerId);
+  } else {
+    localStorage.removeItem('nmc_reviewer_id');
+  }
 }
 
 export function clearStoredAuth() {
@@ -42,11 +49,12 @@ export function clearStoredAuth() {
   localStorage.removeItem('nmc_reviewer_key');
   localStorage.removeItem('nmc_reviewer_name');
   localStorage.removeItem('nmc_reviewer_cpse');
+  localStorage.removeItem('nmc_reviewer_id');
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
-  const { token, reviewerKey } = getStoredAuth();
+  const { token, reviewerKey, reviewerCpse, reviewerId } = getStoredAuth();
 
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -57,6 +65,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
   if (reviewerKey) {
     headers['X-Reviewer-Key'] = reviewerKey;
+  }
+  if (reviewerCpse) {
+    headers['X-Reviewer-CPSE'] = reviewerCpse;
+  }
+  if (reviewerId) {
+    headers['X-Reviewer-ID'] = reviewerId;
   }
 
   // Set json content-type if body is object and not FormData
@@ -94,13 +108,71 @@ export const nmcApi = {
         method: 'POST',
         body: JSON.stringify({ password }),
       }),
-    reviewerLogin: (reviewer_key: string) =>
-      request<{ role: string; token: string; message: string }>('/api/nmc/auth/reviewer-login', {
+    reviewerLogin: (data: { reviewer_id?: string; password?: string; reviewer_key?: string } | string) => {
+      const payload = typeof data === 'string' ? { reviewer_key: data } : data;
+      return request<{
+        role: string;
+        token: string;
+        message: string;
+        reviewer_id?: string;
+        reviewer_name?: string;
+        cpse_code?: string;
+      }>('/api/nmc/auth/reviewer-login', {
         method: 'POST',
-        body: JSON.stringify({ reviewer_key }),
-      }),
+        body: JSON.stringify(payload),
+      });
+    },
     verifyToken: (token: string) =>
       request<{ valid: boolean; role: string }>(`/api/nmc/auth/verify?token=${encodeURIComponent(token)}`),
+  },
+
+  // Certified Reviewer Directory & Roster
+  reviewers: {
+    list: (params?: { cpse_code?: string; status?: string; search?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.cpse_code) sp.set('cpse_code', params.cpse_code);
+      if (params?.status) sp.set('status', params.status);
+      if (params?.search) sp.set('search', params.search);
+      return request<{
+        items: any[];
+        total: number;
+        active_count: number;
+        total_cpses: number;
+      }>(`/api/nmc/auth/reviewers${sp.toString() ? `?${sp.toString()}` : ''}`);
+    },
+    create: (data: {
+      id?: string;
+      name: string;
+      cpse_code: string;
+      designation?: string;
+      domain?: string;
+      email?: string;
+      reviewer_key?: string;
+      password?: string;
+    }) =>
+      request<{ status: string; reviewer: any; message: string }>('/api/nmc/auth/reviewers', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (
+      id: string,
+      data: {
+        status?: string;
+        designation?: string;
+        domain?: string;
+        email?: string;
+        reviewer_key?: string;
+        password?: string;
+      }
+    ) =>
+      request<{ status: string; reviewer: any; message: string }>(`/api/nmc/auth/reviewers/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<{ status: string; message: string }>(`/api/nmc/auth/reviewers/${id}`, {
+        method: 'DELETE',
+      }),
   },
 
   // CPSE & Dataset Management
@@ -199,9 +271,15 @@ export const nmcApi = {
     getStats: (cpse_id?: string) => {
       const sp = new URLSearchParams();
       if (cpse_id) sp.set('cpse_id', cpse_id);
-      return request<{ pending: number; different: number; mapped: number; rejected?: number }>(
-        `/api/nmc/review/stats?${sp.toString()}`
-      );
+      return request<{
+        pending: number;
+        action_needed?: number;
+        alerts: number;
+        awaiting_peer: number;
+        different: number;
+        mapped: number;
+        rejected?: number;
+      }>(`/api/nmc/review/stats?${sp.toString()}`);
     },
     getQueue: (params: {
       cpse_id?: string;
@@ -244,6 +322,16 @@ export const nmcApi = {
           body: JSON.stringify(data),
         }
       ),
+    getNotifications: (params?: { cpse_code?: string; unacted_only?: boolean }) => {
+      const sp = new URLSearchParams();
+      if (params?.cpse_code) sp.set('cpse_code', params.cpse_code);
+      if (params?.unacted_only !== undefined) sp.set('unacted_only', String(params.unacted_only));
+      return request<{ notifications: any[]; count: number }>(`/api/nmc/review/notifications?${sp.toString()}`);
+    },
+    dismissNotification: (id: string) =>
+      request<{ status: string; message: string }>(`/api/nmc/review/notifications/${id}/dismiss`, {
+        method: 'POST',
+      }),
   },
 
   // Common Material Master (CMM)
@@ -281,6 +369,13 @@ export const nmcApi = {
     getCPSEAnalytics: () => request<any[]>('/api/nmc/analytics/cpses'),
     getFullAnalytics: () => request<any>('/api/nmc/analytics/full'),
     getTopologyData: () => request<any>('/api/nmc/analytics/topology'),
+    getReviewerAnalytics: (cpseCode?: string, cpseId?: string) => {
+      const params = new URLSearchParams();
+      if (cpseCode) params.append('cpse_code', cpseCode);
+      if (cpseId) params.append('cpse_id', cpseId);
+      const q = params.toString();
+      return request<any>(`/api/nmc/analytics/reviewer${q ? `?${q}` : ''}`);
+    },
     getGovernanceMetrics: () => request<{
       approved_today: number;
       rejected_today: number;

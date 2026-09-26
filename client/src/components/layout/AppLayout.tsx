@@ -130,38 +130,7 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
-              {/* ── Identity pill ── */}
-              {isAdmin && (
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/8 border border-primary/20">
-                  <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <div className="flex flex-col leading-none">
-                    <span className="text-[11px] font-semibold text-foreground">Central Admin</span>
-                    <span className="text-[9px] text-muted-foreground">National Platform · All CPSEs</span>
-                  </div>
-                </div>
-              )}
-              {isAdmin && (
-                <Badge variant="outline" className="text-xs px-2 py-0.5 border-primary/40 bg-primary/10 text-primary sm:hidden">
-                  Admin
-                </Badge>
-              )}
-              {isReviewer && (
-                <div className="flex items-center gap-2 pl-3 pr-2.5 py-1 rounded-lg border border-border bg-card">
-                  <div className="flex flex-col leading-none">
-                    <span className="text-[11px] font-semibold text-foreground hidden sm:block">
-                      {reviewerName || 'Reviewer'}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] font-bold text-primary uppercase tracking-wide">
-                        {reviewerCpse || 'CPSE'}
-                      </span>
-                      <span className="text-[9px] text-muted-foreground hidden sm:inline">· Reviewer</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
+            <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
@@ -175,13 +144,14 @@ export function AppLayout({ children, requireAdmin, requireReviewer }: AppLayout
               {isAuthenticated && (
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={handleLogout}
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  title="Sign Out"
+                  className="h-8 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  title="Sign out of your session"
                   aria-label="Sign Out"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline font-medium">Sign Out</span>
                 </Button>
               )}
             </div>

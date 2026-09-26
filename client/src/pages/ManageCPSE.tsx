@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ReviewerDirectory } from '@/components/reviewers/ReviewerDirectory';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +34,9 @@ import {
   Cpu,
   Sparkles,
   ArrowRight,
+  Building2,
+  UserCheck,
+  Shield,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -101,6 +106,16 @@ function DatasetStatusBadge({ status }: { status: string }) {
 export default function ManageCPSE() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'reviewers' ? 'reviewers' : 'cpses';
+
+  const handleTabChange = (val: string) => {
+    if (val === 'reviewers') {
+      setSearchParams({ tab: 'reviewers' });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   // Selection state
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -356,8 +371,41 @@ export default function ManageCPSE() {
     <AppLayout requireAdmin>
       <div className="space-y-4">
 
-        {/* ── Page Header ── */}
-        <div className="flex flex-col gap-3">
+        {/* ── Top Governance Navigation Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/40">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              Admin Management Portal
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Manage CPSE enterprise catalogs, ingest datasets, and administer authorized certified domain reviewers.
+            </p>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full sm:w-auto">
+            <TabsList className="grid grid-cols-2 w-full sm:w-[380px] bg-muted/80 p-1">
+              <TabsTrigger value="cpses" className="gap-2 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <Building2 className="h-3.5 w-3.5" />
+                <span>CPSE Enterprises</span>
+                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 h-4">{totalCpses}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="reviewers" className="gap-2 text-xs font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <UserCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Reviewer Directory</span>
+                <Badge className="ml-1 text-[10px] px-1.5 py-0 h-4 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                  Roster
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {activeTab === 'reviewers' ? (
+          <ReviewerDirectory />
+        ) : (
+          <>
+            {/* ── Page Header ── */}
+            <div className="flex flex-col gap-3">
           {/* Title row */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
             <div className="space-y-1 min-w-0">
@@ -378,7 +426,7 @@ export default function ManageCPSE() {
                     }`}
                   >
                     {allReady ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                     ) : (
                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
@@ -912,6 +960,8 @@ export default function ManageCPSE() {
             </>
           )}
         </div>
+          </>
+        )}
       </div>
     </AppLayout>
   );

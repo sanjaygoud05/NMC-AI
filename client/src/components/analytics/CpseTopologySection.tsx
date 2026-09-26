@@ -61,7 +61,7 @@ export function CpseTopologySection({ data, isLoading }: Props) {
   if (isLoading) {
     return (
       <div className="h-96 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-        <RotateCw className="h-8 w-8 animate-spin text-emerald-500" />
+        <RotateCw className="h-8 w-8 animate-spin text-emerald-600 dark:text-emerald-400" />
         <p className="text-sm font-medium">Computing multi-CPSE harmonization topology mesh...</p>
       </div>
     );
@@ -128,7 +128,7 @@ export function CpseTopologySection({ data, isLoading }: Props) {
                 {kpis.multi_cpse_cmms.toLocaleString()}
               </p>
             </div>
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <Layers className="h-5 w-5" />
             </div>
           </CardContent>
@@ -175,7 +175,7 @@ export function CpseTopologySection({ data, isLoading }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Network className="h-4 w-4 text-emerald-500" />
+                  <Network className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   National Material Master Multi-CPSE Mesh
                 </CardTitle>
                 <CardDescription className="text-xs">

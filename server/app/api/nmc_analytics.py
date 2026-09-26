@@ -4,7 +4,7 @@ All data derived from real DB tables. No hardcoded values.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Any
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, and_, or_, desc, text
 from sqlalchemy.orm import aliased
@@ -21,13 +21,27 @@ router = APIRouter(prefix="/api/nmc/analytics", tags=["NMC Analytics"])
 
 
 @router.get("/dashboard")
-def get_dashboard_metrics(role: str = Depends(verify_reviewer_access)):
-    return nmc_repo.get_dashboard_kpis()
+def get_dashboard_metrics(role: Any = Depends(verify_reviewer_access)):
+    assigned_cpse_id = None
+    if getattr(role, "is_reviewer", False):
+        assigned_cpse_id = getattr(role, "cpse_id", None)
+        if not assigned_cpse_id and getattr(role, "cpse_code", None):
+            cpse_obj = nmc_repo.get_cpse_by_code(role.cpse_code)
+            if cpse_obj:
+                assigned_cpse_id = cpse_obj["id"]
+    return nmc_repo.get_dashboard_kpis(cpse_id=assigned_cpse_id)
 
 
 @router.get("/cpses")
-def get_cpse_analytics(role: str = Depends(verify_reviewer_access)):
-    return nmc_repo.get_cpse_analytics()
+def get_cpse_analytics(role: Any = Depends(verify_reviewer_access)):
+    assigned_cpse_id = None
+    if getattr(role, "is_reviewer", False):
+        assigned_cpse_id = getattr(role, "cpse_id", None)
+        if not assigned_cpse_id and getattr(role, "cpse_code", None):
+            cpse_obj = nmc_repo.get_cpse_by_code(role.cpse_code)
+            if cpse_obj:
+                assigned_cpse_id = cpse_obj["id"]
+    return nmc_repo.get_cpse_analytics(cpse_id=assigned_cpse_id)
 
 
 @router.get("/match-stats")
@@ -398,11 +412,28 @@ def get_governance_metrics(role: str = Depends(verify_reviewer_access)):
         total_today = approved_today + rejected_today + different_today
 
         # ── Overrides ──────────────────────────────────────────────────
+        # Count all-time overrides from ReviewDecision (OVERRIDE decisions)
         overrides_total = s.execute(
+            select(func.count(ReviewDecision.id))
+            .where(ReviewDecision.decision == "OVERRIDE")
+        ).scalar() or 0
+        # Also count matches with OVERRIDDEN status as a fallback addition
+        overrides_total += s.execute(
             select(func.count(MaterialMatch.id))
             .where(MaterialMatch.status == "OVERRIDDEN")
         ).scalar() or 0
+
         overrides_today = s.execute(
+            select(func.count(ReviewDecision.id))
+            .where(
+                and_(
+                    ReviewDecision.decision == "OVERRIDE",
+                    ReviewDecision.timestamp >= today_start,
+                )
+            )
+        ).scalar() or 0
+        # Supplement with AuditLog override events today
+        overrides_today += s.execute(
             select(func.count(AuditLog.id))
             .where(
                 and_(
@@ -663,12 +694,13 @@ def get_topology_data(role: str = Depends(verify_reviewer_access)):
 def get_reviewer_analytics(
     cpse_id: Optional[str] = Query(None, description="CPSE ID"),
     cpse_code: Optional[str] = Query(None, description="CPSE Code"),
-    role: str = Depends(verify_reviewer_access),
+    role: Any = Depends(verify_reviewer_access),
 ):
     """
     Dedicated analytics for CPSE reviewers:
-    Provides real-time scoped review KPIs, match confidence distribution,
-    peer CPSE candidate pairs, and material family distributions.
+    Provides real-time scoped review KPIs, personal reviewer metrics,
+    decision breakdown, match confidence tiers, peer CPSE candidate pairs,
+    velocity timeline, and enriched recent determinations.
     """
     with nmc_repo.get_session() as s:
         target_cpse = None
@@ -678,6 +710,14 @@ def get_reviewer_analytics(
             target_cpse = s.execute(
                 select(CPSE).where(func.upper(CPSE.code) == cpse_code.strip().upper())
             ).scalar_one_or_none()
+
+        # If not supplied in query, infer from reviewer auth context
+        if not target_cpse and hasattr(role, "cpse_code") and role.cpse_code:
+            target_cpse = s.execute(
+                select(CPSE).where(func.upper(CPSE.code) == role.cpse_code.strip().upper())
+            ).scalar_one_or_none()
+        if not target_cpse and hasattr(role, "cpse_id") and role.cpse_id:
+            target_cpse = s.get(CPSE, role.cpse_id)
 
         if not target_cpse:
             target_cpse = s.execute(select(CPSE).where(CPSE.status == "ACTIVE")).scalars().first()
@@ -697,7 +737,7 @@ def get_reviewer_analytics(
             )
         ).scalar() or 0
 
-        # 2. Review queue stats
+        # 2. Review queue stats for this CPSE
         q_stats = nmc_repo.get_queue_stats(cpse_id=cid)
         pending = q_stats.get("pending", 0)
         mapped = q_stats.get("mapped", 0)
@@ -707,7 +747,44 @@ def get_reviewer_analytics(
         resolved_pairs = mapped + different + rejected
         completion_rate = round((resolved_pairs / total_pairs * 100), 1) if total_pairs > 0 else 0.0
 
-        # 3. Match confidence distribution for reviewer's CPSE
+        # 3. Reviewer's personal stats
+        reviewer_name = getattr(role, "reviewer_name", None)
+        reviewer_id = getattr(role, "reviewer_id", None)
+        rev_filters = []
+        if reviewer_name:
+            rev_filters.append(ReviewDecision.reviewer.ilike(f"%{reviewer_name}%"))
+        if reviewer_id:
+            rev_filters.append(ReviewDecision.reviewer.ilike(f"%{reviewer_id}%"))
+
+        my_decisions_query = select(ReviewDecision.decision, func.count(ReviewDecision.id))
+        if rev_filters:
+            my_decisions_query = my_decisions_query.where(or_(*rev_filters))
+        my_decisions_rows = s.execute(my_decisions_query.group_by(ReviewDecision.decision)).all()
+        my_dec_map = {r[0]: r[1] for r in my_decisions_rows}
+
+        my_accept = my_dec_map.get("ACCEPT", 0)
+        my_diff = my_dec_map.get("DIFFERENT", 0)
+        my_reject = my_dec_map.get("REJECT", 0)
+        my_override = my_dec_map.get("OVERRIDE", 0)
+        my_total = my_accept + my_diff + my_reject + my_override
+        my_acceptance_rate = round((my_accept / my_total * 100), 1) if my_total > 0 else 0.0
+
+        # Decision breakdown lists formatted for Recharts
+        personal_breakdown = [
+            {"name": "Accepted / Harmonized", "value": my_accept, "color": "#10b981", "desc": "Equivalency confirmed & mapped to CMM"},
+            {"name": "Flagged Different", "value": my_diff, "color": "#8b5cf6", "desc": "Distinct engineering specs flagged"},
+            {"name": "Rejected", "value": my_reject, "color": "#ef4444", "desc": "Incompatible candidate rejected"},
+            {"name": "Arbitrated", "value": my_override, "color": "#f59e0b", "desc": "Overridden or escalated"},
+        ]
+
+        cpse_breakdown = [
+            {"name": "Accepted / Harmonized", "value": mapped, "color": "#10b981", "desc": "Confirmed matches for this CPSE"},
+            {"name": "Flagged Different", "value": different, "color": "#8b5cf6", "desc": "Marked separate for this CPSE"},
+            {"name": "Rejected", "value": rejected, "color": "#ef4444", "desc": "Rejected candidates"},
+            {"name": "Pending Verification", "value": pending, "color": "#3b82f6", "desc": "Awaiting domain reviewer action"},
+        ]
+
+        # 4. Match confidence distribution for reviewer's CPSE
         SrcMat = aliased(Material)
         CandMat = aliased(Material)
         base_match = (
@@ -768,7 +845,7 @@ def get_reviewer_analytics(
             },
         ]
 
-        # 4. Peer CPSE distribution (matches with other CPSEs)
+        # 5. Peer CPSE distribution (matches with other CPSEs)
         CandCpse = aliased(CPSE)
         stmt1 = (
             select(CandCpse.code, func.count(MaterialMatch.id))
@@ -795,12 +872,13 @@ def get_reviewer_analytics(
             if code and code.upper() != ccode.upper():
                 peer_counts[code.upper()] = peer_counts.get(code.upper(), 0) + cnt
 
+        peer_colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#06b6d4", "#ec4899"]
         peer_distribution = [
-            {"cpse_code": code, "pairs": cnt}
-            for code, cnt in sorted(peer_counts.items(), key=lambda x: x[1], reverse=True)
+            {"cpse_code": code, "pairs": cnt, "color": peer_colors[idx % len(peer_colors)]}
+            for idx, (code, cnt) in enumerate(sorted(peer_counts.items(), key=lambda x: x[1], reverse=True))
         ]
 
-        # 5. Material family breakdown
+        # 6. Material family breakdown
         fam_rows = s.execute(
             select(Material.material_family, func.count(Material.id))
             .where(and_(Material.cpse_id == cid, Material.material_family.isnot(None)))
@@ -813,18 +891,68 @@ def get_reviewer_analytics(
             for r in fam_rows if r[0]
         ]
 
-        # 6. Recent decisions for this CPSE
-        recent_stmt = (
-            select(ReviewDecision)
+        # 7. Velocity timeline (hourly and recent trend)
+        timeline_stmt = (
+            select(func.strftime('%H:00', ReviewDecision.timestamp), func.count(ReviewDecision.id))
             .join(MaterialMatch, ReviewDecision.match_id == MaterialMatch.id)
             .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
             .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
             .where(or_(SrcMat.cpse_id == cid, CandMat.cpse_id == cid))
-            .order_by(desc(ReviewDecision.timestamp))
-            .limit(5)
+            .group_by(func.strftime('%H:00', ReviewDecision.timestamp))
+            .order_by(func.strftime('%H:00', ReviewDecision.timestamp))
         )
-        recent_rows = s.execute(recent_stmt).scalars().all()
-        recent_decisions = [r.to_dict() for r in recent_rows]
+        velocity_rows = s.execute(timeline_stmt).all()
+        activity_timeline = [{"time": r[0], "decisions": r[1]} for r in velocity_rows]
+
+        # 8. Rich recent decisions for this CPSE (with material descriptions, confidence, and peer CPSE)
+        recent_stmt = (
+            select(
+                ReviewDecision.id,
+                ReviewDecision.decision,
+                ReviewDecision.reason,
+                ReviewDecision.reviewer,
+                ReviewDecision.timestamp,
+                MaterialMatch.id.label("match_id"),
+                MaterialMatch.final_confidence,
+                SrcMat.original_material_code.label("src_code"),
+                SrcMat.normalized_description.label("src_desc"),
+                SrcCpse.code.label("src_cpse"),
+                CandMat.original_material_code.label("cand_code"),
+                CandMat.normalized_description.label("cand_desc"),
+                CandCpse.code.label("cand_cpse"),
+            )
+            .join(MaterialMatch, ReviewDecision.match_id == MaterialMatch.id)
+            .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+            .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+            .join(SrcCpse, SrcMat.cpse_id == SrcCpse.id)
+            .join(CandCpse, CandMat.cpse_id == CandCpse.id)
+            .where(or_(SrcMat.cpse_id == cid, CandMat.cpse_id == cid))
+            .order_by(desc(ReviewDecision.timestamp))
+            .limit(8)
+        )
+        recent_rows = s.execute(recent_stmt).all()
+        recent_decisions = []
+        for r in recent_rows:
+            d = dict(r._mapping)
+            src_cpse = d.get("src_cpse") or ""
+            cand_cpse = d.get("cand_cpse") or ""
+            partner_cpse = cand_cpse if src_cpse.upper() == ccode.upper() else src_cpse
+            conf = d.get("final_confidence")
+            conf_pct = round(conf * 100, 1) if conf is not None else None
+            recent_decisions.append({
+                "id": str(d.get("id")),
+                "match_id": str(d.get("match_id")),
+                "decision": d.get("decision"),
+                "reason": d.get("reason"),
+                "reviewer": d.get("reviewer"),
+                "timestamp": d.get("timestamp").isoformat() if d.get("timestamp") else None,
+                "confidence_pct": conf_pct,
+                "partner_cpse": partner_cpse,
+                "src_code": d.get("src_code"),
+                "src_desc": d.get("src_desc"),
+                "cand_code": d.get("cand_code"),
+                "cand_desc": d.get("cand_desc"),
+            })
 
         return {
             "cpse_id": cid,
@@ -833,6 +961,19 @@ def get_reviewer_analytics(
             "cpse_description": target_cpse.description,
             "total_materials": total_materials,
             "normalized_materials": normalized_materials,
+            "reviewer_identity": {
+                "reviewer_id": reviewer_id,
+                "reviewer_name": reviewer_name,
+                "cpse_code": ccode,
+            },
+            "reviewer_metrics": {
+                "total_decisions": my_total,
+                "accepted": my_accept,
+                "different": my_diff,
+                "rejected": my_reject,
+                "overridden": my_override,
+                "acceptance_rate": my_acceptance_rate,
+            },
             "stats": {
                 "pending": pending,
                 "mapped": mapped,
@@ -842,10 +983,14 @@ def get_reviewer_analytics(
                 "resolved_pairs": resolved_pairs,
                 "completion_rate": completion_rate,
             },
+            "personal_breakdown": personal_breakdown,
+            "cpse_breakdown": cpse_breakdown,
             "confidence_distribution": confidence_distribution,
             "peer_distribution": peer_distribution,
             "family_distribution": family_distribution,
+            "activity_timeline": activity_timeline,
             "recent_decisions": recent_decisions,
         }
+
 
 

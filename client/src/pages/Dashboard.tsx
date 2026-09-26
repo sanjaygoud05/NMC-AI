@@ -160,154 +160,6 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* ── Governance & Decision Summary ───────────────────────────────────── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-foreground">Governance &amp; Decision Summary</h2>
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                LIVE
-              </span>
-            </div>
-            <Link to="/audit">
-              <Button variant="ghost" size="sm" className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground">
-                Full Audit Trail →
-              </Button>
-            </Link>
-          </div>
-
-          <div className="rounded-lg border border-border/60 overflow-hidden bg-card">
-            {loadingGov ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">Loading governance data...</div>
-            ) : (
-              <>
-                {/* Today's throughput — compact horizontal bar */}
-                <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Activity className="h-3.5 w-3.5" />
-                      <span className="font-medium text-foreground">Today's Review Throughput</span>
-                      <span className="text-muted-foreground/70">({govMetrics?.total_today ?? 0} decisions)</span>
-                    </div>
-                    <div className="flex items-center gap-4 ml-auto">
-                      <div className="flex items-center gap-1.5">
-                        <ThumbsUp className="h-3.5 w-3.5 text-emerald-500" />
-                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{govMetrics?.approved_today ?? 0}</span>
-                        <span className="text-[11px] text-muted-foreground">Approved</span>
-                      </div>
-                      <div className="w-px h-3.5 bg-border/60" />
-                      <div className="flex items-center gap-1.5">
-                        <ThumbsDown className="h-3.5 w-3.5 text-rose-500" />
-                        <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{govMetrics?.rejected_today ?? 0}</span>
-                        <span className="text-[11px] text-muted-foreground">Rejected</span>
-                      </div>
-                      <div className="w-px h-3.5 bg-border/60" />
-                      <div className="flex items-center gap-1.5">
-                        <GitCompare className="h-3.5 w-3.5 text-purple-500" />
-                        <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{govMetrics?.different_today ?? 0}</span>
-                        <span className="text-[11px] text-muted-foreground">Different</span>
-                      </div>
-                      <div className="w-px h-3.5 bg-border/60" />
-                      <div className="flex items-center gap-1.5">
-                        <RotateCcw className="h-3.5 w-3.5 text-amber-500" />
-                        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{govMetrics?.overrides_today ?? 0}</span>
-                        <span className="text-[11px] text-muted-foreground">Overrides</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3-col summary metrics */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
-
-                  {/* Active CPSE Reviewers */}
-                  <div className="p-5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-medium text-muted-foreground">Active CPSE Reviewers</span>
-                      <UserCheck className="h-4 w-4 text-muted-foreground stroke-[1.5]" />
-                    </div>
-                    <div className="my-2.5">
-                      <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
-                        {govMetrics?.active_reviewer_count ?? '—'}
-                      </span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="text-xs text-muted-foreground font-normal">Domain reviewers active (30 days)</div>
-                      {govMetrics?.active_reviewer_cpses && govMetrics.active_reviewer_cpses.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {govMetrics.active_reviewer_cpses.slice(0, 5).map((cpse) => (
-                            <span key={cpse} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                              {cpse}
-                            </span>
-                          ))}
-                          {govMetrics.active_reviewer_cpses.length > 5 && (
-                            <span className="text-[10px] text-muted-foreground">+{govMetrics.active_reviewer_cpses.length - 5} more</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Human Overrides */}
-                  <div className="p-5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-medium text-muted-foreground">Human Overrides</span>
-                      <RotateCcw className="h-4 w-4 text-muted-foreground stroke-[1.5]" />
-                    </div>
-                    <div className="my-2.5">
-                      <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
-                        {govMetrics?.overrides_total ?? '—'}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground font-normal">All-time admin-initiated overrides</div>
-                      <div className="text-xs font-medium text-amber-600 dark:text-amber-400 mt-0.5">
-                        {govMetrics?.overrides_today ?? 0} today
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Confidence Index */}
-                  <div className="p-5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-medium text-muted-foreground">Confidence Index</span>
-                      <BarChart3 className="h-4 w-4 text-muted-foreground stroke-[1.5]" />
-                    </div>
-                    <div className="my-2.5">
-                      <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
-                        {govMetrics?.confidence_index ?? '—'}%
-                      </span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="text-xs font-normal text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                        <span className="text-[11px] leading-none">↑</span>
-                        <span>Avg confidence on accepted matches</span>
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                          style={{ width: `${Math.min(100, govMetrics?.confidence_index ?? 0)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="px-4 py-2.5 border-t border-border/40 bg-muted/20 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-4">
-                    <span>All-time decisions:</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">✓ {govMetrics?.total_accepted_all_time ?? 0} Accepted</span>
-                    <span className="text-rose-600 dark:text-rose-400 font-medium">✗ {govMetrics?.total_rejected_all_time ?? 0} Rejected</span>
-                  </div>
-                  <Link to="/analytics" className="text-primary hover:underline text-[11px] font-medium">View full analytics →</Link>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
         {/* CPSE Catalog Breakdown */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -475,6 +327,154 @@ export default function Dashboard() {
                       Central catalog ledger
                     </Button>
                   </Link>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ── Governance & Decision Summary ───────────────────────────────────── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-foreground">Governance &amp; Decision Summary</h2>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                LIVE
+              </span>
+            </div>
+            <Link to="/audit">
+              <Button variant="ghost" size="sm" className="text-xs h-7 gap-1 text-muted-foreground hover:text-foreground">
+                Full Audit Trail →
+              </Button>
+            </Link>
+          </div>
+
+          <div className="rounded-lg border border-border/60 overflow-hidden bg-card">
+            {loadingGov ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Loading governance data...</div>
+            ) : (
+              <>
+                {/* Today's throughput — compact horizontal bar */}
+                <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Activity className="h-3.5 w-3.5" />
+                      <span className="font-medium text-foreground">Today's Review Throughput</span>
+                      <span className="text-muted-foreground/70">({govMetrics?.total_today ?? 0} decisions)</span>
+                    </div>
+                    <div className="flex items-center gap-4 ml-auto">
+                      <div className="flex items-center gap-1.5">
+                        <ThumbsUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{govMetrics?.approved_today ?? 0}</span>
+                        <span className="text-[11px] text-muted-foreground">Approved</span>
+                      </div>
+                      <div className="w-px h-3.5 bg-border/60" />
+                      <div className="flex items-center gap-1.5">
+                        <ThumbsDown className="h-3.5 w-3.5 text-rose-500" />
+                        <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{govMetrics?.rejected_today ?? 0}</span>
+                        <span className="text-[11px] text-muted-foreground">Rejected</span>
+                      </div>
+                      <div className="w-px h-3.5 bg-border/60" />
+                      <div className="flex items-center gap-1.5">
+                        <GitCompare className="h-3.5 w-3.5 text-purple-500" />
+                        <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{govMetrics?.different_today ?? 0}</span>
+                        <span className="text-[11px] text-muted-foreground">Different</span>
+                      </div>
+                      <div className="w-px h-3.5 bg-border/60" />
+                      <div className="flex items-center gap-1.5">
+                        <RotateCcw className="h-3.5 w-3.5 text-amber-500" />
+                        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{govMetrics?.overrides_today ?? 0}</span>
+                        <span className="text-[11px] text-muted-foreground">Overrides</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3-col summary metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
+
+                  {/* Active CPSE Reviewers */}
+                  <div className="p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-medium text-muted-foreground">Active CPSE Reviewers</span>
+                      <UserCheck className="h-4 w-4 text-muted-foreground stroke-[1.5]" />
+                    </div>
+                    <div className="my-2.5">
+                      <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
+                        {govMetrics?.active_reviewer_count ?? '—'}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="text-xs text-muted-foreground font-normal">Domain reviewers active (30 days)</div>
+                      {govMetrics?.active_reviewer_cpses && govMetrics.active_reviewer_cpses.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {govMetrics.active_reviewer_cpses.slice(0, 5).map((cpse) => (
+                            <span key={cpse} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                              {cpse}
+                            </span>
+                          ))}
+                          {govMetrics.active_reviewer_cpses.length > 5 && (
+                            <span className="text-[10px] text-muted-foreground">+{govMetrics.active_reviewer_cpses.length - 5} more</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Human Overrides */}
+                  <div className="p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-medium text-muted-foreground">Human Overrides</span>
+                      <RotateCcw className="h-4 w-4 text-muted-foreground stroke-[1.5]" />
+                    </div>
+                    <div className="my-2.5">
+                      <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
+                        {govMetrics?.overrides_total ?? '—'}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground font-normal">All-time admin-initiated overrides</div>
+                      <div className="text-xs font-medium text-amber-600 dark:text-amber-400 mt-0.5">
+                        {govMetrics?.overrides_today ?? 0} today
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Confidence Index */}
+                  <div className="p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-medium text-muted-foreground">Confidence Index</span>
+                      <BarChart3 className="h-4 w-4 text-muted-foreground stroke-[1.5]" />
+                    </div>
+                    <div className="my-2.5">
+                      <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
+                        {govMetrics?.confidence_index ?? '—'}%
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-normal text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <span className="text-[11px] leading-none">↑</span>
+                        <span>Avg confidence on accepted matches</span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                          style={{ width: `${Math.min(100, govMetrics?.confidence_index ?? 0)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-4 py-2.5 border-t border-border/40 bg-muted/20 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-4">
+                    <span>All-time decisions:</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">✓ {govMetrics?.total_accepted_all_time ?? 0} Accepted</span>
+                    <span className="text-rose-600 dark:text-rose-400 font-medium">✗ {govMetrics?.total_rejected_all_time ?? 0} Rejected</span>
+                  </div>
+                  <Link to="/analytics" className="text-primary hover:underline text-[11px] font-medium">View full analytics →</Link>
                 </div>
               </>
             )}

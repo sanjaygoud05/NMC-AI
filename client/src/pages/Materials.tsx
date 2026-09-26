@@ -28,7 +28,6 @@ import {
   ChevronRight,
   Eye,
   RefreshCw,
-  AlertTriangle,
   CheckCircle2,
   ArrowLeft,
   Copy,
@@ -39,6 +38,7 @@ import {
   Database,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { resolveErpSource, resolvePlantSite } from '@/utils/provenance';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -65,7 +65,7 @@ const renderHarmonizationBadge = (m: any) => {
     return (
       <Badge
         variant="secondary"
-        className="text-[10px] font-semibold px-2 py-0.5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+        className="text-[10px] font-semibold px-2 py-0.5 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
       >
         <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600 dark:text-emerald-400" />
         Processed
@@ -342,14 +342,13 @@ export default function Materials() {
           )}
         </div>
 
-        {/* ── Not-normalized information banner (neutral, non-yellow) ── */}
-        {activeCpse && !isNormalized && activeCpseStatus !== 'PROCESSING' && (
+        {/* ── Not-normalized information banner — only shown when dataset status is RAW/UPLOADED/VALIDATED ── */}
+        {activeCpse && (activeCpseStatus === 'UPLOADED' || activeCpseStatus === 'VALIDATED' || activeCpseStatus === 'RAW') && (
           <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
             <Info className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
             <span className="leading-relaxed">
-              This CPSE dataset has not been processed yet. Only raw material codes and original
-              descriptions are shown. All other fields will display as <strong className="text-foreground font-semibold">—</strong> until you
-              click <strong className="text-foreground font-semibold">Normalize Materials</strong>.
+              This dataset has not been normalized yet. Only raw material codes and original descriptions are shown.
+              Click <strong className="text-foreground font-semibold">Normalize Materials</strong> to unlock all fields.
             </span>
           </div>
         )}
@@ -587,8 +586,8 @@ export default function Materials() {
               <>
                 {/* ── Modal Header ── */}
                 <div className="p-4 px-6 border-b border-border bg-muted/30 flex items-center justify-between">
-                  <div className="min-w-0 pr-8">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <DialogTitle className="text-base font-bold font-mono text-foreground leading-tight truncate">
                         {selectedMaterial.original_material_code || selectedMaterial.id}
                       </DialogTitle>
@@ -599,47 +598,31 @@ export default function Materials() {
                           className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-muted"
                           title="Copy Material Code"
                         >
-                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                       )}
-                      <Badge variant="outline" className="text-[10px] font-mono ml-1 px-2 py-0.5">
+                      <Badge variant="outline" className="text-[10px] font-mono px-2 py-0.5">
                         {cpseMap[selectedMaterial.cpse_id] || 'CPSE'}
                       </Badge>
+                      {/* Single status badge in header — removes duplication with modal body */}
+                      {renderHarmonizationBadge(selectedMaterial)}
                     </div>
                     <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                      Technical Attribute Inspection & Harmonization Profile
+                      Technical Attribute Inspection · {cpseMap[selectedMaterial.cpse_id] || 'CPSE'} Catalog
                     </DialogDescription>
-                  </div>
-                  <div>
-                    {renderHarmonizationBadge(selectedMaterial)}
                   </div>
                 </div>
 
                 {/* ── Modal Scrollable Body with Clean Spacing & Margins ── */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
 
-                  {/* 1. Harmonization Outcome Banner */}
-                  <div className="p-4 rounded-xl border border-border/80 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="text-[11px] font-semibold tracking-wider text-primary uppercase flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                        Harmonization Status
-                      </div>
-                      <div className="text-sm font-semibold font-mono text-foreground tracking-tight">
-                        {selectedMaterial.mapping_status === 'MAPPED'
-                          ? 'MATCHED & HARMONIZED'
-                          : isRaw(selectedMaterial)
-                          ? 'NOT PROCESSED'
-                          : 'UNMATCHED (STANDALONE)'}
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                        {selectedMaterial.mapping_status === 'MAPPED'
-                          ? 'This material has been harmonized across CPSE catalogs into the Common Material Master.'
-                          : isRaw(selectedMaterial)
-                          ? 'Dataset uploaded. Run normalization to extract engineering parameters and canonical key.'
-                          : 'Processed through NMC pipeline with deterministic standard. No duplicate candidates found yet.'}
-                      </p>
-                    </div>
+                  {/* 1. Harmonization Outcome — description text only (badge shown in header, no duplication) */}
+                  <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 text-xs text-muted-foreground leading-relaxed">
+                    {selectedMaterial.mapping_status === 'MAPPED'
+                      ? 'This material has been harmonized across CPSE catalogs and recorded in the Common Material Master.'
+                      : isRaw(selectedMaterial)
+                      ? 'Dataset has been uploaded but not yet normalized. Run Normalize Materials to extract engineering parameters and enable cross-CPSE matching.'
+                      : 'Processed through the NMC normalization pipeline. No equivalent cross-CPSE candidate has been found yet — material stands as unique in its catalog.'}
                   </div>
 
                   {/* 2. Canonical Normalized Identity */}
@@ -735,7 +718,23 @@ export default function Materials() {
                               Enterprise Tenant
                             </td>
                             <td className="px-4 py-2.5 font-semibold text-foreground">
-                              {cpseMap[selectedMaterial.cpse_id] || 'C'}
+                              {cpseMap[selectedMaterial.cpse_id] || 'CPSE'}
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-medium text-foreground/80 border-r border-border">
+                              Source ERP / System
+                            </td>
+                            <td className="px-4 py-2.5 font-mono text-[11px] text-foreground font-semibold">
+                              {selectedMaterial.erp_source || resolveErpSource(cpseMap[selectedMaterial.cpse_id], selectedMaterial.attributes)}
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-2.5 w-2/5 bg-muted/20 font-medium text-foreground/80 border-r border-border">
+                              Plant / Site Location
+                            </td>
+                            <td className="px-4 py-2.5 text-foreground font-medium">
+                              {selectedMaterial.plant_site || resolvePlantSite(cpseMap[selectedMaterial.cpse_id], selectedMaterial.attributes)}
                             </td>
                           </tr>
                         </tbody>

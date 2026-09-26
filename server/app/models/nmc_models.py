@@ -75,6 +75,54 @@ class CPSE(Base):
 
 
 # ---------------------------------------------------------------------------
+# Reviewer
+# ---------------------------------------------------------------------------
+
+class Reviewer(Base):
+    """
+    Certified Reviewer for a CPSE enterprise.
+    Stored persistently in database.
+    """
+    __tablename__ = "reviewers"
+
+    id = Column(String(64), primary_key=True)  # e.g. HPCL-REV-001 or user custom ID
+    name = Column(String(128), nullable=False)
+    cpse_id = Column(String(36), ForeignKey("cpsEs.id", ondelete="SET NULL"), nullable=True, index=True)
+    cpse_code = Column(String(32), nullable=False, index=True)
+    designation = Column(String(128), nullable=True, default="Certified Reviewer")
+    domain = Column(String(128), nullable=True, default="Materials Harmonization")
+    email = Column(String(128), nullable=True)
+    status = Column(String(32), nullable=False, default="ACTIVE")  # ACTIVE | SUSPENDED
+    certified_date = Column(String(32), nullable=True)
+    password = Column(String(256), nullable=False, default="nmc-reviewer-key")
+    reviewer_key = Column(String(256), nullable=False, default="nmc-reviewer-key")
+    authorization_scope = Column(String(256), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)
+
+    def to_dict(self, decisions_count: int = 0, last_active: Optional[str] = None, cpse_name: Optional[str] = None):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "cpse_id": self.cpse_id,
+            "cpse_code": self.cpse_code,
+            "cpse_name": cpse_name or f"{self.cpse_code} Corporation",
+            "designation": self.designation,
+            "domain": self.domain,
+            "email": self.email,
+            "status": self.status,
+            "certified_date": self.certified_date,
+            "reviewer_key": self.reviewer_key,
+            "password": self.password,
+            "authorization_scope": self.authorization_scope or f"{self.cpse_code} Catalog Scoped + Cross-CPSE Pairs",
+            "decisions_count": decisions_count,
+            "last_active": last_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Dataset
 # ---------------------------------------------------------------------------
 
@@ -234,7 +282,11 @@ class MaterialMatch(Base):
     status = Column(
         String(32), nullable=False, default="PENDING_REVIEW",
         index=True,
-    )  # PENDING_REVIEW | ACCEPTED | REJECTED | DIFFERENT | OVERRIDDEN
+    )  # PENDING_REVIEW | GATE_1_APPROVED | ACCEPTED | REJECTED | DIFFERENT | OVERRIDDEN | SUPERSEDED_BY_CMM
+
+    gate1_reviewer = Column(String(128), nullable=True)
+    gate1_cpse_code = Column(String(32), nullable=True)
+    gate1_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)
@@ -249,7 +301,7 @@ class MaterialMatch(Base):
             name="match_category_check",
         ),
         CheckConstraint(
-            "status IN ('PENDING_REVIEW','ACCEPTED','REJECTED','DIFFERENT','OVERRIDDEN')",
+            "status IN ('PENDING_REVIEW','GATE_1_APPROVED','ACCEPTED','REJECTED','DIFFERENT','OVERRIDDEN','SUPERSEDED_BY_CMM')",
             name="match_status_check",
         ),
         Index("idx_matches_status_category", "status", "match_category"),
@@ -269,6 +321,9 @@ class MaterialMatch(Base):
             "match_category": self.match_category,
             "explanation": self.explanation,
             "status": self.status,
+            "gate1_reviewer": self.gate1_reviewer,
+            "gate1_cpse_code": self.gate1_cpse_code,
+            "gate1_at": self.gate1_at.isoformat() if self.gate1_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -618,3 +673,61 @@ class ProcurementHistoryRecord(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+
+
+# ---------------------------------------------------------------------------
+# ReviewNotification
+# ---------------------------------------------------------------------------
+
+class ReviewNotification(Base):
+    """
+    Alert sent to a CPSE reviewer.
+    alert_type: PEER_ENDORSED | NMC_CREATED
+    """
+    __tablename__ = 'review_notifications'
+
+    id        = Column(String(36), primary_key=True, default=_uuid)
+    cpse_id   = Column(String(36), ForeignKey('cpsEs.id', ondelete='CASCADE'), nullable=False, index=True)
+    cpse_code = Column(String(32), nullable=False, index=True)
+    alert_type = Column(String(32), nullable=False)
+    match_id               = Column(String(36), ForeignKey('material_matches.id', ondelete='CASCADE'), nullable=True)
+    cmm_id                 = Column(String(36), ForeignKey('nmc_common_materials.id', ondelete='CASCADE'), nullable=True)
+    national_material_code = Column(String(64), nullable=True)
+    material_id            = Column(String(36), ForeignKey('materials.id', ondelete='CASCADE'), nullable=True)
+    material_code          = Column(String(128), nullable=True)
+    material_description   = Column(Text, nullable=True)
+    triggered_by_cpse      = Column(String(32), nullable=True)
+    triggered_by_reviewer  = Column(String(128), nullable=True)
+    endorsed_cpses         = Column(JSON, nullable=True)
+    message                = Column(Text, nullable=True)
+    is_read  = Column(Boolean, nullable=False, default=False)
+    is_acted = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+    read_at    = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index('idx_notif_cpse_read', 'cpse_id', 'is_read'),
+        Index('idx_notif_cpse_type', 'cpse_code', 'alert_type'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'cpse_id': self.cpse_id,
+            'cpse_code': self.cpse_code,
+            'alert_type': self.alert_type,
+            'match_id': self.match_id,
+            'cmm_id': self.cmm_id,
+            'national_material_code': self.national_material_code,
+            'material_id': self.material_id,
+            'material_code': self.material_code,
+            'material_description': self.material_description,
+            'triggered_by_cpse': self.triggered_by_cpse,
+            'triggered_by_reviewer': self.triggered_by_reviewer,
+            'endorsed_cpses': self.endorsed_cpses or [],
+            'message': self.message,
+            'is_read': self.is_read,
+            'is_acted': self.is_acted,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'read_at': self.read_at.isoformat() if self.read_at else None,
+        }

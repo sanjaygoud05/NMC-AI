@@ -387,9 +387,9 @@ function InvDonut({ s }: { s: any }) {
 
         {/* Emerald info bar */}
         <div className="mt-1 flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
-          <Info className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
-          <p className="text-[11px] text-emerald-300/90 leading-snug">
-            <span className="font-semibold text-emerald-300">{fmt(available)} Units ({availablePct}%)</span>{' '}
+          <Info className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+          <p className="text-xs font-normal text-emerald-600 dark:text-emerald-400 leading-snug">
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{fmt(available)} Units ({availablePct}%)</span>{' '}
             are unreserved and ready for multi-CPSE allocation.
           </p>
         </div>
@@ -427,7 +427,7 @@ function InvDetailModal({ row, onClose }: { row: any; onClose: () => void }) {
         <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm font-bold text-primary">{row.nmc_code}</span>
+              <span className="font-mono text-sm font-semibold text-emerald-600 dark:text-emerald-400">{row.nmc_code}</span>
               {row.uom && <Badge variant="outline" className="text-[10px]">UOM: {row.uom}</Badge>}
             </div>
             <p className="text-sm font-medium text-foreground mt-0.5">{row.canonical_description}</p>
@@ -480,7 +480,7 @@ function InvDetailModal({ row, onClose }: { row: any; onClose: () => void }) {
                   {[
                     { label: 'Total On Hand',   val: totalOnHand,   icon: Boxes,         cls: 'text-blue-400'   },
                     { label: 'Total Reserved',  val: totalReserved, icon: Layers,        cls: 'text-amber-400'  },
-                    { label: 'Total Available', val: totalAvail,    icon: CheckCircle2,  cls: 'text-emerald-400'},
+                    { label: 'Total Available', val: totalAvail,    icon: CheckCircle2,  cls: 'text-emerald-600 dark:text-emerald-400'},
                   ].map(({ label, val, icon: Ic, cls }) => (
                     <div key={label} className="bg-card dark:bg-black border border-border dark:border-zinc-800 rounded-lg p-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -529,7 +529,7 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
         <div className="px-6 py-5 border-b border-border flex items-start justify-between gap-4 shrink-0 bg-card">
           <div className="space-y-2.5">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="font-mono text-xs font-semibold tracking-wider text-primary bg-primary/10 border border-primary/25 px-2.5 py-1 rounded-md">
+              <span className="font-mono text-xs font-semibold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
                 {cmm?.national_material_code || '…'}
               </span>
               <Badge variant="outline" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground border-border/80 bg-muted/40 px-2.5 py-0.5 rounded-md">
@@ -915,7 +915,7 @@ function InventoryTab({ filters }: { filters: any }) {
                     <tbody>
                       {nmcQ.data.items.map((row: any) => (
                         <tr key={`${row.cmm_id}::${row.uom}`} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-2.5 font-mono font-semibold text-primary whitespace-nowrap">{row.nmc_code}</td>
+                          <td className="px-4 py-2.5 font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{row.nmc_code}</td>
                           <td className="px-4 py-2.5 max-w-[200px]">
                             <p className="font-medium text-foreground truncate" title={row.canonical_description}>{row.canonical_description || '—'}</p>
                           </td>
@@ -1057,7 +1057,7 @@ function DemandTab({ filters }: { filters: any }) {
                     <tbody>
                       {nmcQ.data.items.map((row: any) => (
                         <tr key={`${row.cmm_id}::${row.uom}`} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-2.5 font-mono font-semibold text-primary whitespace-nowrap">{row.nmc_code}</td>
+                          <td className="px-4 py-2.5 font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{row.nmc_code}</td>
                           <td className="px-4 py-2.5 max-w-[180px]">
                             <p className="font-medium text-foreground truncate" title={row.canonical_description}>{row.canonical_description || '—'}</p>
                             {row.material_type && <p className="text-[10px] text-muted-foreground">{row.material_type}</p>}

@@ -6,17 +6,31 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { Shield, Key, AlertCircle, ArrowRight, UserCheck, Building2 } from 'lucide-react';
+import { Shield, Key, AlertCircle, ArrowRight, Eye, EyeOff, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const DEFAULT_REVIEWERS: Record<string, { name: string; id: string; domain: string }> = {
-  HPCL: { name: 'Rajesh Kumar', id: 'HPCL-REV-001', domain: 'Materials Management' },
-  IOCL: { name: 'Amit Sharma', id: 'IOCL-REV-002', domain: 'Refinery Maintenance' },
-  ONGC: { name: 'Priya Verma', id: 'ONGC-REV-003', domain: 'Drilling & Equipment' },
-  CIL:  { name: 'Sunil Murthy', id: 'CIL-REV-004', domain: 'Mining Machinery' },
-  SAIL: { name: 'Ananya Roy', id: 'SAIL-REV-005', domain: 'Steel & Metallurgy' },
-  BHEL: { name: 'Vikram Joshi', id: 'BHEL-REV-006', domain: 'Turbine & Electrical' },
+const CPSE_NAMES: Record<string, string> = {
+  HPCL: 'Hindustan Petroleum Corporation Limited',
+  IOCL: 'Indian Oil Corporation Limited',
+  ONGC: 'Oil and Natural Gas Corporation Limited',
+  BPCL: 'Bharat Petroleum Corporation Limited',
+  GAIL: 'GAIL (India) Limited',
+  BHEL: 'Bharat Heavy Electricals Limited',
+  NTPC: 'NTPC Limited',
+  CIL: 'Coal India Limited',
+  SAIL: 'Steel Authority of India Limited',
 };
+
+function deriveEnterprise(reviewerId: string): { code: string; name: string } | null {
+  if (!reviewerId.trim()) return null;
+  // Match prefix like HPCL, IOCL, ONGC etc (2-6 uppercase letters) before a dash
+  const match = reviewerId.toUpperCase().match(/^([A-Z]{2,6})(?:-|$)/);
+  if (!match) return null;
+  const code = match[1];
+  const name = CPSE_NAMES[code];
+  if (!name) return null;
+  return { code, name };
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -28,26 +42,15 @@ export default function Login() {
   const defaultTab = locationState?.tab === 'reviewer' ? 'reviewer' : 'admin';
 
   const [adminPassword, setAdminPassword] = useState('nmc-admin-2026');
-  const [reviewerCpse, setReviewerCpse] = useState('HPCL');
-  const [reviewerName, setReviewerName] = useState('Rajesh Kumar');
-  const [reviewerId, setReviewerId] = useState('HPCL-REV-001');
-  const [reviewerKey, setReviewerKey] = useState('nmc-reviewer-key');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [reviewerId, setReviewerId] = useState('');
+  const [reviewerPassword, setReviewerPassword] = useState('');
+  const [showReviewerPassword, setShowReviewerPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const adminDestination = locationState?.from || '/dashboard';
   const reviewerDestination = '/review';
-
-  const handleCpseChange = (cpseCode: string) => {
-    setReviewerCpse(cpseCode);
-    const assigned = DEFAULT_REVIEWERS[cpseCode] || {
-      name: `${cpseCode} Domain Reviewer`,
-      id: `${cpseCode}-REV-01`,
-      domain: 'Materials Management',
-    };
-    setReviewerName(assigned.name);
-    setReviewerId(assigned.id);
-  };
 
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,11 +73,11 @@ export default function Login() {
     setError(null);
     setLoading(true);
     try {
-      await loginReviewer(reviewerKey, reviewerName, reviewerCpse);
-      toast.success(`Welcome, ${reviewerName} (${reviewerCpse} Domain Expert)`);
+      await loginReviewer({ reviewerId, password: reviewerPassword });
+      toast.success(`Welcome, Reviewer (${reviewerId})`);
       navigate(reviewerDestination, { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Invalid reviewer key');
+      setError(err.message || 'Invalid reviewer credentials');
       toast.error('Authentication failed');
     } finally {
       setLoading(false);
@@ -119,22 +122,40 @@ export default function Login() {
                 </TabsTrigger>
                 <TabsTrigger value="reviewer" className="gap-2" onClick={() => setError(null)}>
                   <Key className="h-3.5 w-3.5" />
-                  CPSE Reviewer
+                  Reviewer
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="admin">
-                <form onSubmit={handleAdminSubmit} className="space-y-4">
+                <form onSubmit={handleAdminSubmit} className="space-y-4" autoComplete="off">
+                  {/* Decoy fields to capture aggressive browser autofill */}
+                  <input type="text" name="fake_admin_user" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="username" />
+                  <input type="password" name="fake_admin_pass" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="current-password" />
+
                   <div className="space-y-2">
                     <Label htmlFor="admin-pass">Admin Password</Label>
-                    <Input
-                      id="admin-pass"
-                      type="password"
-                      placeholder="Enter admin password"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      required
-                    />
+                    <div className="relative">
+                      <Input
+                        id="admin-pass"
+                        name="admin_master_key"
+                        type={showAdminPassword ? "text" : "password"}
+                        placeholder="Enter admin password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        autoComplete="new-password"
+                        className="pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center focus:outline-none"
+                        onClick={() => setShowAdminPassword((prev) => !prev)}
+                        title={showAdminPassword ? "Hide password" : "Show password"}
+                        tabIndex={-1}
+                      >
+                        {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                   <Button type="submit" className="w-full gap-2" disabled={loading}>
                     {loading ? 'Authenticating...' : 'Sign in as Central Admin'}
@@ -144,74 +165,85 @@ export default function Login() {
               </TabsContent>
 
               <TabsContent value="reviewer">
-                <form onSubmit={handleReviewerSubmit} className="space-y-3.5">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="rev-cpse" className="text-xs">Enterprise Organization</Label>
-                    <select
-                      id="rev-cpse"
-                      value={reviewerCpse}
-                      onChange={(e) => handleCpseChange(e.target.value)}
-                      className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    >
-                      <option value="HPCL">HPCL — Hindustan Petroleum Corporation</option>
-                      <option value="IOCL">IOCL — Indian Oil Corporation</option>
-                      <option value="ONGC">ONGC — Oil and Natural Gas Corporation</option>
-                      <option value="CIL">CIL — Coal India Limited</option>
-                      <option value="SAIL">SAIL — Steel Authority of India</option>
-                      <option value="BHEL">BHEL — Bharat Heavy Electricals</option>
-                    </select>
-                  </div>
+                <form onSubmit={handleReviewerSubmit} className="space-y-4" autoComplete="off">
+                  {/* Decoy fields to capture aggressive browser autofill */}
+                  <input type="text" name="fake_reviewer_user" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="username" />
+                  <input type="password" name="fake_reviewer_pass" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="current-password" />
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="rev-name" className="text-xs">Authorized Reviewer</Label>
-                      <Input
-                        id="rev-name"
-                        type="text"
-                        value={reviewerName}
-                        onChange={(e) => setReviewerName(e.target.value)}
-                        className="h-9 text-xs"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="rev-id" className="text-xs">Reviewer ID</Label>
-                      <Input
-                        id="rev-id"
-                        type="text"
-                        value={reviewerId}
-                        onChange={(e) => setReviewerId(e.target.value)}
-                        className="h-9 text-xs font-mono text-muted-foreground"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="rev-key" className="text-xs">Security Access Key</Label>
-                      <span className="text-[10px] text-muted-foreground">Pre-configured</span>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rev-id">Reviewer ID</Label>
                     <Input
-                      id="rev-key"
-                      type="password"
-                      placeholder="Enter reviewer key"
-                      value={reviewerKey}
-                      onChange={(e) => setReviewerKey(e.target.value)}
-                      className="h-9 text-xs"
+                      id="rev-id"
+                      name="reviewer_code_identifier"
+                      type="text"
+                      placeholder="Enter Reviewer ID"
+                      value={reviewerId}
+                      onChange={(e) => setReviewerId(e.target.value)}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
                       required
                     />
                   </div>
 
-                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                    <UserCheck className="h-4 w-4 shrink-0" />
-                    <span className="text-[11px] leading-snug">
-                      Authorized to evaluate & verify material equivalence for <strong>{reviewerCpse}</strong>.
-                    </span>
+                  {/* Enterprise Organisation — auto-derived from Reviewer ID prefix, read-only */}
+                  {(() => {
+                    const enterprise = deriveEnterprise(reviewerId);
+                    return enterprise ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="rev-org" className="flex items-center gap-1.5">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          Enterprise Organisation
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="rev-org"
+                            type="text"
+                            value={`${enterprise.code} — ${enterprise.name}`}
+                            readOnly
+                            tabIndex={-1}
+                            className="bg-muted text-muted-foreground cursor-not-allowed select-none pr-16"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold font-mono bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 rounded px-1.5 py-0.5">
+                            {enterprise.code}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          CPSE scope is automatically bound to your Reviewer ID.
+                        </p>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="rev-password">Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="rev-password"
+                        name="reviewer_secret_access_key"
+                        type={showReviewerPassword ? "text" : "password"}
+                        placeholder="Enter reviewer password"
+                        value={reviewerPassword}
+                        onChange={(e) => setReviewerPassword(e.target.value)}
+                        autoComplete="new-password"
+                        className="pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center focus:outline-none"
+                        onClick={() => setShowReviewerPassword((prev) => !prev)}
+                        title={showReviewerPassword ? "Hide password" : "Show password"}
+                        tabIndex={-1}
+                      >
+                        {showReviewerPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <Button type="submit" className="w-full gap-2 bg-amber-600 hover:bg-amber-700 text-white" disabled={loading}>
-                    {loading ? 'Authenticating...' : `Sign in as ${reviewerCpse} Reviewer`}
+                    {loading ? 'Authenticating...' : 'Sign in as Reviewer'}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </form>

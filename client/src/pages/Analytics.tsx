@@ -1,34 +1,39 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { nmcApi } from '@/services/nmcApi';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, LabelList,
   RadialBarChart, RadialBar,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  Sector,
 } from 'recharts';
 
 import {
   Building2, Database, GitMerge, Layers,
   RotateCw, ArrowRight, Search, ChevronLeft, ChevronRight,
   Clock, Split, XCircle, CheckCircle2, PieChart as PieIcon, BarChart2, ShieldCheck,
+  TrendingUp, Activity, ExternalLink, ArrowUpRight, Sparkles, Check,
+  ClipboardCheck, Percent, Network, Inbox,
 } from 'lucide-react';
 
 // ─── Color Palette ────────────────────────────────────────────────────────────
 const C = {
-  blue:    '#3b82f6',
+  blue: '#3b82f6',
   emerald: '#10b981',
-  amber:   '#f59e0b',
-  indigo:  '#6366f1',
-  cyan:    '#06b6d4',
-  purple:  '#8b5cf6',
-  orange:  '#f97316',
-  slate:   '#64748b',
+  amber: '#f59e0b',
+  indigo: '#6366f1',
+  cyan: '#06b6d4',
+  purple: '#8b5cf6',
+  orange: '#f97316',
+  slate: '#64748b',
 };
 
 // Truly distinct vivid colors — one per bar
@@ -44,12 +49,12 @@ const CPSE_BAR_COLORS = [
 ];
 
 // ─── Recharts requires hard-coded hex (CSS vars don't work in SVG) ────────────
-const TICK_COLOR   = '#94a3b8'; // slate-400 — muted text
-const AXIS_COLOR   = '#334155'; // slate-700 — subtle axis line
-const LABEL_COLOR  = '#64748b'; // slate-500 — axis title
-const FG_COLOR     = '#f1f5f9'; // slate-100 — foreground / value labels
+const TICK_COLOR = '#94a3b8'; // slate-400 — muted text
+const AXIS_COLOR = '#334155'; // slate-700 — subtle axis line
+const LABEL_COLOR = '#64748b'; // slate-500 — axis title
+const FG_COLOR = '#f1f5f9'; // slate-100 — foreground / value labels
 
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
+// ─── Custom Tooltip — dark opaque card, matching admin analytics section ──────
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
@@ -62,6 +67,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         fontSize: 12,
         minWidth: 140,
         boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        pointerEvents: 'none',
       }}
     >
       {label !== undefined && (
@@ -89,68 +95,135 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-// ─── Pie Tooltip (pie slices have different payload structure) ────────────────
-const PieTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  const slice = payload[0];
-  const rawItem = slice.payload || {};
-  const name  = rawItem.name || slice.name || '';
-  const value = Number(rawItem.value ?? slice.value ?? 0);
-  const color = rawItem.color || slice.color || slice.fill || '#10b981';
-  const desc  = rawItem.desc || '';
-  const total = rawItem._total || rawItem.payload?._total || 0;
-  const pct   = total > 0 ? ((value / total) * 100).toFixed(1) : (rawItem.pct ?? null);
+// ─── Pie ActiveShape — expands hovered slice, shows name+pct in center ──────
+const renderPieActiveShape = (props: any) => {
+  const {
+    cx, cy, innerRadius, outerRadius, startAngle, endAngle,
+    fill,
+  } = props;
+  return (
+    <g>
+      {/* Expanded active slice */}
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius - 4}
+        outerRadius={outerRadius + 10}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={1}
+        stroke={fill}
+        strokeWidth={2}
+      />
+      {/* Outer glow ring */}
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={outerRadius + 13}
+        outerRadius={outerRadius + 17}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        opacity={0.3}
+      />
+    </g>
+  );
+};
+
+// ─── Pie Tooltip — invisible; center label drives the UX instead ────────────
+const PieTooltip = () => null;
+
+// ─── PieDonutWithActiveCenter — interactive donut with hover-driven center ───
+interface PieDonutProps {
+  data: Array<{ name: string; value: number; color: string; desc?: string }>;
+  total: number;
+  viewLabel: string;
+}
+function PieDonutWithActiveCenter({ data, total, viewLabel }: PieDonutProps) {
+  const [activeIdx, setActiveIdx] = React.useState<number | null>(null);
+
+  const activeSlice = activeIdx !== null ? data[activeIdx] : null;
+  const activePct =
+    activeSlice && total > 0
+      ? Math.round((activeSlice.value / total) * 100)
+      : null;
+
+  if (data.length === 0) {
+    return (
+      <div className="h-64 flex items-center justify-center text-xs text-muted-foreground">
+        No decisions recorded yet in this view.
+      </div>
+    );
+  }
 
   return (
-    <div
-      style={{
-        background: 'rgba(15,23,42,0.96)',
-        border: `1.5px solid ${color}`,
-        borderRadius: 8,
-        padding: '10px 14px',
-        fontSize: 12,
-        minWidth: 175,
-        boxShadow: `0 10px 30px rgba(0,0,0,0.6), 0 0 16px ${color}33`,
-        pointerEvents: 'none',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: color, flexShrink: 0 }} />
-          <span style={{ color: '#ffffff', fontWeight: 700, fontSize: 13 }}>{name}</span>
-        </div>
-        {pct !== null && (
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              padding: '2px 7px',
-              borderRadius: 12,
-              background: `${color}25`,
-              color: color,
-              border: `1px solid ${color}55`,
-            }}
+    <div className="relative h-64 w-full flex items-center justify-center">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            innerRadius={68}
+            outerRadius={98}
+            paddingAngle={4}
+            stroke="rgba(15,23,42,0.6)"
+            strokeWidth={2}
+            activeIndex={activeIdx ?? undefined}
+            activeShape={renderPieActiveShape}
+            onMouseEnter={(_: any, index: number) => setActiveIdx(index)}
+            onMouseLeave={() => setActiveIdx(null)}
           >
-            {pct}%
-          </span>
+            {data.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={entry.color}
+                opacity={activeIdx === null || activeIdx === index ? 1 : 0.35}
+                style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+              />
+            ))}
+          </Pie>
+          <Tooltip content={<PieTooltip />} />
+        </PieChart>
+      </ResponsiveContainer>
+
+      {/* Center overlay — changes on hover */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+        {activeSlice ? (
+          <>
+            <span
+              className="text-xl font-black tabular-nums"
+              style={{ color: activeSlice.color, transition: 'color 0.15s' }}
+            >
+              {activePct}%
+            </span>
+            <span
+              className="text-[10px] font-bold tracking-wide text-center px-3 leading-tight mt-0.5"
+              style={{ color: activeSlice.color, opacity: 0.85 }}
+            >
+              {activeSlice.name}
+            </span>
+            <span className="text-[9px] text-muted-foreground mt-0.5 font-mono">
+              {activeSlice.value.toLocaleString()} entries
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-2xl font-black text-foreground tabular-nums">
+              {total.toLocaleString()}
+            </span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+              {viewLabel}
+            </span>
+          </>
         )}
-      </div>
-
-      {desc && (
-        <p style={{ color: '#94a3b8', fontSize: 11, marginBottom: 6, paddingLeft: 15 }}>
-          {desc}
-        </p>
-      )}
-
-      <div style={{ paddingLeft: 15, fontSize: 12, display: 'flex', alignItems: 'baseline', gap: 5 }}>
-        <span style={{ color: '#ffffff', fontWeight: 800, fontSize: 14, fontFamily: 'monospace' }}>
-          {value.toLocaleString()}
-        </span>
-        <span style={{ color: '#94a3b8', fontSize: 11 }}>candidate pairs</span>
       </div>
     </div>
   );
-};
+}
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
 function Spinner({ color = 'text-blue-500' }: { color?: string }) {
@@ -215,6 +288,20 @@ export default function Analytics() {
   });
   const reviewerCpseObj = useMemo(() => cpses?.find((c: any) => c.id === reviewerCpseId), [cpses, reviewerCpseId]);
 
+  // ── Dedicated Reviewer Analytics Query (graphs, personal metrics, partner distribution) ──
+  const {
+    data: reviewerAnalytics,
+    isLoading: reviewerAnalyticsLoading,
+    isFetching: reviewerFetching,
+    refetch: refetchReviewerAnalytics,
+  } = useQuery({
+    queryKey: ['nmc', 'reviewer-analytics', reviewerCpse, reviewerCpseId],
+    queryFn: () => nmcApi.analytics.getReviewerAnalytics(reviewerCpse || undefined, reviewerCpseId || undefined),
+    enabled: isReviewer,
+    refetchInterval: 15000,
+  });
+  const [decisionViewMode, setDecisionViewMode] = useState<'personal' | 'enterprise'>('personal');
+
   const [hoveredStatus, setHoveredStatus] = useState<string | null>(null);
 
   const isLoading = fullLoading;
@@ -227,10 +314,10 @@ export default function Analytics() {
   const dd = dashData as any;
 
   // ── KPI Values ───────────────────────────────────────────────────────────
-  const totalCpses     = d?.active_cpses ?? d?.total_cpses ?? dd?.total_cpsEs ?? 0;
+  const totalCpses = d?.active_cpses ?? d?.total_cpses ?? dd?.total_cpsEs ?? 0;
   const totalMaterials = d?.total_materials ?? dd?.total_materials ?? 0;
-  const totalMatches   = d?.total_matches ?? 0;
-  const totalCmm       = d?.total_cmm ?? dd?.total_national_codes ?? 0;
+  const totalMatches = d?.total_matches ?? 0;
+  const totalCmm = d?.total_cmm ?? dd?.total_national_codes ?? 0;
 
   // ── Materials by CPSE ────────────────────────────────────────────────────
   const materialsByCpse: { cpse_code: string; material_count: number }[] = useMemo(() => {
@@ -252,17 +339,17 @@ export default function Analytics() {
   // ── Harmonization Status Breakdown (Pending, Different, Rejected, Accepted) ─
   const harmonizationStatusData = useMemo(() => {
     const ms = d?.match_by_status || {};
-    const pending   = reviewStats?.pending   ?? (ms.PENDING_REVIEW || 0);
+    const pending = reviewStats?.pending ?? (ms.PENDING_REVIEW || 0);
     const different = reviewStats?.different ?? (ms.DIFFERENT || 0);
-    const rejected  = reviewStats?.rejected  ?? (ms.REJECTED || 0);
-    const accepted  = reviewStats?.mapped    ?? ((ms.ACCEPTED || 0) + (ms.OVERRIDDEN || 0));
-    const total     = pending + different + rejected + accepted;
+    const rejected = reviewStats?.rejected ?? (ms.REJECTED || 0);
+    const accepted = reviewStats?.mapped ?? ((ms.ACCEPTED || 0) + (ms.OVERRIDDEN || 0));
+    const total = pending + different + rejected + accepted;
 
     return [
-      { name: 'Pending',   value: pending,   color: '#0284c7', icon: Clock,        desc: 'Awaiting reviewer decision',  _total: total },
-      { name: 'Different', value: different, color: '#8b5cf6', icon: Split,        desc: 'Marked as distinct items',    _total: total },
-      { name: 'Rejected',  value: rejected,  color: '#f43f5e', icon: XCircle,      desc: 'Candidate match rejected',    _total: total },
-      { name: 'Accepted',  value: accepted,  color: '#10b981', icon: CheckCircle2, desc: 'Verified & harmonized NMC',  _total: total },
+      { name: 'Pending', value: pending, color: '#0284c7', icon: Clock, desc: 'Awaiting reviewer decision', _total: total },
+      { name: 'Different', value: different, color: '#8b5cf6', icon: Split, desc: 'Marked as distinct items', _total: total },
+      { name: 'Rejected', value: rejected, color: '#f43f5e', icon: XCircle, desc: 'Candidate match rejected', _total: total },
+      { name: 'Accepted', value: accepted, color: '#10b981', icon: CheckCircle2, desc: 'Verified & harmonized NMC', _total: total },
     ];
   }, [d, reviewStats]);
 
@@ -305,10 +392,10 @@ export default function Analytics() {
 
   // ── Harmonization Progress (funnel) ─────────────────────────────────────
   const progressData = useMemo(() => [
-    { stage: 'Processed',  count: d?.total_materials          ?? dd?.total_materials ?? 0 },
-    { stage: 'Matched',    count: d?.total_matches            ?? 0 },
-    { stage: 'Reviewed',   count: d?.total_review_decisions   ?? dd?.decisions_recorded ?? 0 },
-    { stage: 'Harmonized', count: d?.mapped_materials         ?? dd?.mapped_materials ?? 0 },
+    { stage: 'Processed', count: d?.total_materials ?? dd?.total_materials ?? 0 },
+    { stage: 'Matched', count: d?.total_matches ?? 0 },
+    { stage: 'Reviewed', count: d?.total_review_decisions ?? dd?.decisions_recorded ?? 0 },
+    { stage: 'Harmonized', count: d?.mapped_materials ?? dd?.mapped_materials ?? 0 },
   ], [d, dd]);
 
   // ── CMM Table ────────────────────────────────────────────────────────────
@@ -330,87 +417,646 @@ export default function Analytics() {
     return cmmRecords.slice(start, start + cmmPageSize);
   }, [cmmRecords, cmmPage, cmmPageSize]);
 
-  // ── Reviewer early-return: scoped stats view ──────────────────────────────
+  // ── Reviewer early-return: comprehensive visual analytics dashboard ───────────
   if (isReviewer) {
-    const rs = reviewerStats;
+    const ra = reviewerAnalytics as any;
     const cpseObj = reviewerCpseObj as any;
-    const statCards = [
-      { label: 'Pending', value: rs?.pending ?? 0, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-500/10', desc: 'Items awaiting review' },
-      { label: 'Accepted / Mapped', value: rs?.mapped ?? 0, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', desc: 'Matches confirmed and harmonized into Common Master' },
-      { label: 'Different', value: rs?.different ?? 0, icon: Split, color: 'text-purple-500', bg: 'bg-purple-500/10', desc: 'Distinct materials flagged separately' },
-      { label: 'Rejected', value: rs?.rejected ?? 0, icon: XCircle, color: 'text-rose-500', bg: 'bg-rose-500/10', desc: 'False positive candidate pairs rejected' },
-    ];
+
+    const _rawRevMetrics = ra?.reviewer_metrics || {};
+    const revMetrics = {
+      total_decisions: _rawRevMetrics.total_decisions ?? 0,
+      accepted: _rawRevMetrics.accepted ?? 0,
+      different: _rawRevMetrics.different ?? 0,
+      rejected: _rawRevMetrics.rejected ?? 0,
+      overridden: _rawRevMetrics.overridden ?? 0,
+      acceptance_rate: _rawRevMetrics.acceptance_rate ?? 100,
+    };
+
+    const _rawStats = ra?.stats || reviewerStats || {};
+    const qStats = {
+      pending: Number(_rawStats.pending ?? 0),
+      mapped: Number(_rawStats.mapped ?? 0),
+      different: Number(_rawStats.different ?? 0),
+      rejected: Number(_rawStats.rejected ?? 0),
+      total_pairs: Number(_rawStats.total_pairs ?? _rawStats.total ?? 0),
+      resolved_pairs: Number(_rawStats.resolved_pairs ?? _rawStats.mapped ?? 0),
+      completion_rate: Number(_rawStats.completion_rate ?? 0),
+    };
+
+    // Data for Donut Chart
+    const activeBreakdown = (
+      decisionViewMode === 'personal'
+        ? (ra?.personal_breakdown || [
+          { name: 'Accepted / Harmonized', value: revMetrics.accepted, color: '#10b981', desc: 'Equivalency confirmed & mapped to CMM' },
+          { name: 'Flagged Different', value: revMetrics.different, color: '#8b5cf6', desc: 'Distinct engineering specs flagged' },
+          { name: 'Rejected', value: revMetrics.rejected, color: '#ef4444', desc: 'Incompatible candidate rejected' },
+          { name: 'Arbitrated', value: revMetrics.overridden, color: '#f59e0b', desc: 'Overridden or escalated' },
+        ])
+        : (ra?.cpse_breakdown || [
+          { name: 'Accepted / Harmonized', value: qStats.mapped, color: '#10b981', desc: 'Confirmed matches for this CPSE' },
+          { name: 'Flagged Different', value: qStats.different, color: '#8b5cf6', desc: 'Marked separate for this CPSE' },
+          { name: 'Rejected', value: qStats.rejected, color: '#ef4444', desc: 'Rejected candidates' },
+          { name: 'Pending Verification', value: qStats.pending, color: '#3b82f6', desc: 'Awaiting domain reviewer action' },
+        ])
+    );
+
+    const breakdownData = activeBreakdown.filter((item: any) => item.value > 0);
+    const breakdownTotal = breakdownData.reduce((acc: number, curr: any) => acc + curr.value, 0);
+
+    const confidenceDistribution = ra?.confidence_distribution || [];
+    const peerDistribution = ra?.peer_distribution || [];
+    const familyDistribution = ra?.family_distribution || [];
+    const activityTimeline = ra?.activity_timeline || [];
+    const recentDecisions = ra?.recent_decisions || [];
+
+    const handleReviewerRefresh = () => {
+      refetchReviewerAnalytics();
+    };
+
     return (
       <AppLayout>
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-8 pt-2 pb-16 px-1">
+          {/* ── Top Header & Actions ────────────────────────────────────────────── */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-6">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">My Review Analytics</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Review activity and stats scoped to {reviewerCpse || 'your CPSE'}.
+              <div className="flex items-center gap-2 mb-3">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Reviewer Intelligence Platform
+                </span>
+                <span className="text-muted-foreground/40">·</span>
+                <Badge variant="outline" className="text-[11px] font-medium border-primary/30 text-primary bg-primary/5">
+                  {reviewerCpse || 'Enterprise'} Scoped
+                </Badge>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                My Review Analytics & Visual Insights
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-2.5 leading-relaxed">
+                Performance metrics, decision distributions, and cross-CPSE candidate harmonization.
               </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReviewerRefresh}
+                disabled={reviewerFetching}
+                className="h-9 gap-1.5 text-xs border-border/80 hover:bg-muted"
+              >
+                <RotateCw className={`h-3.5 w-3.5 ${reviewerFetching ? 'animate-spin text-primary' : ''}`} />
+                <span>Refresh Live</span>
+              </Button>
+              <Link to="/review">
+                <Button size="sm" className="h-9 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-sm">
+                  <span>Go to Review Queue</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
             </div>
           </div>
 
-          {/* Scoping Banner */}
-          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
-            <span className="leading-relaxed">
-              Signed in as <strong className="text-foreground">{reviewerName || 'Reviewer'}</strong>
-              {' '}— analytics scoped to <strong className="text-foreground uppercase">{reviewerCpse}</strong> review activity.
-              Full platform analytics are available to Central Admin only.
-            </span>
-          </div>
+          {/* ── KPI Cards — compact admin-style ──────────────────────────────── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
-          {/* CPSE Info */}
-          {cpseObj && (
+            {/* Card 1: My Determinations */}
             <Card className="border-border/60">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Building2 className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{cpseObj.name}</p>
-                  <p className="text-xs text-muted-foreground">{cpseObj.code} · {cpseObj.description || 'CPSE Enterprise'}</p>
-                </div>
-                <div className="ml-auto text-right">
-                  <p className="text-xs text-muted-foreground">Total Materials</p>
-                  <p className="text-lg font-bold text-foreground">{cpseObj.active_dataset?.record_count?.toLocaleString() ?? '—'}</p>
+              <CardHeader className="p-4 pb-2">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" />
+                  My Determinations
+                </CardDescription>
+                <CardTitle className="text-2xl font-bold tabular-nums">
+                  {revMetrics.total_decisions.toLocaleString()}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="text-emerald-500 font-semibold">{revMetrics.accepted} accepted</span>
+                  {' · '}
+                  <span className="text-purple-400 font-semibold">{revMetrics.different} flagged</span>
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Card 2: Acceptance Rate */}
+            <Card className="border-border/60">
+              <CardHeader className="p-4 pb-2">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <Percent className="h-3.5 w-3.5 text-blue-500" />
+                  Acceptance Rate
+                </CardDescription>
+                <CardTitle className="text-2xl font-bold tabular-nums">
+                  {revMetrics.total_decisions > 0 ? `${revMetrics.acceptance_rate}%` : '100%'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <div className="w-full bg-muted/60 rounded-full h-1 overflow-hidden">
+                  <div
+                    className="bg-blue-500 h-1 rounded-full transition-all duration-700"
+                    style={{ width: `${Math.min(100, revMetrics.acceptance_rate || 100)}%` }}
+                  />
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* KPI Stat Cards */}
-          {reviewerStatsLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">Loading stats...</div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {statCards.map((s) => (
-                <Card key={s.label} className="border-border/60">
-                  <CardHeader className="p-4 pb-2">
-                    <CardDescription className="text-xs flex items-center gap-1.5">
-                      <div className={`h-5 w-5 rounded-md ${s.bg} flex items-center justify-center`}>
-                        <s.icon className={`h-3 w-3 ${s.color}`} />
-                      </div>
-                      {s.label}
-                    </CardDescription>
-                    <CardTitle className="text-3xl font-bold tabular-nums">{s.value.toLocaleString()}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <p className="text-[11px] text-muted-foreground">{s.desc}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+            {/* Card 3: CPSE Harmonization */}
+            <Card className="border-border/60">
+              <CardHeader className="p-4 pb-2">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <Network className="h-3.5 w-3.5 text-indigo-500" />
+                  {reviewerCpse || 'CPSE'} Harmonization
+                </CardDescription>
+                <CardTitle className="text-2xl font-bold tabular-nums">
+                  {qStats.completion_rate}%
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <p className="text-[11px] text-muted-foreground">
+                  {qStats.resolved_pairs.toLocaleString()} / {qStats.total_pairs.toLocaleString()} pairs resolved
+                </p>
+              </CardContent>
+            </Card>
 
-          {/* Summary note */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground p-3 rounded-lg border border-border/60 bg-muted/20">
-            <Database className="h-4 w-4 shrink-0 text-primary" />
-            <span>Stats update live every 15 seconds. Cross-enterprise macro analytics and comparisons are reserved for Central Admin.</span>
+            {/* Card 4: Queue Awaiting Action */}
+            <Card className="border-border/60">
+              <CardHeader className="p-4 pb-2">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <Inbox className="h-3.5 w-3.5 text-amber-500" />
+                  Queue Awaiting Action
+                </CardDescription>
+                <CardTitle className="text-2xl font-bold tabular-nums text-amber-500">
+                  {qStats.pending.toLocaleString()}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <Link to="/review" className="text-[11px] text-primary hover:underline font-medium flex items-center gap-0.5">
+                  Open Review Queue <ArrowUpRight className="h-3 w-3" />
+                </Link>
+              </CardContent>
+            </Card>
+
           </div>
+
+
+          {/* ── Visual Charts Row 1: Decision Breakdown & Confidence Tiers ─────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Chart 1: Donut Chart - Review Decision Breakdown */}
+            <Card className="border-border/60 bg-card shadow-sm flex flex-col">
+              <CardHeader className="p-5 pb-2 border-b border-border/40">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                      <PieIcon className="h-4 w-4 text-primary" />
+                      Determination Breakdown
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                      Visual distribution of determinations across match candidates
+                    </CardDescription>
+                  </div>
+                  {/* View Mode Toggle */}
+                  <div className="inline-flex items-center p-0.5 rounded-lg bg-muted border border-border/60 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setDecisionViewMode('personal')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition-all ${decisionViewMode === 'personal'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                      My Actions ({revMetrics.total_decisions})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDecisionViewMode('enterprise')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition-all ${decisionViewMode === 'enterprise'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                      {reviewerCpse || 'CPSE'} Queue ({qStats.total_pairs})
+                    </button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 flex-1 flex flex-col justify-between">
+                <PieDonutWithActiveCenter
+                  data={breakdownData}
+                  total={breakdownTotal}
+                  viewLabel={decisionViewMode === 'personal' ? 'My Actions' : 'Candidates'}
+                />
+
+                {/* Slices Legend */}
+                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/40 text-xs">
+                  {breakdownData.map((slice: any) => {
+                    const pct = breakdownTotal > 0 ? Math.round((slice.value / breakdownTotal) * 100) : 0;
+                    return (
+                      <div
+                        key={slice.name}
+                        className="flex items-center justify-between p-2 rounded-md bg-muted/30 border border-border/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: slice.color }}
+                          />
+                          <span className="truncate text-muted-foreground text-[11px] font-medium">
+                            {slice.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 font-mono font-semibold text-[11px]">
+                          <span>{slice.value}</span>
+                          <span className="text-muted-foreground font-normal text-[10px]">({pct}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Chart 2: Match Confidence Distribution (Bar Chart) */}
+            <Card className="border-border/60 bg-card shadow-sm flex flex-col">
+              <CardHeader className="p-5 pb-2 border-b border-border/40">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                      <BarChart2 className="h-4 w-4 text-primary" />
+                      Match Confidence Distribution
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                      Candidate match AI score bands for {reviewerCpse || 'your enterprise'}
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono border-border">
+                    {confidenceDistribution.reduce((a: number, c: any) => a + (c.count || 0), 0)} pairs evaluated
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 flex-1 flex flex-col justify-between">
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={confidenceDistribution}
+                      margin={{ top: 20, right: 15, left: -10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                      <XAxis
+                        dataKey="shortTier"
+                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={false} />
+                      <Bar dataKey="count" name="Candidate Pairs" radius={[5, 5, 0, 0]}>
+                        {confidenceDistribution.map((entry: any, index: number) => (
+                          <Cell key={`bar-${index}`} fill={entry.color} />
+                        ))}
+                        <LabelList dataKey="count" position="top" fill={FG_COLOR} fontSize={11} fontWeight={600} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Tier Protocol Recommendations */}
+                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border/40 text-[11px]">
+                  {confidenceDistribution.map((tier: any) => (
+                    <div
+                      key={tier.shortTier}
+                      className="p-2 rounded-md border border-border/40 bg-muted/20 flex flex-col justify-between"
+                    >
+                      <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tier.color }} />
+                        <span>{tier.shortTier}</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">({tier.count} pairs)</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                        {tier.action}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── Visual Charts Row 2: Peer CPSE Distribution & Catalog Families ─── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Chart 3: Cross-CPSE Harmonization Partners (Horizontal Bar Chart) */}
+            <Card className="border-border/60 bg-card shadow-sm flex flex-col">
+              <CardHeader className="p-5 pb-2 border-b border-border/40">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      Inter-Enterprise Harmonization Partners
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                      Candidate match pairs shared between {reviewerCpse || 'your enterprise'} and peer CPSEs
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono border-border">
+                    {peerDistribution.length} Partner CPSEs
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 flex-1 flex flex-col justify-between">
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={peerDistribution}
+                      margin={{ top: 10, right: 30, left: 10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" horizontal={false} />
+                      <XAxis
+                        type="number"
+                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="cpse_code"
+                        tick={{ fill: FG_COLOR, fontSize: 12, fontWeight: 600 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                        width={60}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={false} />
+                      <Bar dataKey="pairs" name="Shared Candidate Pairs" radius={[0, 5, 5, 0]}>
+                        {peerDistribution.map((entry: any, index: number) => (
+                          <Cell key={`peer-${index}`} fill={entry.color || CPSE_BAR_COLORS[index % CPSE_BAR_COLORS.length]} />
+                        ))}
+                        <LabelList dataKey="pairs" position="right" fill={FG_COLOR} fontSize={11} fontWeight={600} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-muted/30 border border-border/40 text-[11px] text-muted-foreground flex items-center gap-2 mt-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span>
+                    Highest inter-enterprise cross-match volume is with{' '}
+                    <strong className="text-foreground">
+                      {peerDistribution[0]?.cpse_code || 'Peer Enterprises'}
+                    </strong>{' '}
+                    ({peerDistribution[0]?.pairs || 0} pairs).
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Chart 4: Catalog Family Distribution (Bar Chart) */}
+            <Card className="border-border/60 bg-card shadow-sm flex flex-col">
+              <CardHeader className="p-5 pb-2 border-b border-border/40">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-primary" />
+                      Catalog Material Family Distribution
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                      Top inventory classifications in {reviewerCpse || 'CPSE'} master dataset
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono border-border">
+                    {ra?.total_materials ?? '—'} Materials
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 flex-1 flex flex-col justify-between">
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={familyDistribution}
+                      margin={{ top: 20, right: 15, left: -10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                      <XAxis
+                        dataKey="family"
+                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={false} />
+                      <Bar dataKey="count" name="Material Items" fill="#6366f1" radius={[5, 5, 0, 0]}>
+                        {familyDistribution.map((_: any, index: number) => (
+                          <Cell key={`fam-${index}`} fill={CPSE_BAR_COLORS[(index + 2) % CPSE_BAR_COLORS.length]} />
+                        ))}
+                        <LabelList dataKey="count" position="top" fill={FG_COLOR} fontSize={11} fontWeight={600} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-muted/30 border border-border/40 text-[11px] text-muted-foreground flex items-center gap-2 mt-2">
+                  <Database className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span>
+                    {ra?.normalized_materials ?? 0} materials normalized with standard engineering attributes.
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── Visual Chart Row 3: Throughput Velocity & Activity Timeline ─────── */}
+          <Card className="border-border/60 bg-card shadow-sm">
+            <CardHeader className="p-5 pb-2 border-b border-border/40">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-primary" />
+                    Review Velocity & Throughput Activity
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                    Live review throughput cadence across operational sessions
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                  <span>Decisions Logged per Hourly Window</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5">
+              <div className="h-56 w-full">
+                {activityTimeline.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                    No timeline activity recorded yet.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={activityTimeline}
+                      margin={{ top: 15, right: 20, left: -10, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="revVelocityGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                      <XAxis
+                        dataKey="time"
+                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
+                        axisLine={{ stroke: AXIS_COLOR }}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={false} />
+                      <Area
+                        type="monotone"
+                        dataKey="decisions"
+                        name="Decisions"
+                        stroke="#3b82f6"
+                        strokeWidth={2.5}
+                        fill="url(#revVelocityGrad)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Recent Review Determinations (Audit & Action Table) ─────────────── */}
+          <Card className="border-border/60 bg-card shadow-sm">
+            <CardHeader className="p-5 pb-3 border-b border-border/40">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    Recent Review Determinations
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                    Live recorded decisions for materials linked to {reviewerCpse || 'your enterprise'}
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="text-[11px] font-mono border-border self-start sm:self-auto">
+                  Latest {recentDecisions.length} Decisions
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {recentDecisions.length === 0 ? (
+                <div className="py-12 text-center text-xs text-muted-foreground">
+                  No review decisions logged yet. Start reviewing candidate matches from the queue.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-muted/40 text-muted-foreground border-b border-border/40 text-[11px] font-semibold uppercase tracking-wider">
+                      <tr>
+                        <th className="py-3 px-4">Match / Item Comparison</th>
+                        <th className="py-3 px-4">Partner CPSE</th>
+                        <th className="py-3 px-4">AI Confidence</th>
+                        <th className="py-3 px-4">Determination</th>
+                        <th className="py-3 px-4">Reviewer & Note</th>
+                        <th className="py-3 px-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {recentDecisions.map((item: any) => {
+                        const isAccept = item.decision === 'ACCEPT';
+                        const isDiff = item.decision === 'DIFFERENT';
+                        const isReject = item.decision === 'REJECT';
+                        const isOverride = item.decision === 'OVERRIDE';
+
+                        return (
+                          <tr key={item.id} className="hover:bg-muted/20 transition-colors">
+                            <td className="py-3 px-4 max-w-xs">
+                              <p className="font-semibold text-foreground truncate">
+                                {item.src_desc || 'Source Material'}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                                Candidate: {item.cand_desc || item.cand_code || '—'}
+                              </p>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant="outline" className="text-[11px] font-semibold uppercase tracking-wider bg-muted/40 border-border">
+                                {item.partner_cpse || 'Peer CPSE'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4">
+                              {item.confidence_pct !== null && item.confidence_pct !== undefined ? (
+                                <span className={`inline-flex items-center gap-1 font-mono font-bold text-xs ${item.confidence_pct >= 90 ? 'text-emerald-500' : item.confidence_pct >= 80 ? 'text-amber-500' : 'text-purple-400'
+                                  }`}>
+                                  {item.confidence_pct}%
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              {isAccept && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                                  <Check className="h-3 w-3" /> Accepted / Mapped
+                                </span>
+                              )}
+                              {isDiff && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                                  <Split className="h-3 w-3" /> Flagged Different
+                                </span>
+                              )}
+                              {isReject && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-500 border border-rose-500/30">
+                                  <XCircle className="h-3 w-3" /> Rejected
+                                </span>
+                              )}
+                              {isOverride && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                                  Arbitrated
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 max-w-xs">
+                              <p className="font-medium text-foreground truncate">{item.reviewer || 'Reviewer'}</p>
+                              {item.reason && (
+                                <p className="text-[10px] text-muted-foreground italic truncate mt-0.5" title={item.reason}>
+                                  "{item.reason}"
+                                </p>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <Link
+                                to={`/review/match/${item.match_id}?fromTab=queue`}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                              >
+                                View <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </AppLayout>
     );
@@ -501,7 +1147,7 @@ export default function Analytics() {
           <Card className="border-border/60">
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-xs flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5 text-emerald-500" />
+                <Layers className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                 Common Material Masters
               </CardDescription>
               <CardTitle className="text-2xl font-bold tabular-nums">
@@ -616,7 +1262,7 @@ export default function Analytics() {
             </CardHeader>
             <CardContent className="p-4 pt-2">
               {isLoading ? (
-                <Spinner color="text-emerald-500" />
+                <Spinner color="text-emerald-600 dark:text-emerald-400" />
               ) : totalStatusCount === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-center p-4">
                   <div className="h-10 w-10 rounded-full bg-muted/50 flex items-center justify-center mb-2">
@@ -710,11 +1356,10 @@ export default function Analytics() {
                           key={item.name}
                           onMouseEnter={() => setHoveredStatus(item.name)}
                           onMouseLeave={() => setHoveredStatus(null)}
-                          className={`rounded-lg border p-2.5 transition-all duration-200 cursor-pointer ${
-                            isHovered
-                              ? 'border-foreground/50 shadow-sm bg-muted/40'
-                              : 'border-border/60 bg-muted/15 hover:border-border'
-                          }`}
+                          className={`rounded-lg border p-2.5 transition-all duration-200 cursor-pointer ${isHovered
+                            ? 'border-foreground/50 shadow-sm bg-muted/40'
+                            : 'border-border/60 bg-muted/15 hover:border-border'
+                            }`}
                         >
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1.5">
@@ -876,8 +1521,8 @@ export default function Analytics() {
                       <AreaChart data={progressData} margin={{ top: 10, right: 20, left: 10, bottom: 4 }}>
                         <defs>
                           <linearGradient id="progressGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%"  stopColor={C.blue} stopOpacity={0.35} />
-                            <stop offset="95%" stopColor={C.blue} stopOpacity={0.0}  />
+                            <stop offset="5%" stopColor={C.blue} stopOpacity={0.35} />
+                            <stop offset="95%" stopColor={C.blue} stopOpacity={0.0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke={AXIS_COLOR} opacity={0.5} />
@@ -996,8 +1641,8 @@ export default function Analytics() {
                               title={(c.source_cpses || []).join(', ')}
                               style={{
                                 background: (c.cpse_count || 1) >= 2 ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.10)',
-                                color:      (c.cpse_count || 1) >= 2 ? C.emerald : C.blue,
-                                border:     `1px solid ${(c.cpse_count || 1) >= 2 ? 'rgba(16,185,129,0.28)' : 'rgba(59,130,246,0.22)'}`,
+                                color: (c.cpse_count || 1) >= 2 ? C.emerald : C.blue,
+                                border: `1px solid ${(c.cpse_count || 1) >= 2 ? 'rgba(16,185,129,0.28)' : 'rgba(59,130,246,0.22)'}`,
                               }}
                             >
                               {c.cpse_count ?? (c.source_cpses?.length ?? 1)}

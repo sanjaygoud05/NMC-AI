@@ -239,12 +239,28 @@ def _ingest_dataset_background(
 
         nmc_repo.update_dataset_status(dataset_id, "PROCESSING")
 
-        # Clean old materials and procurement records for this dataset / cpse
+        # Clean ALL old materials and procurement records for this CPSE
+        # (deleting by dataset_id alone misses materials from previous inactive datasets)
         with nmc_repo.get_session() as session:
-            session.execute(text("DELETE FROM inventory_records WHERE material_id IN (SELECT id FROM materials WHERE dataset_id=:did) OR cpse_id=:cid"), {"did": dataset_id, "cid": cpse_id})
-            session.execute(text("DELETE FROM demand_records WHERE material_id IN (SELECT id FROM materials WHERE dataset_id=:did) OR cpse_id=:cid"), {"did": dataset_id, "cid": cpse_id})
-            session.execute(text("DELETE FROM procurement_history_records WHERE material_id IN (SELECT id FROM materials WHERE dataset_id=:did) OR cpse_id=:cid"), {"did": dataset_id, "cid": cpse_id})
-            session.execute(text("DELETE FROM materials WHERE dataset_id=:did"), {"did": dataset_id})
+            session.execute(
+                text("""
+                    DELETE FROM material_matches
+                    WHERE source_material_id IN (SELECT id FROM materials WHERE cpse_id=:cid)
+                       OR candidate_material_id IN (SELECT id FROM materials WHERE cpse_id=:cid)
+                """),
+                {"cid": cpse_id},
+            )
+            session.execute(
+                text("""
+                    DELETE FROM material_mappings
+                    WHERE material_id IN (SELECT id FROM materials WHERE cpse_id=:cid)
+                """),
+                {"cid": cpse_id},
+            )
+            session.execute(text("DELETE FROM inventory_records WHERE cpse_id=:cid"), {"cid": cpse_id})
+            session.execute(text("DELETE FROM demand_records WHERE cpse_id=:cid"), {"cid": cpse_id})
+            session.execute(text("DELETE FROM procurement_history_records WHERE cpse_id=:cid"), {"cid": cpse_id})
+            session.execute(text("DELETE FROM materials WHERE cpse_id=:cid"), {"cid": cpse_id})
             session.commit()
 
         # Detect structured material attribute fields from uploaded columns

@@ -29,16 +29,19 @@ import {
   Layers,
   GitMerge,
   ArrowRight,
-  InboxIcon,
+  Hourglass,
+  Bell,
+  ShieldAlert,
+  CheckCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Confidence band options for the dropdown filter
 const CONF_OPTIONS = [
-  { value: 'ALL',    label: 'All Confidence' },
-  { value: 'HIGH',   label: 'High (≥70%)' },
-  { value: 'MEDIUM', label: 'Medium (40–69%)' },
-  { value: 'LOW',    label: 'Low (<40%)' },
+  { value: 'ALL', label: 'All Confidence' },
+  { value: 'HIGH', label: 'High (≥85%)' },
+  { value: 'MEDIUM', label: 'Medium (40–84%)' },
+  { value: 'LOW', label: 'Low (<40%)' },
 ] as const;
 
 // Sort pending records by confidence: HIGH → MEDIUM → LOW then by score desc
@@ -57,8 +60,8 @@ export default function Review() {
   const queryClient = useQueryClient();
   const { canSubmitDecisions, reviewerKey, isAdmin, isReviewer, reviewerName, reviewerCpse } = useAuth();
 
-  // Four top-level tabs: pending | different | rejected | mapped
-  const [activeTab, setActiveTab] = useState<'pending' | 'mapped' | 'different' | 'rejected'>('pending');
+  // Seven top-level tabs: pending | alerts | awaiting_peer | mapped | different | rejected | conflicts (admin-only)
+  const [activeTab, setActiveTab] = useState<'pending' | 'alerts' | 'awaiting_peer' | 'mapped' | 'different' | 'rejected' | 'conflicts'>('pending');
 
   // Confidence band dropdown filter (applies across tabs)
   const [confFilter, setConfFilter] = useState<string>('ALL');
@@ -84,6 +87,13 @@ export default function Review() {
     }
   }, [isReviewer, reviewerCpse, cpses]);
 
+  // Guard: Admin should never see or stay on the CPSE-scoped 'alerts' tab
+  useEffect(() => {
+    if (isAdmin && activeTab === 'alerts') {
+      setActiveTab('pending');
+    }
+  }, [isAdmin, activeTab]);
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['nmc', 'review-stats', selectedCpse],
     queryFn: () => nmcApi.review.getStats(selectedCpse === 'ALL' ? undefined : selectedCpse),
@@ -93,12 +103,18 @@ export default function Review() {
   // Build the status param sent to the API
   const statusParam =
     activeTab === 'pending'
-      ? 'PENDING_REVIEW'
-      : activeTab === 'mapped'
-        ? 'ACCEPTED,OVERRIDDEN'
-        : activeTab === 'different'
-          ? 'DIFFERENT'
-          : 'REJECTED';
+      ? 'pending'
+      : activeTab === 'alerts'
+        ? 'alerts'
+        : activeTab === 'awaiting_peer'
+          ? 'awaiting_peer'
+          : activeTab === 'mapped'
+            ? 'ACCEPTED,OVERRIDDEN'
+            : activeTab === 'different'
+              ? 'DIFFERENT'
+              : activeTab === 'conflicts'
+                ? 'DIFFERENT'
+                : 'REJECTED';
 
   // Real backend-queried data based on status, cpse, and confidence_label (confidence filter only applies in Pending)
   const { data: queueData, isLoading } = useQuery({
@@ -117,8 +133,9 @@ export default function Review() {
     mutationFn: ({ matchId, decision }: { matchId: string; decision: 'ACCEPT' | 'REJECT' | 'DIFFERENT' }) =>
       nmcApi.review.submitDecision(matchId, {
         decision,
-        reason: 'Quick ' + decision + ' from review queue',
+        reason: 'Review decision from review queue',
         reviewer: reviewerKey || 'Reviewer',
+        cpse_code: reviewerCpse || undefined,
       }),
     onSuccess: (data) => {
       toast.success(data.message || 'Decision recorded');
@@ -132,103 +149,176 @@ export default function Review() {
     },
   });
 
-  const pendingCount  = stats?.pending  ?? 0;
-  const mappedCount   = stats?.mapped   ?? 0;
+  // Admin-only override mutation — resolves disputed DIFFERENT-status matches
+  const overrideMutation = useMutation({
+    mutationFn: ({ matchId, outcome }: { matchId: string; outcome: 'EQUIVALENT' | 'DIFFERENT' }) =>
+      nmcApi.review.submitDecision(matchId, {
+        decision: 'OVERRIDE',
+        override_outcome: outcome,
+        reason: outcome === 'EQUIVALENT'
+          ? 'Admin override: materials deemed equivalent — National Master Code established'
+          : 'Admin override: materials confirmed as distinct — marked Different',
+        reviewer: 'Admin',
+      }),
+    onSuccess: (data) => {
+      toast.success(data.message || 'Override applied');
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'review-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'review-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'dashboard-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'cmm-list'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Override failed');
+    },
+  });
+
+  const pendingCount = stats?.pending ?? stats?.action_needed ?? 0;
+  const alertsCount = stats?.alerts ?? 0;
+  const awaitingPeerCount = stats?.awaiting_peer ?? 0;
+  const mappedCount = stats?.mapped ?? 0;
   const differentCount = stats?.different ?? 0;
   const rejectedCount = stats?.rejected ?? 0;
+  // Conflicts = DIFFERENT matches needing admin override (same count as different for admin)
+  const conflictsCount = isAdmin ? (stats?.different ?? 0) : 0;
 
   // ── Derive total-activity state ──────────────────────────────────────────
-  const totalActivity = pendingCount + mappedCount + differentCount + rejectedCount;
-  const noCpsesExist  = !cpses || cpses.length === 0;
-  const noMatchesYet  = !statsLoading && totalActivity === 0;
+  const totalActivity = pendingCount + alertsCount + awaitingPeerCount + mappedCount + differentCount + rejectedCount;
+  const noCpsesExist = !cpses || cpses.length === 0;
+  const noMatchesYet = !statsLoading && totalActivity === 0;
+
+  // ── Context-aware empty state renderer ──
+  const renderEmptyContent = (): React.ReactNode => {
+    if (activeTab === 'pending') {
+      if (noMatchesYet) {
+        return (
+          <div className="flex flex-col items-center gap-3 py-16">
+            <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center">
+              <GitMerge className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-sm font-semibold text-foreground">No matches generated yet</p>
+              <p className="text-xs text-muted-foreground max-w-xs">
+                Upload and normalize CPSE datasets, then run the AI Matching Engine to generate candidate pairs here.
+              </p>
+            </div>
+            <Link to="/manage-cpses">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8 mt-1">
+                <Building2 className="h-3.5 w-3.5" />
+                Go to Manage CPSEs
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+        );
+      }
+      return (
+        <div className="flex flex-col items-center gap-2 py-14">
+          <CheckCircle2 className="h-8 w-8 text-emerald-600/60 dark:text-emerald-400/60" />
+          <p className="text-sm font-semibold text-foreground">All pending matches reviewed!</p>
+          <p className="text-xs text-muted-foreground">No records pending review for the selected filters.</p>
+        </div>
+      );
+    }
+
+    if (activeTab === 'alerts') {
+      return (
+        <div className="flex flex-col items-center gap-3 py-14">
+          <Bell className="h-8 w-8 text-amber-500/50" />
+          <p className="text-sm font-semibold text-foreground">No active alerts</p>
+          <p className="text-xs text-muted-foreground max-w-sm text-center">
+            Alerts appear here when a peer CPSE approves a match (arrives irrespective of confidence, awaiting your confirmation) or when an established National Master Code matches your catalog at ≥85% confidence.
+          </p>
+          <div className="flex flex-col gap-1.5 mt-1 text-[11px] text-muted-foreground max-w-xs">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-violet-500/70"></span>
+              <span><strong className="text-foreground">≥90%</strong> — NMC Priority Match</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500/70"></span>
+              <span><strong className="text-foreground">85–89%</strong> — NMC Candidate</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'awaiting_peer') {
+      return (
+        <div className="flex flex-col items-center gap-2 py-14">
+          <Hourglass className="h-8 w-8 text-sky-500/50" />
+          <p className="text-sm font-semibold text-foreground">No items awaiting peer confirmation</p>
+          <p className="text-xs text-muted-foreground max-w-xs text-center">
+            When you <strong>Approve</strong> a match (Gate 1), it moves here and waits for the counterpart CPSE to confirm it (Gate 2).
+          </p>
+        </div>
+      );
+    }
+
+    if (activeTab === 'mapped') {
+      return (
+        <div className="flex flex-col items-center gap-2 py-14">
+          <Layers className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm font-semibold text-foreground">No mapped records yet</p>
+          <p className="text-xs text-muted-foreground max-w-xs text-center">
+            Records appear here after consensus approval establishes a National Master Code.
+          </p>
+        </div>
+      );
+    }
+
+    if (activeTab === 'different') {
+      return (
+        <div className="flex flex-col items-center gap-2 py-14">
+          <Split className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm font-semibold text-foreground">No different records yet</p>
+          <p className="text-xs text-muted-foreground max-w-xs text-center">
+            Records appear here only after a reviewer marks a Pending match as <strong>Different</strong>.
+          </p>
+        </div>
+      );
+    }
+
+    if (activeTab === 'conflicts') {
+      return (
+        <div className="flex flex-col items-center gap-3 py-14">
+          <ShieldAlert className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-sm font-semibold text-foreground">No conflicts requiring resolution</p>
+          <p className="text-xs text-muted-foreground max-w-sm text-center">
+            Matches flagged as <strong>Different</strong> by reviewers appear here for administrative arbitration.
+            Use <strong>Override: Equivalent</strong> to establish an NMC, or <strong>Confirm: Different</strong> to finalise the dispute.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-2 py-14">
+        <XCircle className="h-8 w-8 text-muted-foreground/40" />
+        <p className="text-sm font-semibold text-foreground">No rejected records yet</p>
+        <p className="text-xs text-muted-foreground max-w-xs text-center">
+          Records appear here only after a reviewer <strong>Rejects</strong> a match from the Pending queue.
+        </p>
+      </div>
+    );
+  };
 
   // ── Render table rows ──
   const renderTableRows = (): React.ReactNode => {
+    const colSpan = activeTab === 'conflicts' ? 8 : 7;
     if (isLoading) {
       return (
         <tr>
-          <td colSpan={activeTab === 'pending' ? 6 : 7} className="p-8 text-center text-muted-foreground">
+          <td colSpan={colSpan} className="p-8 text-center text-muted-foreground">
             Loading review queue...
           </td>
         </tr>
       );
     }
     if (!queueData?.items || queueData.items.length === 0) {
-      // Context-aware empty messages per tab
-      const emptyNode = (() => {
-        if (activeTab === 'pending') {
-          // If zero total activity, this is a "no matches run" scenario
-          if (noMatchesYet) {
-            return (
-              <div className="flex flex-col items-center gap-3 py-16">
-                <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center">
-                  <GitMerge className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div className="text-center space-y-1">
-                  <p className="text-sm font-semibold text-foreground">No matches generated yet</p>
-                  <p className="text-xs text-muted-foreground max-w-xs">
-                    Upload and normalize CPSE datasets, then run the AI Matching Engine to generate candidate pairs here.
-                  </p>
-                </div>
-                <Link to="/manage-cpses">
-                  <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8 mt-1">
-                    <Building2 className="h-3.5 w-3.5" />
-                    Go to Manage CPSEs
-                    <ArrowRight className="h-3 w-3" />
-                  </Button>
-                </Link>
-              </div>
-            );
-          }
-          return (
-            <div className="flex flex-col items-center gap-2 py-14">
-              <CheckCircle2 className="h-8 w-8 text-emerald-500/60" />
-              <p className="text-sm font-semibold text-foreground">All matches reviewed!</p>
-              <p className="text-xs text-muted-foreground">No records pending review for the selected filters.</p>
-            </div>
-          );
-        }
-
-        if (activeTab === 'mapped') {
-          return (
-            <div className="flex flex-col items-center gap-2 py-14">
-              <Layers className="h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm font-semibold text-foreground">No mapped records yet</p>
-              <p className="text-xs text-muted-foreground max-w-xs text-center">
-                Records appear here only after a reviewer <strong>Accepts</strong> a match from the Pending queue.
-              </p>
-            </div>
-          );
-        }
-
-        if (activeTab === 'different') {
-          return (
-            <div className="flex flex-col items-center gap-2 py-14">
-              <Split className="h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm font-semibold text-foreground">No different records yet</p>
-              <p className="text-xs text-muted-foreground max-w-xs text-center">
-                Records appear here only after a reviewer marks a Pending match as <strong>Different</strong>.
-              </p>
-            </div>
-          );
-        }
-
-        // rejected
-        return (
-          <div className="flex flex-col items-center gap-2 py-14">
-            <XCircle className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm font-semibold text-foreground">No rejected records yet</p>
-            <p className="text-xs text-muted-foreground max-w-xs text-center">
-              Records appear here only after a reviewer <strong>Rejects</strong> a match from the Pending queue.
-            </p>
-          </div>
-        );
-      })();
-
       return (
         <tr>
-          <td colSpan={activeTab === 'pending' ? 6 : 7} className="p-0">
-            {emptyNode}
+          <td colSpan={colSpan} className="p-0">
+            {renderEmptyContent()}
           </td>
         </tr>
       );
@@ -236,13 +326,25 @@ export default function Review() {
 
     const displayItems = activeTab === 'pending'
       ? sortByConfidence(queueData.items)
-      : queueData.items;
+      : activeTab === 'alerts'
+        ? queueData.items.filter((m: any) => {
+          if (m.match_category === 'ALREADY_MAPPED') {
+            return (m.final_confidence ?? 0) >= 0.85;
+          }
+          return true;
+        })
+        : queueData.items;
 
     const rows: React.ReactNode[] = [];
 
     displayItems.forEach((m: any) => {
       const confScore = m.final_confidence ? Math.round(m.final_confidence * 100) : 0;
       const confLabel = m.confidence_label || 'LOW';
+
+      // Distinguish alert types for the Alerts tab
+      const isPeerEndorsementAlert = m.status === 'GATE_1_APPROVED' && (!reviewerCpse || m.gate1_cpse_code !== reviewerCpse);
+      const isNmcLinkAlert = m.match_category === 'ALREADY_MAPPED';
+      const isHighPriorityNmc = isNmcLinkAlert && (m.final_confidence ?? 0) >= 0.90;
 
       rows.push(
         <tr
@@ -253,19 +355,27 @@ export default function Review() {
           <td className="p-3 font-mono font-semibold text-foreground">
             {m.source_cpse_code || '—'}
           </td>
-          <td className="p-3 font-medium text-foreground max-w-[240px]">
-            <div className="truncate">{m.source_description || m.source_code || '—'}</div>
+          <td className="p-3 max-w-[280px]">
+            <div className="font-semibold text-foreground text-xs leading-snug truncate" title={m.source_description || m.source_code || '—'}>
+              {m.source_description || m.source_code || '—'}
+            </div>
             {m.source_code && (
-              <div className="text-[10px] text-muted-foreground font-mono truncate">{m.source_code}</div>
+              <div className="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">
+                {m.source_code}
+              </div>
             )}
           </td>
           <td className="p-3 font-mono font-semibold text-foreground">
             {m.candidate_cpse_code || '—'}
           </td>
-          <td className="p-3 font-medium text-foreground max-w-[240px]">
-            <div className="truncate">{m.candidate_description || m.candidate_code || '—'}</div>
+          <td className="p-3 max-w-[280px]">
+            <div className="font-semibold text-foreground text-xs leading-snug truncate" title={m.candidate_description || m.candidate_code || '—'}>
+              {m.candidate_description || m.candidate_code || '—'}
+            </div>
             {m.candidate_code && (
-              <div className="text-[10px] text-muted-foreground font-mono truncate">{m.candidate_code}</div>
+              <div className="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">
+                {m.candidate_code}
+              </div>
             )}
           </td>
           <td className="p-3">
@@ -286,37 +396,134 @@ export default function Review() {
             </div>
           </td>
 
-          {/* Decision column — green for All Mapped, amber for Different, rose for Rejected */}
-          {activeTab !== 'pending' && (
-            <td className="p-3">
-              {activeTab === 'mapped' ? (
-                <span className="font-mono text-xs font-semibold whitespace-nowrap text-emerald-600 dark:text-emerald-400">
-                  {m.nmc_code || m.status}
-                </span>
-              ) : activeTab === 'different' ? (
-                <span className="font-mono text-xs font-semibold whitespace-nowrap text-amber-600 dark:text-amber-400">
-                  {m.status || 'DIFFERENT'}
-                </span>
-              ) : activeTab === 'rejected' ? (
-                <span className="font-mono text-xs font-semibold whitespace-nowrap text-rose-600 dark:text-rose-400">
-                  {m.status || 'REJECTED'}
-                </span>
-              ) : (
-                <span className="font-mono text-xs font-semibold whitespace-nowrap text-foreground">
-                  {m.nmc_code || m.status}
-                </span>
-              )}
+          {/* Dispute Reason (shown in Conflicts tab for Admin) */}
+          {activeTab === 'conflicts' && (
+            <td className="p-3 min-w-[200px] max-w-[280px]">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 font-mono font-bold border-rose-500/30 text-rose-700 dark:text-rose-300 bg-rose-500/10"
+                  >
+                    {m.dispute_cpse_code || m.source_cpse_code || 'CPSE'}
+                  </Badge>
+                  <span className="font-medium text-foreground truncate text-[11px]">
+                    {m.dispute_reviewer_name || m.dispute_reviewer || 'Reviewer'}
+                  </span>
+                </div>
+                <p
+                  className="text-xs text-muted-foreground line-clamp-2 leading-snug"
+                  title={m.dispute_reason || undefined}
+                >
+                  {m.dispute_reason && m.dispute_reason !== 'Review decision from review queue'
+                    ? m.dispute_reason
+                    : 'Marked as technically different during peer evaluation'}
+                </p>
+              </div>
             </td>
           )}
 
+          {/* Status / Stage column */}
+          <td className="p-3 text-center">
+            <div className="flex items-center justify-center">
+              {activeTab === 'alerts' ? (
+                isPeerEndorsementAlert ? (
+                  <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 text-[11px] font-medium whitespace-nowrap">
+                    Peer Endorsed
+                  </Badge>
+                ) : isHighPriorityNmc ? (
+                  <Badge variant="outline" className="border-violet-500/40 text-violet-700 dark:text-violet-300 bg-violet-500/10 text-[11px] font-medium whitespace-nowrap">
+                    NMC Priority Match
+                  </Badge>
+                ) : isNmcLinkAlert ? (
+                  <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 text-[11px] font-medium whitespace-nowrap">
+                    NMC Candidate
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-amber-500/40 text-amber-600 bg-amber-500/10 text-[11px] font-medium whitespace-nowrap">
+                    Action Required
+                  </Badge>
+                )
+              ) : activeTab === 'awaiting_peer' ? (
+                <Badge variant="outline" className="border-sky-500/40 text-sky-600 dark:text-sky-400 bg-sky-500/10 text-[11px] font-medium whitespace-nowrap">
+                  Awaiting Peer ({m.candidate_cpse_code || 'Counterpart'})
+                </Badge>
+              ) : activeTab === 'pending' ? (
+                <span title="Awaiting review decision" className="inline-flex items-center justify-center">
+                  <Clock className="h-3.5 w-3.5 text-amber-500/70" />
+                </span>
+              ) : activeTab === 'conflicts' ? (
+                <Badge variant="outline" className="border-rose-500/40 text-rose-700 dark:text-rose-300 bg-rose-500/10 text-[11px] font-semibold whitespace-nowrap">
+                  Disputed
+                </Badge>
+              ) : m.status === 'ACCEPTED' || m.status === 'OVERRIDDEN' ? (
+                <span className="font-mono text-xs font-semibold whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                  {m.nmc_code || m.status}
+                </span>
+              ) : m.status === 'DIFFERENT' ? (
+                <span className="font-mono text-xs font-semibold whitespace-nowrap text-amber-600 dark:text-amber-400">
+                  DIFFERENT
+                </span>
+              ) : (
+                <span className="font-mono text-xs font-semibold whitespace-nowrap text-rose-600 dark:text-rose-400">
+                  {m.status || 'REJECTED'}
+                </span>
+              )}
+            </div>
+          </td>
+
           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-            {activeTab === 'pending' && canSubmitDecisions ? (
+            {/* Reviewer Pending Tab: Gate 1 Actions */}
+            {activeTab === 'pending' && isReviewer && canSubmitDecisions ? (
               <div className="flex items-center justify-end gap-1">
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
-                  title="Accept & Harmonize"
+                  className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-700"
+                  title="Gate 1: Approve this match and send to peer CPSE for confirmation"
+                  disabled={decisionMutation.isPending}
+                  onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'ACCEPT' })}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  title="Mark as Different — these are not the same material"
+                  disabled={decisionMutation.isPending}
+                  onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'DIFFERENT' })}
+                >
+                  <Split className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                  title="Reject — poor quality match"
+                  disabled={decisionMutation.isPending}
+                  onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'REJECT' })}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  title="View full details"
+                  onClick={() => navigate('/matches/' + m.id)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : activeTab === 'alerts' && isReviewer && canSubmitDecisions ? (
+              /* Reviewer Alerts Tab: Gate 2 / NMC Link Actions */
+              <div className="flex items-center justify-end gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-700"
+                  title={isNmcLinkAlert ? 'Accept & Link to NMC' : 'Gate 2: Confirm & Endorse Match (Accept)'}
                   disabled={decisionMutation.isPending}
                   onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'ACCEPT' })}
                 >
@@ -352,7 +559,41 @@ export default function Review() {
                   <Eye className="h-4 w-4" />
                 </Button>
               </div>
+            ) : activeTab === 'conflicts' && isAdmin ? (
+              /* Admin Conflict Arbitration — Override buttons */
+              <div className="flex items-center justify-end gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-700"
+                  title="Override: Equivalent — establish National Master Code"
+                  disabled={overrideMutation.isPending}
+                  onClick={() => overrideMutation.mutate({ matchId: m.id, outcome: 'EQUIVALENT' })}
+                >
+                  <CheckCheck className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                  title="Confirm: Different — finalise as distinct materials"
+                  disabled={overrideMutation.isPending}
+                  onClick={() => overrideMutation.mutate({ matchId: m.id, outcome: 'DIFFERENT' })}
+                >
+                  <Split className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  title="Inspect Details"
+                  onClick={() => navigate('/matches/' + m.id)}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </div>
             ) : (
+              /* Read-only monitoring for all other scenarios (Admin on Pending, Admin on Awaiting Peer, All Mapped, Different, Rejected) */
               <div className="flex items-center justify-end">
                 <Button
                   size="icon"
@@ -402,7 +643,7 @@ export default function Review() {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
         <div className="h-16 w-16 rounded-full bg-muted/50 border border-border flex items-center justify-center">
-          <InboxIcon className="h-8 w-8 text-muted-foreground" />
+          <GitMerge className="h-8 w-8 text-muted-foreground" />
         </div>
         <div className="space-y-1.5">
           <p className="text-base font-semibold text-foreground">No Matches Yet</p>
@@ -434,8 +675,8 @@ export default function Review() {
       <div className="space-y-6">
 
         {/* ── Page Header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Harmonization Review Queue
             </h1>
@@ -443,9 +684,16 @@ export default function Review() {
               Review and harmonize material codes across CPSEs with human verification and automated audit trails.
             </p>
           </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs shrink-0">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-            <span>Human decision required on all records</span>
+          {/* Matches counter — lives in the header so it's always visible above the CPSE banner */}
+          <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border border-border/60">
+              <span>Matches:</span>
+              <strong className="text-foreground font-mono">{queueData?.total ?? 0}</strong>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span>Human decision required</span>
+            </div>
           </div>
         </div>
 
@@ -469,75 +717,118 @@ export default function Review() {
           </Card>
         ) : (
           <>
-            {/* ── Toolbar: tabs + filters ── */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              {/* Tabs: Pending | Different | Rejected | All Mapped */}
-              <Tabs
-                value={activeTab}
-                onValueChange={(val: any) => {
-                  setActiveTab(val);
-                  setPage(1);
-                }}
-                className="w-full sm:w-auto"
-              >
-                <TabsList className="grid w-full sm:w-auto grid-cols-4 h-9">
-                  {/* Tab 1: Pending */}
-                  <TabsTrigger value="pending" className="text-xs px-3 sm:px-4 gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
-                    Pending
-                    {pendingCount > 0 && (
-                      <Badge className="h-4 min-w-4 px-1 text-[9px] bg-primary/20 text-primary border-0 rounded-full">
-                        {pendingCount > 9999 ? '9999+' : pendingCount}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
+            {/* ── Toolbar: tabs scrollable LEFT + filters pinned RIGHT, all on one row ── */}
+            <div className="flex items-center gap-2 w-full min-w-0">
 
-                  {/* Tab 2: Different */}
-                  <TabsTrigger value="different" className="text-xs px-3 sm:px-4 gap-1.5">
-                    <Split className="h-3.5 w-3.5" />
-                    Different
-                    {differentCount > 0 && (
-                      <Badge className="h-4 min-w-4 px-1 text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 rounded-full">
-                        {differentCount > 9999 ? '9999+' : differentCount}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
+              {/* LEFT: Tabs — scroll horizontally, take remaining width */}
+              <div className="flex-1 overflow-x-auto pb-0.5 scrollbar-none min-w-0">
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(val: any) => {
+                    setActiveTab(val);
+                    setPage(1);
+                  }}
+                  className="w-auto"
+                >
+                  <TabsList className="inline-flex w-max h-9 p-1 gap-1">
+                    {/* Tab 1: Pending */}
+                    <TabsTrigger value="pending" className="text-xs px-3 sm:px-4 gap-1.5 whitespace-nowrap">
+                      <Clock className="h-3.5 w-3.5 text-amber-500" />
+                      Pending
+                      {pendingCount > 0 && (
+                        <Badge className="h-4 min-w-4 px-1 text-[9px] bg-amber-500/20 text-amber-700 dark:text-amber-300 border-0 rounded-full font-medium">
+                          {pendingCount > 9999 ? '9999+' : pendingCount}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
 
-                  {/* Tab 3: Rejected */}
-                  <TabsTrigger value="rejected" className="text-xs px-3 sm:px-4 gap-1.5">
-                    <XCircle className="h-3.5 w-3.5" />
-                    Rejected
-                    {rejectedCount > 0 && (
-                      <Badge className="h-4 min-w-4 px-1 text-[9px] bg-destructive/15 text-destructive border-0 rounded-full">
-                        {rejectedCount > 9999 ? '9999+' : rejectedCount}
-                      </Badge>
+                    {/* Tab 2: Action Alerts (Reviewer only) */}
+                    {!isAdmin && (
+                      <TabsTrigger value="alerts" className="text-xs px-3 sm:px-4 gap-1.5 whitespace-nowrap">
+                        <Bell className={`h-3.5 w-3.5 ${alertsCount > 0 ? 'text-rose-500 animate-pulse' : 'text-muted-foreground'}`} />
+                        Action Alerts
+                        {alertsCount > 0 && (
+                          <Badge className="h-4 min-w-4 px-1.5 text-[9px] bg-rose-500/20 text-rose-700 dark:text-rose-300 border-0 rounded-full font-bold">
+                            {alertsCount > 9999 ? '9999+' : alertsCount}
+                          </Badge>
+                        )}
+                      </TabsTrigger>
                     )}
-                  </TabsTrigger>
 
-                  {/* Tab 4: All Mapped */}
-                  <TabsTrigger value="mapped" className="text-xs px-3 sm:px-4 gap-1.5">
-                    <Layers className="h-3.5 w-3.5" />
-                    All Mapped
-                    {mappedCount > 0 && (
-                      <Badge className="h-4 min-w-4 px-1 text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0 rounded-full">
-                        {mappedCount > 9999 ? '9999+' : mappedCount}
-                      </Badge>
+                    {/* Tab 3: Awaiting Peer */}
+                    <TabsTrigger value="awaiting_peer" className="text-xs px-3 sm:px-4 gap-1.5 whitespace-nowrap">
+                      <Hourglass className="h-3.5 w-3.5 text-sky-500" />
+                      Awaiting Peer
+                      {awaitingPeerCount > 0 && (
+                        <Badge className="h-4 min-w-4 px-1 text-[9px] bg-sky-500/20 text-sky-700 dark:text-sky-300 border-0 rounded-full font-medium">
+                          {awaitingPeerCount > 9999 ? '9999+' : awaitingPeerCount}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+
+                    {/* Tab 4: All Mapped */}
+                    <TabsTrigger value="mapped" className="text-xs px-3 sm:px-4 gap-1.5 whitespace-nowrap">
+                      <Layers className="h-3.5 w-3.5 text-emerald-500" />
+                      All Mapped
+                      {mappedCount > 0 && (
+                        <Badge className="h-4 min-w-4 px-1 text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0 rounded-full font-medium">
+                          {mappedCount > 9999 ? '9999+' : mappedCount}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+
+                    {/* Tab 5: Different */}
+                    <TabsTrigger value="different" className="text-xs px-3 sm:px-4 gap-1.5 whitespace-nowrap">
+                      <Split className="h-3.5 w-3.5 text-amber-500" />
+                      Different
+                      {differentCount > 0 && (
+                        <Badge className="h-4 min-w-4 px-1 text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0 rounded-full font-medium">
+                          {differentCount > 9999 ? '9999+' : differentCount}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+
+                    {/* Tab 6: Rejected */}
+                    <TabsTrigger value="rejected" className="text-xs px-3 sm:px-4 gap-1.5 whitespace-nowrap">
+                      <XCircle className="h-3.5 w-3.5 text-rose-500" />
+                      Rejected
+                      {rejectedCount > 0 && (
+                        <Badge className="h-4 min-w-4 px-1 text-[9px] bg-destructive/15 text-destructive border-0 rounded-full font-medium">
+                          {rejectedCount > 9999 ? '9999+' : rejectedCount}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+
+                    {/* Tab 7: Conflicts — Admin only */}
+                    {isAdmin && (
+                      <TabsTrigger value="conflicts" className="text-xs px-3 sm:px-4 gap-1.5 whitespace-nowrap">
+                        <ShieldAlert className={`h-3.5 w-3.5 ${conflictsCount > 0 ? 'text-rose-500 animate-pulse' : 'text-muted-foreground'}`} />
+                        Conflicts
+                        {conflictsCount > 0 && (
+                          <Badge className="h-4 min-w-4 px-1.5 text-[9px] bg-rose-500/20 text-rose-700 dark:text-rose-300 border-0 rounded-full font-bold">
+                            {conflictsCount > 9999 ? '9999+' : conflictsCount}
+                          </Badge>
+                        )}
+                      </TabsTrigger>
                     )}
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+                  </TabsList>
+                </Tabs>
+              </div>
 
-              {/* Filters: Confidence Dropdown (Pending only) + CPSE Dropdown + Matches count */}
-              <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                {/* Confidence Dropdown Filter — ONLY in Pending tab */}
+              {/* Thin divider */}
+              <div className="h-6 w-px bg-border/60 shrink-0" />
+
+              {/* RIGHT: Filters pinned — same height as tabs */}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Confidence Dropdown — only on Pending tab */}
                 {activeTab === 'pending' && (
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex items-center gap-1.5">
+                    <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <Select
                       value={confFilter}
                       onValueChange={(val) => { setConfFilter(val); setPage(1); }}
                     >
-                      <SelectTrigger className="w-[160px] h-9 text-xs">
+                      <SelectTrigger className="w-[130px] h-9 text-xs">
                         <SelectValue placeholder="Confidence" />
                       </SelectTrigger>
                       <SelectContent>
@@ -552,41 +843,32 @@ export default function Review() {
                 )}
 
                 {/* CPSE Dropdown — locked for reviewers, open for admins */}
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                  {isReviewer ? (
-                    // Locked — reviewer cannot switch CPSE, styled like a disabled SelectTrigger
-                    <div className="flex items-center justify-between gap-2 h-9 px-3 w-[170px] rounded-md border border-input bg-muted/40 text-xs text-muted-foreground cursor-not-allowed select-none">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Building2 className="h-3 w-3 shrink-0" />
-                        <span className="font-medium text-foreground truncate">{reviewerCpse}</span>
-                        <span className="text-muted-foreground">— Scoped</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <Select
-                      value={selectedCpse}
-                      onValueChange={(val) => { setSelectedCpse(val); setPage(1); }}
-                    >
-                      <SelectTrigger className="w-[170px] h-9 text-xs">
-                        <SelectValue placeholder="Filter by CPSE" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL" className="text-xs">All CPSEs</SelectItem>
-                        {cpses?.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id} className="text-xs">
-                            {c.code} — {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-
-                <div className="text-xs text-muted-foreground whitespace-nowrap">
-                  Matches: <strong className="text-foreground">{queueData?.total ?? 0}</strong>
-                </div>
+                {isReviewer ? (
+                  <div className="flex items-center gap-1.5 h-9 px-2.5 w-[150px] rounded-md border border-input bg-muted/40 text-xs text-muted-foreground cursor-not-allowed select-none">
+                    <Building2 className="h-3 w-3 shrink-0" />
+                    <span className="font-medium text-foreground truncate">{reviewerCpse}</span>
+                    <span className="text-muted-foreground text-[10px] whitespace-nowrap">— Scoped</span>
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedCpse}
+                    onValueChange={(val) => { setSelectedCpse(val); setPage(1); }}
+                  >
+                    <SelectTrigger className="w-[150px] h-9 text-xs">
+                      <SelectValue placeholder="Filter by CPSE" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL" className="text-xs">All CPSEs</SelectItem>
+                      {cpses?.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id} className="text-xs">
+                          {c.code} — {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
+
             </div>
 
             {/* ── Workflow hint banner — shown only when on a non-pending tab that is empty ── */}
@@ -606,22 +888,22 @@ export default function Review() {
               </div>
             )}
 
-            {/* ── Table Card ── */}
+            {/* ── Direct Table View ── */}
             <Card className="border-border/60 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase tracking-wider font-semibold">
                     <tr>
-                      <th className="p-3 w-28">Source CPSE</th>
-                      <th className="p-3 min-w-[200px]">Source Material</th>
-                      <th className="p-3 w-28">Candidate CPSE</th>
-                      <th className="p-3 min-w-[200px]">Candidate Material</th>
-                      <th className="p-3 w-24">Confidence</th>
-                      {/* Decision column for Reviewed and All Mapped */}
-                      {activeTab !== 'pending' && (
-                        <th className="p-3 min-w-[150px]">Decision</th>
+                      <th className="p-3 w-24">Source CPSE</th>
+                      <th className="p-3 min-w-[180px]">Source Material</th>
+                      <th className="p-3 w-24">Candidate CPSE</th>
+                      <th className="p-3 min-w-[180px]">Candidate Material</th>
+                      <th className="p-3 w-20">Confidence</th>
+                      {activeTab === 'conflicts' && (
+                        <th className="p-3 min-w-[200px]">Dispute Reason</th>
                       )}
-                      <th className="p-3 w-36 text-right">Human Action</th>
+                      <th className="p-3 min-w-[130px] text-center">Status</th>
+                      <th className="p-3 w-36 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">

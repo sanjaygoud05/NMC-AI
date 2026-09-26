@@ -126,6 +126,72 @@ function resolveAction(rawAction: string): { displayAction: string; badgeStyle: 
         'border border-blue-300/80 bg-blue-50/80 text-blue-700 dark:border-blue-600 dark:bg-blue-950/40 dark:text-blue-300',
     };
   }
+  // ── CPSE / Enterprise actions ──────────────────────────────────────────
+  if (act === 'CPSE_CREATED') {
+    return {
+      displayAction: 'CPSE_CREATED',
+      badgeStyle:
+        'border border-teal-300/80 bg-teal-50/80 text-teal-700 dark:border-teal-600 dark:bg-teal-950/40 dark:text-teal-300',
+    };
+  }
+  if (act === 'CPSE_DELETED') {
+    return {
+      displayAction: 'CPSE_DELETED',
+      badgeStyle:
+        'border border-rose-300/80 bg-rose-50/80 text-rose-700 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
+    };
+  }
+  // ── Dataset lifecycle actions ──────────────────────────────────────────
+  if (act === 'DATASET_UPLOADED') {
+    return {
+      displayAction: 'DATASET_UPLOADED',
+      badgeStyle:
+        'border border-sky-300/80 bg-sky-50/80 text-sky-700 dark:border-sky-600 dark:bg-sky-950/40 dark:text-sky-300',
+    };
+  }
+  if (act === 'DATASET_VALIDATED' || act === 'DATASET_NORMALIZED') {
+    return {
+      displayAction: act,
+      badgeStyle:
+        'border border-indigo-300/80 bg-indigo-50/80 text-indigo-700 dark:border-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300',
+    };
+  }
+  if (act === 'DATASET_STATUS_CHANGED' || act === 'DATASET_PROCESSING' || act === 'DATASET_FAILED') {
+    return {
+      displayAction: act,
+      badgeStyle:
+        'border border-orange-300/80 bg-orange-50/80 text-orange-700 dark:border-orange-600 dark:bg-orange-950/40 dark:text-orange-300',
+    };
+  }
+  // ── Reviewer / Auth actions ────────────────────────────────────────────
+  if (act === 'REVIEWER_REGISTERED') {
+    return {
+      displayAction: 'REVIEWER_REGISTERED',
+      badgeStyle:
+        'border border-violet-300/80 bg-violet-50/80 text-violet-700 dark:border-violet-600 dark:bg-violet-950/40 dark:text-violet-300',
+    };
+  }
+  if (act === 'REVIEWER_UPDATED') {
+    return {
+      displayAction: 'REVIEWER_UPDATED',
+      badgeStyle:
+        'border border-violet-200/80 bg-violet-50/60 text-violet-600 dark:border-violet-700 dark:bg-violet-950/30 dark:text-violet-400',
+    };
+  }
+  if (act === 'REVIEWER_REVOKED') {
+    return {
+      displayAction: 'REVIEWER_REVOKED',
+      badgeStyle:
+        'border border-rose-300/80 bg-rose-50/80 text-rose-700 dark:border-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
+    };
+  }
+  if (act === 'ADMIN_LOGIN' || act === 'REVIEWER_LOGIN') {
+    return {
+      displayAction: act,
+      badgeStyle:
+        'border border-slate-300/80 bg-slate-50/80 text-slate-600 dark:border-slate-600 dark:bg-slate-900/40 dark:text-slate-400',
+    };
+  }
   return {
     displayAction: rawAction,
     badgeStyle:
@@ -161,6 +227,17 @@ function resolveEntityType(action: string, metadata?: any): string {
   if (act.includes('MATCHING') || act.includes('HARMONIZATION')) {
     return 'HARMONIZATION_RUN';
   }
+  if (
+    act === 'CPSE_CREATED' ||
+    act === 'CPSE_DELETED' ||
+    act === 'REVIEWER_REGISTERED' ||
+    act === 'REVIEWER_UPDATED' ||
+    act === 'REVIEWER_REVOKED' ||
+    act === 'ADMIN_LOGIN' ||
+    act === 'REVIEWER_LOGIN'
+  ) {
+    return 'CPSE_ENTERPRISE';
+  }
   if (act.includes('CPSE')) {
     return 'CPSE_ENTERPRISE';
   }
@@ -175,22 +252,76 @@ function resolveReasonNotes(log: any): string {
     return log.reason;
   }
   const meta = log.metadata || log.extra_metadata;
+  const act = (log.action || '').toUpperCase();
+
+  // ── CPSE / Enterprise notes ────────────────────────────────────────────
+  if (act === 'CPSE_CREATED') {
+    const cpse = log.cpse_code || (meta && meta.code) || 'new enterprise';
+    return `CPSE enterprise ${cpse} registered in the platform.`;
+  }
+  if (act === 'CPSE_DELETED') {
+    const cpse = log.cpse_code || 'enterprise';
+    return `CPSE enterprise ${cpse} and all associated datasets deleted.`;
+  }
+  // ── Dataset lifecycle notes ────────────────────────────────────────────
+  if (act === 'DATASET_UPLOADED') {
+    const cpse = log.cpse_code || 'CPSE';
+    const count = meta?.record_count ? ` (${meta.record_count} records)` : '';
+    const file = meta?.file_name ? ` — ${meta.file_name}` : '';
+    return `Material dataset uploaded for ${cpse}${file}${count}.`;
+  }
+  if (act === 'DATASET_VALIDATED') {
+    return `Dataset validated successfully for ${log.cpse_code || 'CPSE'}.`;
+  }
+  if (act === 'DATASET_NORMALIZED') {
+    return `Dataset normalization completed for ${log.cpse_code || 'CPSE'}.`;
+  }
+  if (act === 'DATASET_STATUS_CHANGED' || act === 'DATASET_PROCESSING' || act === 'DATASET_FAILED') {
+    const prev = log.previous_status || meta?.previous_status;
+    const next = log.new_status || meta?.new_status;
+    const cpse = log.cpse_code || 'CPSE';
+    if (prev && next) return `Dataset status changed from ${prev} → ${next} for ${cpse}.`;
+    if (next) return `Dataset status set to ${next} for ${cpse}.`;
+    return `Dataset status update for ${cpse}.`;
+  }
+  // ── Reviewer / Auth notes ──────────────────────────────────────────────
+  if (act === 'REVIEWER_REGISTERED') {
+    const name = meta?.name || 'Reviewer';
+    const cpse = log.cpse_code || 'CPSE';
+    return `Reviewer "${name}" registered for enterprise ${cpse}.`;
+  }
+  if (act === 'REVIEWER_UPDATED') {
+    const cpse = log.cpse_code || 'CPSE';
+    const status = meta?.status;
+    return `Reviewer credentials updated for enterprise ${cpse}${status ? ` — status: ${status}` : ''}.`;
+  }
+  if (act === 'REVIEWER_REVOKED') {
+    const name = meta?.name || 'Reviewer';
+    const cpse = log.cpse_code || 'CPSE';
+    return `Reviewer access revoked for "${name}" (${cpse}).`;
+  }
+  if (act === 'ADMIN_LOGIN') {
+    return 'Central Admin authenticated and session started.';
+  }
+  if (act === 'REVIEWER_LOGIN') {
+    const cpse = log.cpse_code || 'CPSE';
+    return `Reviewer authenticated and session started for enterprise ${cpse}.`;
+  }
+
+  // ── Match / Mapping notes ──────────────────────────────────────────────
   if (meta) {
     if (meta.reason && typeof meta.reason === 'string') {
       return meta.reason;
     }
     if (meta.match_id) {
-      if (log.action === 'CREATE_MAPPING' || log.action === 'MATCH_ACCEPTED') {
+      if (act === 'CREATE_MAPPING' || act === 'MATCH_ACCEPTED') {
         return `Auto-mapped based on SAME recommendation ${meta.match_id}...`;
       }
       return `Processed match recommendation ${meta.match_id}`;
     }
   }
   if (log.material_code) {
-    if (
-      log.action === 'CREATE_NATIONAL_MATERIAL' ||
-      log.action === 'CMM_CREATED'
-    ) {
+    if (act === 'CREATE_NATIONAL_MATERIAL' || act === 'CMM_CREATED') {
       return `Auto-created from Material ${log.material_code}`;
     }
     return `Referenced material ${log.material_code}`;
@@ -462,9 +593,9 @@ export default function AuditTrail() {
                             )}
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap font-mono">
+                        <td className="py-2.5 px-3 whitespace-nowrap">
                           {log.cpse_code ? (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide border border-emerald-300/80 bg-emerald-50/80 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
                               {log.cpse_code}
                             </span>
                           ) : (

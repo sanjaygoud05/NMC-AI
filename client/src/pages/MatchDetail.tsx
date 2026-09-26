@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -12,13 +12,15 @@ import { nmcApi } from '@/services/nmcApi';
 import {
   ArrowLeft,
   CheckCircle2,
+  CheckCheck,
   XCircle,
   Split,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
-  Building2,
-  AlertTriangle,
   LinkIcon,
+  Clock,
+  UserCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,11 +28,32 @@ import { useAuth } from '@/hooks/useAuth';
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const queryClient = useQueryClient();
-  const { canSubmitDecisions, isAdmin, reviewerKey } = useAuth();
+  const { canSubmitDecisions, isAdmin, reviewerKey, reviewerName, reviewerCpse } = useAuth();
+
+  const fromTab = searchParams.get('fromTab') || (location.state as any)?.fromTab || 'pending';
+
+  const backLabel =
+    fromTab === 'alerts'
+      ? 'Back to Action Alerts'
+      : fromTab === 'conflicts'
+        ? 'Back to Conflicts'
+        : fromTab === 'awaiting_peer'
+          ? 'Back to Awaiting Peer'
+          : fromTab === 'mapped'
+            ? 'Back to All Mapped'
+            : fromTab === 'different'
+              ? 'Back to Different'
+              : fromTab === 'rejected'
+                ? 'Back to Rejected'
+                : 'Back to Review Queue';
+
+  const backUrl = `/review?tab=${fromTab}`;
 
   const [decision, setDecision] = useState<'ACCEPT' | 'REJECT' | 'DIFFERENT' | 'OVERRIDE'>('ACCEPT');
-  const [overrideOutcome, setOverrideOutcome] = useState<'EQUIVALENT' | 'DIFFERENT' | null>(null);
+  const [overrideOutcome, setOverrideOutcome] = useState<'EQUIVALENT' | 'DIFFERENT'>('EQUIVALENT');
   const [reason, setReason] = useState('');
   const [isOverriding, setIsOverriding] = useState(false);
 
@@ -50,19 +73,22 @@ export default function MatchDetail() {
         decision: data.decision,
         override_outcome: data.override_outcome,
         reason: data.reason,
-        reviewer: reviewerKey || 'Reviewer',
-        cpse_code: match?.source_material?.cpse_code,
+        reviewer: isAdmin ? (reviewerName || 'Administrator') : (reviewerKey || reviewerName || 'Reviewer'),
+        cpse_code: isAdmin ? undefined : (reviewerCpse || match?.source_material?.cpse_code),
       }),
     onSuccess: (res) => {
+      toast.dismiss();
       toast.success(res.message || 'Review decision submitted successfully');
       setIsOverriding(false);
       queryClient.invalidateQueries({ queryKey: ['nmc', 'match-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['nmc', 'review-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['nmc', 'review-stats'] });
       queryClient.invalidateQueries({ queryKey: ['nmc', 'dashboard-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['nmc', 'cmm-list'] });
-      navigate('/review');
+      navigate(backUrl, { state: { tab: fromTab } });
     },
     onError: (err: any) => {
+      toast.dismiss();
       toast.error(err.message || 'Failed to submit decision');
     },
   });
@@ -95,34 +121,52 @@ export default function MatchDetail() {
   const txtScore = match.text_similarity ? Math.round(match.text_similarity * 100) : 0;
   const attrScore = match.attribute_similarity ? Math.round(match.attribute_similarity * 100) : 0;
 
+  const isConflict =
+    match.status === 'DIFFERENT' ||
+    match.dispute_decision === 'DIFFERENT' ||
+    (match.review_decisions && match.review_decisions.some((d: any) => d.decision === 'DIFFERENT'));
+
   return (
     <AppLayout requireReviewer>
       <div className="space-y-6 max-w-6xl mx-auto">
         {/* Navigation Bar */}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/review')} className="gap-2 text-xs">
+          <Button variant="ghost" size="sm" onClick={() => navigate(backUrl, { state: { tab: fromTab } })} className="gap-2 text-xs">
             <ArrowLeft className="h-4 w-4" />
-            Back to Review Queue
+            {backLabel}
           </Button>
 
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              Status: <strong className="ml-1 text-foreground">{match.status}</strong>
+            <Badge
+              variant="outline"
+              className={
+                'text-xs font-semibold ' +
+                (match.status === 'DIFFERENT'
+                  ? 'border-rose-500/40 text-rose-700 dark:text-rose-300 bg-rose-500/10'
+                  : match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN'
+                    ? 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10'
+                    : match.status === 'GATE_1_APPROVED'
+                      ? 'border-sky-500/40 text-sky-700 dark:text-sky-300 bg-sky-500/10'
+                      : 'border-border text-foreground')
+              }
+            >
+              Status: <strong className="ml-1 uppercase">{match.status}</strong>
             </Badge>
             <Badge
-              className={`text-xs ${match.confidence_label === 'HIGH'
+              className={`text-xs ${
+                match.confidence_label === 'HIGH'
                   ? 'bg-emerald-600 text-white'
                   : match.confidence_label === 'MEDIUM'
                     ? 'bg-sky-600 text-white'
                     : 'bg-muted text-muted-foreground'
-                }`}
+              }`}
             >
               {match.confidence_label || 'LOW'} CONFIDENCE ({confScore}%)
             </Badge>
           </div>
         </div>
 
-        {/* Side-by-Side Comparison Header */}
+        {/* 1. Side-by-Side Comparison Header */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Source Material Card */}
           <Card className="border-border/70 border-t-4 border-t-blue-500">
@@ -167,6 +211,14 @@ export default function MatchDetail() {
               <div className="flex justify-between py-1.5">
                 <span className="text-muted-foreground">Unit of Measurement (UOM):</span>
                 <span className="font-semibold text-foreground">{src?.uom || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Plant / Site:</span>
+                <span className="font-medium text-foreground">{src?.plant_site || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">ERP Source:</span>
+                <span className="font-mono text-muted-foreground text-[11px]">{src?.erp_source || '—'}</span>
               </div>
             </CardContent>
           </Card>
@@ -215,11 +267,19 @@ export default function MatchDetail() {
                 <span className="text-muted-foreground">Unit of Measurement (UOM):</span>
                 <span className="font-semibold text-foreground">{cand?.uom || '—'}</span>
               </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">Plant / Site:</span>
+                <span className="font-medium text-foreground">{cand?.plant_site || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted-foreground">ERP Source:</span>
+                <span className="font-mono text-muted-foreground text-[11px]">{cand?.erp_source || '—'}</span>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* AI Similarity & Evidence Breakdown */}
+        {/* 2. AI Similarity & Evidence Breakdown */}
         <Card className="border-border/60">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -260,26 +320,191 @@ export default function MatchDetail() {
                 <p className="text-muted-foreground mt-0.5">{explanation.evidence_summary}</p>
               </div>
             )}
-
-            {explanation.conflict_details && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
-                <div className="flex items-center gap-2 font-semibold">
-                  <ShieldAlert className="h-4 w-4" />
-                  Engineering Variance / Conflict Identified:
-                </div>
-                <p className="mt-1 text-xs">{explanation.conflict_details}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
-        {/* CMM/NMC Info for accepted matches */}
+        {/* 3. CONFLICT DETAILS & OVERRIDE (BELOW comparison and AI engine) */}
+        {isConflict && (
+          <Card className="border-rose-500/40 bg-rose-500/[0.02] shadow-sm">
+            <CardHeader className="pb-3 border-b border-rose-500/20 bg-rose-500/5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                  <div>
+                    <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                      Conflict Details
+                      <Badge className="bg-rose-600 text-white text-[10px] uppercase font-bold">
+                        Disputed
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-0.5">
+                      Flagged as technically different during peer evaluation.
+                    </CardDescription>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-4 space-y-4">
+              {/* Who raised it and what the conflict is */}
+              <div className="p-3.5 rounded-lg bg-background border border-border/70 text-xs space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                    <span className="font-semibold text-muted-foreground">Raised by:</span>
+                    <Badge variant="outline" className="border-rose-500/30 text-rose-700 dark:text-rose-300 bg-rose-500/10 font-mono text-xs">
+                      {match.dispute_cpse_code || src?.cpse_code || 'CPSE'}
+                    </Badge>
+                    <span className="font-bold text-foreground">
+                      {match.dispute_reviewer_name || match.dispute_reviewer || 'Reviewer'}
+                    </span>
+                  </div>
+
+                  {match.dispute_timestamp && (
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>
+                        {new Date(match.dispute_timestamp).toLocaleString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-1">
+                  <p className="text-xs text-foreground leading-relaxed">
+                    {match.dispute_reason && match.dispute_reason !== 'Review decision from review queue'
+                      ? match.dispute_reason
+                      : 'Marked as technically different during peer evaluation. Items possess conflicting engineering specifications.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* OVERRIDE BUTTONS & CONTROLS FOR ADMIN */}
+              {isAdmin && (
+                <div className="pt-3 border-t border-rose-500/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      Administrator Executive Override:
+                    </Label>
+                    <span className="text-[11px] text-muted-foreground">
+                      Select outcome to resolve conflict
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Override to Equivalent */}
+                    <Button
+                      type="button"
+                      variant={overrideOutcome === 'EQUIVALENT' ? 'default' : 'outline'}
+                      onClick={() => setOverrideOutcome('EQUIVALENT')}
+                      className={
+                        'h-auto py-2.5 px-3 text-xs justify-start text-left flex-col items-start gap-1 ' +
+                        (overrideOutcome === 'EQUIVALENT'
+                          ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm'
+                          : 'border-purple-500/30 hover:bg-purple-500/10 text-foreground')
+                      }
+                    >
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <CheckCheck className="h-3.5 w-3.5 text-emerald-400" />
+                        Override to Equivalent
+                      </div>
+                      <span className="text-[11px] opacity-80 font-normal">
+                        Harmonize both items into a Common Material Master (CMM)
+                      </span>
+                    </Button>
+
+                    {/* Confirm Different */}
+                    <Button
+                      type="button"
+                      variant={overrideOutcome === 'DIFFERENT' ? 'default' : 'outline'}
+                      onClick={() => setOverrideOutcome('DIFFERENT')}
+                      className={
+                        'h-auto py-2.5 px-3 text-xs justify-start text-left flex-col items-start gap-1 ' +
+                        (overrideOutcome === 'DIFFERENT'
+                          ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm'
+                          : 'border-amber-500/30 hover:bg-amber-500/10 text-foreground')
+                      }
+                    >
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <Split className="h-3.5 w-3.5 text-amber-300" />
+                        Confirm Different
+                      </div>
+                      <span className="text-[11px] opacity-80 font-normal">
+                        Ratify that materials are distinct; conclude dispute
+                      </span>
+                    </Button>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="override-reason" className="text-[11px] text-muted-foreground">
+                      Override Reason (Optional)
+                    </Label>
+                    <Textarea
+                      id="override-reason"
+                      placeholder="Add reason for administrative override..."
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      rows={2}
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      size="sm"
+                      disabled={decisionMutation.isPending}
+                      onClick={() =>
+                        decisionMutation.mutate({
+                          decision: 'OVERRIDE',
+                          override_outcome: overrideOutcome,
+                          reason:
+                            reason.trim() ||
+                            (overrideOutcome === 'EQUIVALENT'
+                              ? 'Admin override: materials deemed equivalent'
+                              : 'Admin override: materials confirmed as distinct'),
+                        })
+                      }
+                      className={
+                        'gap-2 font-semibold text-xs px-4 ' +
+                        (overrideOutcome === 'EQUIVALENT'
+                          ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                          : 'bg-amber-600 hover:bg-amber-700 text-white')
+                      }
+                    >
+                      {decisionMutation.isPending
+                        ? 'Applying Override...'
+                        : overrideOutcome === 'EQUIVALENT'
+                          ? '⚡ Confirm Override (Equivalent)'
+                          : '⇌ Confirm Override (Different)'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Notice for non-admin viewers */}
+              {!isAdmin && (
+                <div className="text-[11px] text-muted-foreground italic border-t border-border/40 pt-2">
+                  Note: As a CPSE Reviewer, this conflict is under arbitration by the National Administrator.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 4. CMM/NMC Info for accepted matches */}
         {match.cmm && (
           <Card className="border-emerald-500/30 bg-emerald-500/5">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                 <LinkIcon className="h-4 w-4" />
-                Common Material Master Record
+                Common Material Master Record Established
               </CardTitle>
               <CardDescription className="text-xs">
                 This match has been accepted and mapped to the following National Material Code.
@@ -287,7 +512,7 @@ export default function MatchDetail() {
             </CardHeader>
             <CardContent className="text-xs space-y-2 divide-y divide-border/40">
               <div className="flex justify-between py-1.5">
-                <span className="text-muted-foreground">NMC Code:</span>
+                <span className="text-muted-foreground">National Master Code (NMC):</span>
                 <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                   {match.cmm.national_material_code}
                 </span>
@@ -320,33 +545,29 @@ export default function MatchDetail() {
           </Card>
         )}
 
-        {/* Review Action Form — for PENDING_REVIEW matches or when overriding */}
-        {(match.status === 'PENDING_REVIEW' || isOverriding) ? (
+        {/* 5. ROUTINE REVIEW ACTIONS (When NOT a conflict) */}
+
+        {/* For Pending review cases (Reviewer Gate 1) */}
+        {!isConflict && match.status === 'PENDING_REVIEW' && (
           <Card className="border-border/60">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">
-                    {isOverriding ? 'Override Match Determination' : 'Submit Reviewer Determination'}
-                  </CardTitle>
-                  <CardDescription className="text-xs mt-0.5">
-                    Every action is recorded in the append-only audit trail and establishes or updates Common Material Master records.
-                  </CardDescription>
-                </div>
-              </div>
+              <CardTitle className="text-base">
+                Submit Reviewer Determination
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Review this candidate match pair.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Select Action</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {/* ACCEPT */}
+                <div className="grid grid-cols-3 gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setDecision('ACCEPT')}
                     className={
-                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all duration-150 ' +
+                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all ' +
                       (decision === 'ACCEPT'
                         ? 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white shadow-md shadow-emerald-500/30'
                         : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 dark:text-emerald-400 dark:hover:bg-emerald-950/40')
@@ -356,13 +577,12 @@ export default function MatchDetail() {
                     Accept
                   </Button>
 
-                  {/* REJECT */}
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setDecision('REJECT')}
                     className={
-                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all duration-150 ' +
+                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all ' +
                       (decision === 'REJECT'
                         ? 'bg-red-600 hover:bg-red-700 border-red-600 text-white shadow-md shadow-red-500/30'
                         : 'border-red-400/40 text-red-600 hover:bg-red-50 hover:border-red-500 dark:text-red-400 dark:hover:bg-red-950/40')
@@ -372,89 +592,26 @@ export default function MatchDetail() {
                     Reject
                   </Button>
 
-                  {/* MARK AS DIFFERENT */}
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setDecision('DIFFERENT')}
                     className={
-                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all duration-150 ' +
+                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all ' +
                       (decision === 'DIFFERENT'
                         ? 'bg-amber-500 hover:bg-amber-600 border-amber-500 text-white shadow-md shadow-amber-500/30'
                         : 'border-amber-400/40 text-amber-600 hover:bg-amber-50 hover:border-amber-500 dark:text-amber-400 dark:hover:bg-amber-950/40')
                     }
                   >
                     <Split className="h-3.5 w-3.5" />
-                    Different
-                  </Button>
-
-                  {/* OVERRIDE */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setDecision('OVERRIDE');
-                      if (!overrideOutcome) setOverrideOutcome('EQUIVALENT');
-                    }}
-                    className={
-                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all duration-150 ' +
-                      (decision === 'OVERRIDE'
-                        ? 'bg-purple-600 hover:bg-purple-700 border-purple-600 text-white shadow-md shadow-purple-500/30'
-                        : 'border-purple-400/40 text-purple-600 hover:bg-purple-50 hover:border-purple-500 dark:text-purple-400 dark:hover:bg-purple-950/40')
-                    }
-                  >
-                    Override
+                    Mark as Different
                   </Button>
                 </div>
               </div>
 
-              {decision === 'OVERRIDE' && (
-                <div className="p-4 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-3">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span>Override Determination Required:</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    When overriding automated rules, you must choose whether this pair is an <strong>Equivalent</strong> engineering match (creates or updates Common Material Master and maps both items) or confirmed as <strong>Different</strong> materials (records the decision without mapping).
-                  </p>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!canSubmitDecisions}
-                      variant={overrideOutcome === 'EQUIVALENT' ? 'default' : 'outline'}
-                      onClick={() => setOverrideOutcome('EQUIVALENT')}
-                      className={'text-xs h-8 gap-1.5 ' + (
-                        overrideOutcome === 'EQUIVALENT'
-                          ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                          : 'border-purple-500/30 hover:bg-purple-500/10'
-                      )}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Equivalent (Harmonize & Map to CMM)
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!canSubmitDecisions}
-                      variant={overrideOutcome === 'DIFFERENT' ? 'default' : 'outline'}
-                      onClick={() => setOverrideOutcome('DIFFERENT')}
-                      className={'text-xs h-8 gap-1.5 ' + (
-                        overrideOutcome === 'DIFFERENT'
-                          ? 'bg-slate-700 hover:bg-slate-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white'
-                          : 'border-border hover:bg-muted'
-                      )}
-                    >
-                      <Split className="h-3.5 w-3.5" />
-                      Different (Record Decision, Do Not Map)
-                    </Button>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-2">
                 <Label htmlFor="review-reason" className="text-xs">
-                  Engineering Rationale / Notes (Optional)
+                  Engineering Rationale / Notes
                 </Label>
                 <Textarea
                   id="review-reason"
@@ -462,110 +619,70 @@ export default function MatchDetail() {
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={2}
-                  disabled={!canSubmitDecisions}
                   className="text-xs"
                 />
               </div>
             </CardContent>
 
             <CardFooter className="pt-2 flex justify-between border-t border-border/40">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (isOverriding) {
-                    setIsOverriding(false);
-                  } else {
-                    navigate('/review');
-                  }
-                }}
-                className="text-xs"
-              >
+              <Button variant="ghost" size="sm" onClick={() => navigate(backUrl, { state: { tab: fromTab } })} className="text-xs">
                 Cancel
               </Button>
               <Button
                 size="sm"
-                disabled={
-                  decisionMutation.isPending ||
-                  (decision === 'OVERRIDE' && !overrideOutcome)
-                }
+                disabled={decisionMutation.isPending || (!canSubmitDecisions && !isAdmin)}
                 onClick={() =>
                   decisionMutation.mutate({
                     decision,
-                    override_outcome: decision === 'OVERRIDE' ? overrideOutcome! : undefined,
                     reason,
                   })
                 }
                 className={
-                  'gap-2 font-semibold px-5 transition-all duration-150 ' +
-                  (decisionMutation.isPending
-                    ? 'opacity-70 cursor-wait'
-                    : decision === 'ACCEPT'
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20'
-                      : decision === 'REJECT'
-                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-500/20'
-                        : decision === 'DIFFERENT'
-                          ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20'
-                          : decision === 'OVERRIDE'
-                            ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/20'
-                            : '')
+                  'gap-2 font-semibold px-5 transition-all text-xs ' +
+                  (decision === 'ACCEPT'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : decision === 'REJECT'
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-amber-500 hover:bg-amber-600 text-white')
                 }
               >
-                {decisionMutation.isPending
-                  ? '⏳ Recording...'
-                  : decision === 'ACCEPT'
-                    ? '✓ Confirm Accept'
-                    : decision === 'REJECT'
-                      ? '✕ Confirm Reject'
-                      : decision === 'DIFFERENT'
-                        ? '⇌ Confirm Different'
-                        : decision === 'OVERRIDE'
-                          ? overrideOutcome
-                            ? '⚡ Confirm Override (' + overrideOutcome + ')'
-                            : 'Select Override Outcome Above'
-                          : 'Confirm'}
+                {decisionMutation.isPending ? 'Recording...' : 'Confirm Determination'}
               </Button>
             </CardFooter>
           </Card>
-        ) : (
-          /* Already decided — show read-only status banner with Override option */
+        )}
+
+        {/* Non-conflict already decided match */}
+        {!isConflict && match.status !== 'PENDING_REVIEW' && (
           <Card className="border-border/60">
             <CardContent className="pt-4 pb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className={'p-3 rounded-lg border flex items-center gap-2.5 text-xs flex-1 ' + (
-                  match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN'
-                    ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                    : match.status === 'DIFFERENT' || match.status === 'REJECTED'
-                      ? 'bg-muted/50 border-border text-foreground dark:text-zinc-300'
-                      : 'bg-muted/60 border-border text-muted-foreground'
-                )}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="p-3 rounded-lg border flex items-center gap-2.5 text-xs bg-muted/40 border-border flex-1">
                   {match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN' ? (
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                   ) : (
                     <XCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
                   )}
                   <span>
-                    <strong>Decision recorded:</strong> This match is marked as <strong>{match.status}</strong>.
-                    {match.override_outcome && ` (Override: ${match.override_outcome})`}
+                    <strong>Status:</strong> Marked as <strong>{match.status}</strong>.
                     {match.cmm && (
-                      <> Assigned NMC Code: <strong className="font-mono">{match.cmm.national_material_code}</strong>.</>
+                      <> Assigned National Code: <strong className="font-mono">{match.cmm.national_material_code}</strong>.</>
                     )}
                   </span>
                 </div>
 
-                {canSubmitDecisions && (
+                {isAdmin && (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1.5 text-xs font-semibold text-purple-600 border-purple-500/40 hover:bg-purple-500/10 dark:text-purple-400 shrink-0"
                     onClick={() => {
-                      setDecision('OVERRIDE');
                       setOverrideOutcome('EQUIVALENT');
                       setIsOverriding(true);
                     }}
+                    className="gap-1.5 text-xs font-semibold text-purple-600 border-purple-500/40 hover:bg-purple-500/10"
                   >
                     <Split className="h-3.5 w-3.5" />
-                    Override Decision
+                    Override
                   </Button>
                 )}
               </div>

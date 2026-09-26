@@ -177,7 +177,7 @@ export default function CommonMaster() {
                 ) : (
                   filteredItems.map((cmm: any) => (
                     <tr key={cmm.id} className="hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedCmmId(cmm.id)}>
-                      <td className="p-3 font-medium text-xs text-primary font-mono truncate">{cmm.national_material_code}</td>
+                      <td className="p-3 font-semibold text-xs text-emerald-600 dark:text-emerald-400 font-mono truncate">{cmm.national_material_code}</td>
                       <td className="p-3 font-medium text-foreground max-w-[280px] truncate" title={cmm.canonical_description}>{cmm.canonical_description}</td>
                       <td className="p-3 capitalize font-medium text-foreground whitespace-nowrap">{cmm.material_family || '—'}</td>
                       <td className="p-3"><div className="flex flex-wrap gap-1">{Array.isArray(cmm.source_cpses) && cmm.source_cpses.length > 0 ? cmm.source_cpses.map((c: string) => <Badge key={c} variant="secondary" className="text-[10px] px-1.5 py-0">{c}</Badge>) : <span className="text-muted-foreground">—</span>}</div></td>
@@ -218,11 +218,11 @@ export default function CommonMaster() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <DialogTitle className="text-sm font-semibold text-foreground leading-tight tracking-wide">
+                        <DialogTitle className="text-sm font-semibold font-mono text-emerald-600 dark:text-emerald-400 leading-tight tracking-wide">
                           {cmmDetail.national_material_code}
                         </DialogTitle>
                         <button type="button" onClick={() => handleCopy(cmmDetail.national_material_code)} className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded" title="Copy">
-                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                       </div>
                       <DialogDescription className="text-[11px] text-muted-foreground mt-0.5">Standardized Catalog Entity</DialogDescription>

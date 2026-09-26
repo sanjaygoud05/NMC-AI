@@ -123,6 +123,8 @@ const App = () => {
                 <Route path="/manage-cpse" element={<Navigate to="/manage-cpses" replace />} />
                 <Route path="/cpses" element={<Navigate to="/manage-cpses" replace />} />
                 <Route path="/cpse" element={<Navigate to="/manage-cpses" replace />} />
+                <Route path="/reviewers" element={<Navigate to="/manage-cpses?tab=reviewers" replace />} />
+                <Route path="/reviewer-directory" element={<Navigate to="/manage-cpses?tab=reviewers" replace />} />
                 <Route path="/materials" element={<ProtectedRoute><Materials /></ProtectedRoute>} />
                 <Route path="/materials/:id" element={<ProtectedRoute><Materials /></ProtectedRoute>} />
 

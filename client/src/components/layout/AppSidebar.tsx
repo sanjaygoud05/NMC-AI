@@ -11,6 +11,7 @@ import {
   LogOut,
   GitCompare,
   ShoppingCart,
+  UserCheck,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Link, useNavigate } from 'react-router-dom';
@@ -46,7 +47,7 @@ interface NavGroup {
 }
 
 export function AppSidebar() {
-  const { role, isAdmin, isReviewer, canViewReviewQueue, canSubmitDecisions, isAuthenticated, logout, reviewerName, reviewerCpse } = useAuth();
+  const { role, isAdmin, isReviewer, canViewReviewQueue, canSubmitDecisions, isAuthenticated, logout, reviewerName, reviewerCpse, reviewerId } = useAuth();
   const { isMobile, setOpenMobile } = useSidebar();
   const navigate = useNavigate();
 
@@ -73,6 +74,7 @@ export function AppSidebar() {
       items: [
         { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
         { title: 'Manage CPSEs', url: '/manage-cpses', icon: Building2 },
+        { title: 'Reviewer Directory', url: '/manage-cpses?tab=reviewers', icon: UserCheck },
         { title: 'Material Explorer', url: '/materials', icon: Search },
         { title: 'Common Material Master', url: '/common-master', icon: Database },
       ],
@@ -197,43 +199,57 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        <div className="flex items-center justify-between w-full">
-          <div className="flex flex-col">
-            <span className="text-xs font-medium text-sidebar-foreground">
-              {isAuthenticated
-                ? isAdmin
-                  ? 'Central Admin'
-                  : (reviewerName || 'Reviewer')
-                : 'Not Signed In'}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {isAuthenticated
-                ? isAdmin
-                  ? 'National Platform · All CPSEs'
-                  : `${reviewerCpse || 'CPSE'} · Domain Reviewer`
-                : 'Please sign in'}
-            </span>
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-primary/20">
+              {isAdmin ? (
+                <ShieldCheck className="h-4 w-4 text-primary" />
+              ) : reviewerName ? (
+                reviewerName.charAt(0).toUpperCase()
+              ) : (
+                <UserCheck className="h-4 w-4 text-primary" />
+              )}
+            </div>
+            <div className="flex flex-col min-w-0 flex-1 leading-tight">
+              <span className="text-xs font-semibold text-sidebar-foreground truncate capitalize">
+                {isAuthenticated
+                  ? isAdmin
+                    ? 'Central Admin'
+                    : (reviewerName || 'Reviewer')
+                  : 'Not Signed In'}
+              </span>
+              <span className="text-[10px] text-muted-foreground truncate">
+                {isAuthenticated
+                  ? isAdmin
+                    ? 'National Platform'
+                    : reviewerCpse
+                      ? `${reviewerCpse} Reviewer`
+                      : 'Verified Reviewer'
+                  : 'Please sign in'}
+              </span>
+            </div>
           </div>
 
           {isAuthenticated ? (
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={handleLogout}
-              className="h-8 px-2 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+              title="Sign Out"
+              aria-label="Sign Out"
             >
-              <LogOut className="h-3.5 w-3.5" />
-              Sign Out
+              <LogOut className="h-4 w-4" />
             </Button>
           ) : (
             <Link to="/login">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 px-2.5 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                className="h-8 px-2.5 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10 font-medium"
               >
                 <LogIn className="h-3.5 w-3.5" />
-                Sign In
+                <span>Sign In</span>
               </Button>
             </Link>
           )}
