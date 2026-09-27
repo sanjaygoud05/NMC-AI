@@ -59,13 +59,23 @@ class NMCRepository:
 
     def _init_db(self):
         Base.metadata.create_all(bind=self.engine)
-        # Safe self-healing column migrations for existing PostgreSQL databases
+        # Safe self-healing column migrations and constraint updates for PostgreSQL databases
         with self.engine.connect() as conn:
             migration_statements = [
+                # 1. Add missing columns if they do not exist
                 "ALTER TABLE review_decisions ADD COLUMN IF NOT EXISTS override_outcome VARCHAR(32)",
                 "ALTER TABLE material_matches ADD COLUMN IF NOT EXISTS gate1_reviewer VARCHAR(128)",
                 "ALTER TABLE material_matches ADD COLUMN IF NOT EXISTS gate1_cpse_code VARCHAR(32)",
                 "ALTER TABLE material_matches ADD COLUMN IF NOT EXISTS gate1_at TIMESTAMP WITH TIME ZONE",
+                # 2. Update match_status_check constraint to include GATE_1_APPROVED, SUPERSEDED_BY_CMM, etc.
+                "ALTER TABLE material_matches DROP CONSTRAINT IF EXISTS match_status_check",
+                "ALTER TABLE material_matches ADD CONSTRAINT match_status_check CHECK (status IN ('PENDING_REVIEW','GATE_1_APPROVED','ACCEPTED','REJECTED','DIFFERENT','OVERRIDDEN','SUPERSEDED_BY_CMM'))",
+                # 3. Update match_category_check constraint
+                "ALTER TABLE material_matches DROP CONSTRAINT IF EXISTS match_category_check",
+                "ALTER TABLE material_matches ADD CONSTRAINT match_category_check CHECK (match_category IN ('POTENTIALLY_SAME','DIFFERENT','ALREADY_MAPPED'))",
+                # 4. Update review_decision_check constraint
+                "ALTER TABLE review_decisions DROP CONSTRAINT IF EXISTS review_decision_check",
+                "ALTER TABLE review_decisions ADD CONSTRAINT review_decision_check CHECK (decision IN ('ACCEPT','REJECT','DIFFERENT','OVERRIDE'))",
             ]
             for stmt in migration_statements:
                 try:
@@ -2224,41 +2234,47 @@ class NMCRepository:
         search: Optional[str] = None,
     ) -> Dict[str, Any]:
         with self.get_session() as session:
-            # Self-healing bootstrap: if reviewers table is completely empty, seed verified reviewers for all registered CPSEs
+            # Self-healing bootstrap: only seed initial reviewers if table is empty AND no reviewer actions have ever occurred
             total_in_db = session.execute(select(func.count(Reviewer.id))).scalar() or 0
             if total_in_db == 0:
-                all_registered_cpses = session.execute(select(CPSE)).scalars().all()
-                default_reviewer_configs = {
-                    "HPCL": ("Rajesh Kumar", "Chief Manager (Materials & Supply Chain)", "Piping, Valves & Static Equipment"),
-                    "BPCL": ("Suresh Nair", "Lead Procurement Engineer (Refining)", "Instrumentation & Process Control Hardware"),
-                    "IOCL": ("Amit Sharma", "Executive Director (Materials Management)", "Refining Equipment & Catalyst"),
-                    "ONGC": ("Vikas Verma", "Chief General Manager (Exploration Stores)", "Offshore & Drilling Equipment"),
-                    "GAIL": ("Pooja Mehta", "DGM (Procurement & Contracts)", "Gas Pipelines & Metering"),
-                    "BHEL": ("Ramesh Patel", "Senior Manager (Supply Chain)", "Electrical & Power Systems"),
-                    "NTPC": ("Sunil Joshi", "Head of Material Planning", "Thermal Turbines & Boilers"),
-                    "OIL": ("Debashish Roy", "Lead Materials Officer", "Drilling Rigs & Production Equipment"),
-                }
-                for cpse in all_registered_cpses:
-                    cfg = default_reviewer_configs.get(
-                        cpse.code,
-                        (f"{cpse.code} Reviewer", "Certified Domain Reviewer", "Materials Management")
+                has_rev_audit = session.execute(
+                    select(func.count(AuditLog.id)).where(
+                        AuditLog.action.in_(["REVIEWER_REGISTERED", "REVIEWER_REVOKED", "REVIEWER_UPDATED"])
                     )
-                    email_prefix = cfg[0].lower().replace(" ", ".")
-                    session.add(Reviewer(
-                        id=f"{cpse.code}-REV-001",
-                        name=cfg[0],
-                        cpse_id=cpse.id,
-                        cpse_code=cpse.code,
-                        designation=cfg[1],
-                        domain=cfg[2],
-                        email=f"{email_prefix}@{cpse.code.lower()}.in",
-                        status="ACTIVE",
-                        certified_date="2025-08-15",
-                        password="nmc-reviewer-key",
-                        reviewer_key="nmc-reviewer-key",
-                        authorization_scope=f"{cpse.code} Catalog Scoped + Cross-CPSE Pairs",
-                    ))
-                session.commit()
+                ).scalar() or 0
+                if has_rev_audit == 0:
+                    all_registered_cpses = session.execute(select(CPSE)).scalars().all()
+                    default_reviewer_configs = {
+                        "HPCL": ("Rajesh Kumar", "Chief Manager (Materials & Supply Chain)", "Piping, Valves & Static Equipment"),
+                        "BPCL": ("Suresh Nair", "Lead Procurement Engineer (Refining)", "Instrumentation & Process Control Hardware"),
+                        "IOCL": ("Amit Sharma", "Executive Director (Materials Management)", "Refining Equipment & Catalyst"),
+                        "ONGC": ("Vikas Verma", "Chief General Manager (Exploration Stores)", "Offshore & Drilling Equipment"),
+                        "GAIL": ("Pooja Mehta", "DGM (Procurement & Contracts)", "Gas Pipelines & Metering"),
+                        "BHEL": ("Ramesh Patel", "Senior Manager (Supply Chain)", "Electrical & Power Systems"),
+                        "NTPC": ("Sunil Joshi", "Head of Material Planning", "Thermal Turbines & Boilers"),
+                        "OIL": ("Debashish Roy", "Lead Materials Officer", "Drilling Rigs & Production Equipment"),
+                    }
+                    for cpse in all_registered_cpses:
+                        cfg = default_reviewer_configs.get(
+                            cpse.code,
+                            (f"{cpse.code} Reviewer", "Certified Domain Reviewer", "Materials Management")
+                        )
+                        email_prefix = cfg[0].lower().replace(" ", ".")
+                        session.add(Reviewer(
+                            id=f"{cpse.code}-REV-001",
+                            name=cfg[0],
+                            cpse_id=cpse.id,
+                            cpse_code=cpse.code,
+                            designation=cfg[1],
+                            domain=cfg[2],
+                            email=f"{email_prefix}@{cpse.code.lower()}.in",
+                            status="ACTIVE",
+                            certified_date="2025-08-15",
+                            password="nmc-reviewer-key",
+                            reviewer_key="nmc-reviewer-key",
+                            authorization_scope=f"{cpse.code} Catalog Scoped + Cross-CPSE Pairs",
+                        ))
+                    session.commit()
 
             # Self-healing sync: ensure reviewer cpse_ids match active CPSE table IDs
             all_reviewers = session.execute(select(Reviewer)).scalars().all()
@@ -2325,10 +2341,15 @@ class NMCRepository:
             if data.get("id") and data["id"].strip():
                 new_id = data["id"].strip().upper()
             else:
-                existing_count = session.execute(
-                    select(func.count(Reviewer.id)).where(Reviewer.cpse_code == cpse_code)
-                ).scalar() or 0
-                new_id = f"{cpse_code}-REV-{(existing_count + 1):03d}"
+                existing_rids = session.execute(
+                    select(Reviewer.id).where(func.upper(Reviewer.cpse_code) == cpse_code)
+                ).scalars().all()
+                max_num = 0
+                for rid in existing_rids:
+                    m = re.search(r"(\d+)$", rid)
+                    if m:
+                        max_num = max(max_num, int(m.group(1)))
+                new_id = f"{cpse_code}-REV-{(max_num + 1):03d}"
 
             # Check if exists
             existing = session.execute(
@@ -2539,6 +2560,72 @@ class NMCRepository:
             session.commit()
             return len(rows)
 
+    def sync_database_tables(self, tables_data: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+        """
+        Atomically bulk-loads table records into the database.
+        Clears existing rows in reverse topological order, then inserts all records.
+        """
+        table_order = [
+            # Child tables first for deletion
+            "review_notifications",
+            "review_decisions",
+            "audit_logs",
+            "material_mappings",
+            "material_matches",
+            "inventory_records",
+            "demand_records",
+            "procurement_history_records",
+            "materials",
+            "datasets",
+            "reviewers",
+            "nmc_common_materials",
+            "cpsEs",
+        ]
+        insert_order = list(reversed(table_order))
+
+        with self.get_session() as session:
+            # 1. Truncate / delete existing in foreign-key safe order
+            for tbl_name in table_order:
+                if tbl_name in Base.metadata.tables:
+                    session.execute(Base.metadata.tables[tbl_name].delete())
+            session.commit()
+
+            # 2. Insert records in dependency order
+            results = {}
+            for tbl_name in insert_order:
+                rows = tables_data.get(tbl_name, [])
+                if not rows or tbl_name not in Base.metadata.tables:
+                    results[tbl_name] = 0
+                    continue
+                tbl = Base.metadata.tables[tbl_name]
+
+                cleaned_rows = []
+                for row in rows:
+                    c_row = {}
+                    for col_name, val in row.items():
+                        if col_name not in tbl.columns:
+                            continue
+                        col_type = tbl.columns[col_name].type
+                        type_name = type(col_type).__name__.upper()
+                        if "DATETIME" in type_name or "TIMESTAMP" in type_name:
+                            if val and isinstance(val, str):
+                                try:
+                                    val = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                                except Exception:
+                                    pass
+                        c_row[col_name] = val
+                    cleaned_rows.append(c_row)
+
+                if cleaned_rows:
+                    for i in range(0, len(cleaned_rows), 500):
+                        batch = cleaned_rows[i:i + 500]
+                        session.execute(tbl.insert(), batch)
+                    session.commit()
+                results[tbl_name] = len(cleaned_rows)
+
+            return {"status": "SUCCESS", "synced": results}
+
 
 # Global singleton
 nmc_repo = NMCRepository()
+

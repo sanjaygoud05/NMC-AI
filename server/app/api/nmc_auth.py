@@ -10,8 +10,8 @@ Decision counts and last_active timestamps are queried live from the DB.
 import hmac
 import hashlib
 import time
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Header
+from typing import Optional, Dict, Any, List
+from fastapi import APIRouter, HTTPException, Header, Request
 from pydantic import BaseModel
 
 try:
@@ -452,3 +452,24 @@ def delete_reviewer(reviewer_id: str):
         "status": "SUCCESS",
         "message": f"Reviewer certification for {rev['name']} ({reviewer_id}) has been revoked.",
     }
+
+
+@router.post("/sync-database")
+async def sync_database(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Admin-only: Synchronize all platform database tables.
+    Accepts complete table dictionary exported from local SQLite database.
+    """
+    verify_admin_access(authorization)
+    tables_data = await request.json()
+    result = nmc_repo.sync_database_tables(tables_data)
+    nmc_repo.log_action("Admin", "SYSTEM", "DATABASE_SYNCED", metadata=result.get("synced", {}))
+    return {
+        "status": "SUCCESS",
+        "message": "Database synchronized successfully.",
+        "synced": result.get("synced", {}),
+    }
+
