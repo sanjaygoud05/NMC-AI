@@ -5,14 +5,15 @@ All data derived from real DB tables. No hardcoded values.
 
 import logging
 from typing import Optional, Any
+from datetime import datetime
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, and_, or_, desc, text
+from sqlalchemy import select, func, and_, or_, desc, text, case
 from sqlalchemy.orm import aliased
 from app.db.nmc_repository import nmc_repo
 from app.api.nmc_auth import verify_reviewer_access
 from app.models.nmc_models import (
     CPSE, Dataset, Material, MaterialMatch,
-    NMCCommonMaterial, MaterialMapping, ReviewDecision, AuditLog,
+    NMCCommonMaterial, MaterialMapping, ReviewDecision, AuditLog, Reviewer,
 )
 
 logger = logging.getLogger(__name__)
@@ -848,7 +849,34 @@ def get_reviewer_analytics(
             },
         ]
 
-        # 5. Peer CPSE distribution (matches with other CPSEs)
+        # 5. Category-wise review & harmonization progress for THIS CPSE
+        cat_stmt = (
+            select(
+                func.coalesce(Material.material_family, 'General').label('family'),
+                func.count(Material.id).label('total'),
+                func.sum(case((Material.mapping_status == 'MAPPED', 1), else_=0)).label('mapped'),
+                func.sum(case((Material.mapping_status == 'DIFFERENT', 1), else_=0)).label('different'),
+                func.sum(case((Material.mapping_status == 'UNMAPPED', 1), else_=0)).label('pending'),
+            )
+            .where(Material.cpse_id == cid)
+            .group_by(Material.material_family)
+            .order_by(func.count(Material.id).desc())
+            .limit(6)
+        )
+        cat_rows = s.execute(cat_stmt).all()
+        category_progress = []
+        for r in cat_rows:
+            d = dict(r._mapping)
+            fam_name = str(d.get("family") or "General").capitalize()
+            category_progress.append({
+                "family": fam_name,
+                "total": int(d.get("total") or 0),
+                "mapped": int(d.get("mapped") or 0),
+                "different": int(d.get("different") or 0),
+                "pending": int(d.get("pending") or 0),
+            })
+
+        # Also preserve peer_distribution list for backwards compatibility
         CandCpse = aliased(CPSE)
         stmt1 = (
             select(CandCpse.code, func.count(MaterialMatch.id))
@@ -858,20 +886,8 @@ def get_reviewer_analytics(
             .where(SrcMat.cpse_id == cid)
             .group_by(CandCpse.code)
         )
-        SrcCpse = aliased(CPSE)
-        stmt2 = (
-            select(SrcCpse.code, func.count(MaterialMatch.id))
-            .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
-            .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
-            .join(SrcCpse, SrcMat.cpse_id == SrcCpse.id)
-            .where(CandMat.cpse_id == cid)
-            .group_by(SrcCpse.code)
-        )
         peer_counts = {}
         for code, cnt in s.execute(stmt1).all():
-            if code and code.upper() != ccode.upper():
-                peer_counts[code.upper()] = peer_counts.get(code.upper(), 0) + cnt
-        for code, cnt in s.execute(stmt2).all():
             if code and code.upper() != ccode.upper():
                 peer_counts[code.upper()] = peer_counts.get(code.upper(), 0) + cnt
 
@@ -888,13 +904,13 @@ def get_reviewer_analytics(
             .group_by(Material.material_family)
             .order_by(func.count(Material.id).desc())
             .limit(6)
-        ).all()
+        )
         family_distribution = [
             {"family": (r[0] or "General").capitalize(), "count": r[1]}
             for r in fam_rows if r[0]
         ]
 
-        # 7. Velocity timeline (hourly and recent trend)
+        # 7. Daily Review Cadence & Throughput for THIS CPSE
         activity_timeline = []
         try:
             is_postgres = False
@@ -905,26 +921,51 @@ def get_reviewer_analytics(
                 pass
 
             if is_postgres:
-                hour_func = func.to_char(ReviewDecision.timestamp, 'HH24:00')
+                date_func = func.to_char(ReviewDecision.timestamp, 'YYYY-MM-DD')
             else:
-                hour_func = func.strftime('%H:00', ReviewDecision.timestamp)
+                date_func = func.strftime('%Y-%m-%d', ReviewDecision.timestamp)
 
             timeline_stmt = (
-                select(hour_func, func.count(ReviewDecision.id))
+                select(date_func.label('day'), func.count(ReviewDecision.id))
                 .join(MaterialMatch, ReviewDecision.match_id == MaterialMatch.id)
                 .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
-                .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
-                .where(or_(SrcMat.cpse_id == cid, CandMat.cpse_id == cid))
-                .group_by(hour_func)
-                .order_by(hour_func)
+                .where(SrcMat.cpse_id == cid)
+                .group_by(date_func)
+                .order_by(date_func)
             )
             velocity_rows = s.execute(timeline_stmt).all()
-            activity_timeline = [{"time": r[0], "decisions": r[1]} for r in velocity_rows if r[0]]
+            cum = 0
+            for r in velocity_rows:
+                raw_d = str(r[0]) if r[0] else ""
+                cnt = int(r[1])
+                cum += cnt
+                disp = raw_d
+                try:
+                    dt = datetime.strptime(raw_d, "%Y-%m-%d")
+                    disp = dt.strftime("%b %d")
+                except Exception:
+                    pass
+                activity_timeline.append({
+                    "time": disp,
+                    "date": raw_d,
+                    "decisions": cnt,
+                    "cumulative": cum,
+                })
         except Exception as e:
             logger.warning("Failed to calculate activity timeline: %s", e)
             activity_timeline = []
 
-        # 8. Rich recent decisions for this CPSE (with material descriptions, confidence, and peer CPSE)
+        # 8. Rich recent decisions strictly made for/by THIS CPSE's materials and reviewers
+        cpse_rev_rows = s.execute(select(Reviewer).where(Reviewer.cpse_id == cid)).scalars().all()
+        cpse_rev_names = [r.name.strip().lower() for r in cpse_rev_rows if r.name]
+
+        rev_conds = [MaterialMatch.gate1_cpse_code == ccode]
+        for rname in cpse_rev_names:
+            rev_conds.append(func.lower(ReviewDecision.reviewer).contains(rname))
+
+        SrcCpse = aliased(CPSE)
+        CandCpse = aliased(CPSE)
+
         recent_stmt = (
             select(
                 ReviewDecision.id,
@@ -946,11 +987,44 @@ def get_reviewer_analytics(
             .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
             .join(SrcCpse, SrcMat.cpse_id == SrcCpse.id)
             .join(CandCpse, CandMat.cpse_id == CandCpse.id)
-            .where(or_(SrcMat.cpse_id == cid, CandMat.cpse_id == cid))
+            .where(
+                and_(
+                    SrcMat.cpse_id == cid,
+                    or_(*rev_conds) if rev_conds else True,
+                )
+            )
             .order_by(desc(ReviewDecision.timestamp))
-            .limit(8)
+            .limit(30)
         )
         recent_rows = s.execute(recent_stmt).all()
+        if not recent_rows:
+            fallback_stmt = (
+                select(
+                    ReviewDecision.id,
+                    ReviewDecision.decision,
+                    ReviewDecision.reason,
+                    ReviewDecision.reviewer,
+                    ReviewDecision.timestamp,
+                    MaterialMatch.id.label("match_id"),
+                    MaterialMatch.final_confidence,
+                    SrcMat.original_material_code.label("src_code"),
+                    SrcMat.normalized_description.label("src_desc"),
+                    SrcCpse.code.label("src_cpse"),
+                    CandMat.original_material_code.label("cand_code"),
+                    CandMat.normalized_description.label("cand_desc"),
+                    CandCpse.code.label("cand_cpse"),
+                )
+                .join(MaterialMatch, ReviewDecision.match_id == MaterialMatch.id)
+                .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+                .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+                .join(SrcCpse, SrcMat.cpse_id == SrcCpse.id)
+                .join(CandCpse, CandMat.cpse_id == CandCpse.id)
+                .where(SrcMat.cpse_id == cid)
+                .order_by(desc(ReviewDecision.timestamp))
+                .limit(30)
+            )
+            recent_rows = s.execute(fallback_stmt).all()
+
         recent_decisions = []
         for r in recent_rows:
             d = dict(r._mapping)
@@ -981,6 +1055,7 @@ def get_reviewer_analytics(
             "cpse_description": target_cpse.description,
             "total_materials": total_materials,
             "normalized_materials": normalized_materials,
+            "category_progress": category_progress,
             "reviewer_identity": {
                 "reviewer_id": reviewer_id,
                 "reviewer_name": reviewer_name,

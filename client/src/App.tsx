@@ -134,6 +134,7 @@ const App = () => {
                 <Route path="/matches/:id" element={<ProtectedRoute><MatchDetail /></ProtectedRoute>} />
                 <Route path="/review" element={<ProtectedRoute><Review /></ProtectedRoute>} />
                 <Route path="/review/:id" element={<ProtectedRoute><MatchDetail /></ProtectedRoute>} />
+                <Route path="/review/match/:id" element={<ProtectedRoute><MatchDetail /></ProtectedRoute>} />
 
                 {/* Common Material Master */}
                 <Route path="/common-master" element={<ProtectedRoute><CommonMaster /></ProtectedRoute>} />

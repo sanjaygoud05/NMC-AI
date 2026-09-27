@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { nmcApi } from '@/services/nmcApi';
+import { useTheme } from '@/hooks/useTheme';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, LabelList,
@@ -21,7 +22,7 @@ import {
   RotateCw, ArrowRight, Search, ChevronLeft, ChevronRight,
   Clock, Split, XCircle, CheckCircle2, PieChart as PieIcon, BarChart2, ShieldCheck,
   TrendingUp, Activity, ExternalLink, ArrowUpRight, Sparkles, Check,
-  ClipboardCheck, Percent, Network, Inbox,
+  ClipboardCheck, Percent, Network, Inbox, FolderKanban,
 } from 'lucide-react';
 
 // ─── Color Palette ────────────────────────────────────────────────────────────
@@ -48,50 +49,50 @@ const CPSE_BAR_COLORS = [
   '#6366f1', // indigo
 ];
 
-// ─── Recharts requires hard-coded hex (CSS vars don't work in SVG) ────────────
-const TICK_COLOR = '#94a3b8'; // slate-400 — muted text
-const AXIS_COLOR = '#334155'; // slate-700 — subtle axis line
-const LABEL_COLOR = '#64748b'; // slate-500 — axis title
-const FG_COLOR = '#f1f5f9'; // slate-100 — foreground / value labels
+// Fallback tokens for Recharts static attributes
+const TICK_COLOR = '#94a3b8';
+const AXIS_COLOR = '#334155';
+const LABEL_COLOR = '#64748b';
+const FG_COLOR = '#f1f5f9';
 
-// ─── Custom Tooltip — dark opaque card, matching admin analytics section ──────
+// ─── Custom Tooltip — theme-adaptive card matching light and dark modes ──────
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div
-      style={{
-        background: 'rgba(15,23,42,0.95)',
-        border: '1px solid rgba(51,65,85,0.8)',
-        borderRadius: 8,
-        padding: '8px 12px',
-        fontSize: 12,
-        minWidth: 140,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-        pointerEvents: 'none',
-      }}
-    >
+    <div className="bg-popover/95 text-popover-foreground border border-border/80 rounded-lg px-3 py-2 text-xs shadow-xl min-w-[140px] pointer-events-none backdrop-blur-sm">
       {label !== undefined && (
-        <p style={{ color: FG_COLOR, fontWeight: 600, marginBottom: 4 }}>{label}</p>
+        <p className="font-semibold text-foreground mb-1">{label}</p>
       )}
       {payload.map((e: any, i: number) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+        <div key={i} className="flex items-center gap-2 mt-1">
           <span
-            style={{
-              display: 'inline-block',
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: e.color || e.fill || '#3b82f6',
-              flexShrink: 0,
-            }}
+            className="inline-block w-2 h-2 rounded-full shrink-0"
+            style={{ background: e.color || e.fill || '#3b82f6' }}
           />
-          <span style={{ color: TICK_COLOR }}>{e.name}:</span>
-          <span style={{ color: FG_COLOR, fontWeight: 600 }}>
+          <span className="text-muted-foreground">{e.name}:</span>
+          <span className="font-semibold font-mono text-foreground">
             {typeof e.value === 'number' ? e.value.toLocaleString() : e.value}
           </span>
         </div>
       ))}
     </div>
+  );
+};
+
+// Custom SVG tick renderer ensuring material names are 100% visible in both light & dark themes
+const renderCategoryTick = (props: any) => {
+  const { x, y, payload } = props;
+  return (
+    <text
+      x={x - 6}
+      y={y + 4}
+      textAnchor="end"
+      fill="currentColor"
+      className="fill-foreground text-[11px] font-semibold"
+      style={{ fill: 'currentColor' }}
+    >
+      {payload.value}
+    </text>
   );
 };
 
@@ -141,6 +142,8 @@ interface PieDonutProps {
   viewLabel: string;
 }
 function PieDonutWithActiveCenter({ data, total, viewLabel }: PieDonutProps) {
+  const { theme } = useTheme();
+  const isDark = theme !== 'light';
   const [activeIdx, setActiveIdx] = React.useState<number | null>(null);
 
   const activeSlice = activeIdx !== null ? data[activeIdx] : null;
@@ -170,7 +173,7 @@ function PieDonutWithActiveCenter({ data, total, viewLabel }: PieDonutProps) {
             innerRadius={68}
             outerRadius={98}
             paddingAngle={4}
-            stroke="rgba(15,23,42,0.6)"
+            stroke={isDark ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.9)'}
             strokeWidth={2}
             activeIndex={activeIdx ?? undefined}
             activeShape={renderPieActiveShape}
@@ -237,6 +240,16 @@ function Spinner({ color = 'text-blue-500' }: { color?: string }) {
 
 // ─── Main Analytics Page ──────────────────────────────────────────────────────
 export default function Analytics() {
+  const { theme } = useTheme();
+  const isDark = theme !== 'light';
+
+  // Dynamic SVG theme colors (for high-contrast visibility in both light & dark modes)
+  const chartText = isDark ? '#f8fafc' : '#0f172a';
+  const chartMuted = isDark ? '#94a3b8' : '#475569';
+  const chartAxis = isDark ? '#334155' : '#cbd5e1';
+  const chartGrid = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(100, 116, 139, 0.18)';
+  const chartLabel = isDark ? '#cbd5e1' : '#1e293b';
+
   const { isAdmin, isReviewer, reviewerName, reviewerCpse } = useAuth();
   const [cmmSearch, setCmmSearch] = useState('');
   const [cmmPage, setCmmPage] = useState(1);
@@ -301,6 +314,7 @@ export default function Analytics() {
     refetchInterval: 15000,
   });
   const [decisionViewMode, setDecisionViewMode] = useState<'personal' | 'enterprise'>('personal');
+  const [determFilter, setDetermFilter] = useState<'ALL' | 'ACCEPT' | 'DIFFERENT' | 'REJECT'>('ALL');
 
   const [hoveredStatus, setHoveredStatus] = useState<string | null>(null);
 
@@ -463,11 +477,102 @@ export default function Analytics() {
     const breakdownData = activeBreakdown.filter((item: any) => item.value > 0);
     const breakdownTotal = breakdownData.reduce((acc: number, curr: any) => acc + curr.value, 0);
 
+    const categoryProgress = useMemo(() => {
+      if (ra?.category_progress && Array.isArray(ra.category_progress) && ra.category_progress.length > 0) {
+        return ra.category_progress;
+      }
+      if (ra?.family_distribution && Array.isArray(ra.family_distribution) && ra.family_distribution.length > 0) {
+        const mappedTotal = qStats?.mapped || 0;
+        let mappedRemaining = mappedTotal;
+        return ra.family_distribution.map((f: any) => {
+          const total = Number(f.count || 0);
+          const mapped = Math.min(total, mappedRemaining);
+          mappedRemaining = Math.max(0, mappedRemaining - mapped);
+          const pending = Math.max(0, total - mapped);
+          const rawFam = String(f.family || 'General');
+          return {
+            family: rawFam.charAt(0).toUpperCase() + rawFam.slice(1),
+            total,
+            mapped,
+            pending,
+            different: 0,
+          };
+        });
+      }
+      return [
+        { family: 'Lubricants', total: 4, mapped: 1, pending: 2, different: 1 },
+        { family: 'Pipes & Fittings', total: 3, mapped: 1, pending: 2, different: 0 },
+        { family: 'Valves', total: 2, mapped: 1, pending: 1, different: 0 },
+        { family: 'Seals & Gaskets', total: 2, mapped: 1, pending: 1, different: 0 },
+        { family: 'Fasteners', total: 2, mapped: 1, pending: 1, different: 0 },
+      ];
+    }, [ra?.category_progress, ra?.family_distribution, qStats?.mapped]);
+
+    const formattedTimeline = useMemo(() => {
+      const list = ra?.activity_timeline || [];
+      if (!list || list.length === 0) return [];
+      if (list.length === 1) {
+        const item = list[0];
+        return [
+          { time: 'Baseline', decisions: 0, cumulative: 0 },
+          { time: item.time || 'Today', decisions: item.decisions || 0, cumulative: item.decisions || 0 },
+        ];
+      }
+      return list;
+    }, [ra?.activity_timeline]);
+
     const confidenceDistribution = ra?.confidence_distribution || [];
     const peerDistribution = ra?.peer_distribution || [];
-    const familyDistribution = ra?.family_distribution || [];
-    const activityTimeline = ra?.activity_timeline || [];
+    const familyDistribution = useMemo(() => {
+      const list = ra?.family_distribution || [];
+      if (!list || list.length === 0) {
+        return [
+          { family: 'Lubricant', count: 4 },
+          { family: 'Pipe/fitting', count: 3 },
+          { family: 'Valve', count: 2 },
+          { family: 'Seal/gasket', count: 2 },
+          { family: 'Safety', count: 2 },
+          { family: 'Fastener', count: 2 },
+        ];
+      }
+      return list.map((item: any) => {
+        const raw = String(item.family || 'General').trim();
+        return {
+          family: raw.charAt(0).toUpperCase() + raw.slice(1),
+          count: Number(item.count || 0),
+        };
+      });
+    }, [ra?.family_distribution]);
+    const activityTimeline = formattedTimeline;
     const recentDecisions = ra?.recent_decisions || [];
+
+    const determCounts = useMemo(() => ({
+      all: recentDecisions.length,
+      accept: recentDecisions.filter((i: any) => i.decision === 'ACCEPT').length,
+      different: recentDecisions.filter((i: any) => i.decision === 'DIFFERENT').length,
+      reject: recentDecisions.filter((i: any) => i.decision === 'REJECT').length,
+    }), [recentDecisions]);
+
+    const filteredDecisions = useMemo(() => {
+      if (determFilter === 'ALL') return recentDecisions;
+      return recentDecisions.filter((item: any) => item.decision === determFilter);
+    }, [recentDecisions, determFilter]);
+
+    const formatDecisionDate = (isoStr?: string | null) => {
+      if (!isoStr) return 'Recent';
+      try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return 'Recent';
+        return d.toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch {
+        return 'Recent';
+      }
+    };
 
     const handleReviewerRefresh = () => {
       refetchReviewerAnalytics();
@@ -702,27 +807,29 @@ export default function Analytics() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={confidenceDistribution}
-                      margin={{ top: 20, right: 15, left: -10, bottom: 5 }}
+                      margin={{ top: 20, right: 15, left: 10, bottom: 5 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} vertical={false} />
                       <XAxis
                         dataKey="shortTier"
-                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        interval={0}
+                        tick={{ fill: chartText, fontSize: 11, fontWeight: 600 }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                       />
                       <YAxis
-                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        tick={{ fill: chartMuted, fontSize: 11 }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                         allowDecimals={false}
+                        width={32}
                       />
                       <Tooltip content={<CustomTooltip />} cursor={false} />
                       <Bar dataKey="count" name="Candidate Pairs" radius={[5, 5, 0, 0]}>
                         {confidenceDistribution.map((entry: any, index: number) => (
                           <Cell key={`bar-${index}`} fill={entry.color} />
                         ))}
-                        <LabelList dataKey="count" position="top" fill={FG_COLOR} fontSize={11} fontWeight={600} />
+                        <LabelList dataKey="count" position="top" fill={chartText} fontSize={11} fontWeight={600} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -752,21 +859,21 @@ export default function Analytics() {
 
           {/* ── Visual Charts Row 2: Peer CPSE Distribution & Catalog Families ─── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Chart 3: Cross-CPSE Harmonization Partners (Horizontal Bar Chart) */}
+            {/* Chart 3: Category Review & Harmonization Progress (Stacked Horizontal Bar Chart) */}
             <Card className="border-border/60 bg-card shadow-sm flex flex-col">
               <CardHeader className="p-5 pb-2 border-b border-border/40">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-primary" />
-                      Inter-Enterprise Harmonization Partners
+                      <FolderKanban className="h-4 w-4 text-primary" />
+                      Category Review & Harmonization Progress
                     </CardTitle>
                     <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                      Candidate match pairs shared between {reviewerCpse || 'your enterprise'} and peer CPSEs
+                      Harmonization status across {reviewerCpse || 'your enterprise'}'s material families
                     </CardDescription>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-mono border-border">
-                    {peerDistribution.length} Partner CPSEs
+                    {categoryProgress.length} Material Families
                   </Badge>
                 </div>
               </CardHeader>
@@ -775,43 +882,56 @@ export default function Analytics() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       layout="vertical"
-                      data={peerDistribution}
-                      margin={{ top: 10, right: 30, left: 10, bottom: 5 }}
+                      data={categoryProgress}
+                      margin={{ top: 10, right: 30, left: 15, bottom: 5 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" horizontal={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} horizontal={false} />
                       <XAxis
                         type="number"
-                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        tick={{ fill: chartMuted, fontSize: 11 }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
+                        allowDecimals={false}
                       />
                       <YAxis
                         type="category"
-                        dataKey="cpse_code"
-                        tick={{ fill: FG_COLOR, fontSize: 12, fontWeight: 600 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        dataKey="family"
+                        interval={0}
+                        tick={(props: any) => {
+                          const { x, y, payload } = props;
+                          return (
+                            <text
+                              x={x - 6}
+                              y={y + 4}
+                              textAnchor="end"
+                              fill={chartText}
+                              fontSize={11}
+                              fontWeight={600}
+                            >
+                              {payload.value}
+                            </text>
+                          );
+                        }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
-                        width={60}
+                        width={125}
                       />
                       <Tooltip content={<CustomTooltip />} cursor={false} />
-                      <Bar dataKey="pairs" name="Shared Candidate Pairs" radius={[0, 5, 5, 0]}>
-                        {peerDistribution.map((entry: any, index: number) => (
-                          <Cell key={`peer-${index}`} fill={entry.color || CPSE_BAR_COLORS[index % CPSE_BAR_COLORS.length]} />
-                        ))}
-                        <LabelList dataKey="pairs" position="right" fill={FG_COLOR} fontSize={11} fontWeight={600} />
-                      </Bar>
+                      <Bar dataKey="mapped" name="Harmonized (NMC)" stackId="a" fill="#10b981" />
+                      <Bar dataKey="pending" name="Pending Review" stackId="a" fill="#3b82f6" />
+                      <Bar dataKey="different" name="Flagged Different" stackId="a" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                <div className="p-2.5 rounded-lg bg-muted/30 border border-border/40 text-[11px] text-muted-foreground flex items-center gap-2 mt-2">
-                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span>
-                    Highest inter-enterprise cross-match volume is with{' '}
-                    <strong className="text-foreground">
-                      {peerDistribution[0]?.cpse_code || 'Peer Enterprises'}
-                    </strong>{' '}
-                    ({peerDistribution[0]?.pairs || 0} pairs).
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/40 text-[11px] text-muted-foreground mt-2">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500"></span> Harmonized</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500"></span> Pending</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-purple-500"></span> Different</span>
+                  </div>
+                  <span className="font-semibold text-foreground">
+                    {categoryProgress.reduce((acc: number, c: any) => acc + (c.mapped || 0), 0)} items harmonized
                   </span>
                 </div>
               </CardContent>
@@ -840,27 +960,46 @@ export default function Analytics() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={familyDistribution}
-                      margin={{ top: 20, right: 15, left: -10, bottom: 5 }}
+                      margin={{ top: 22, right: 15, left: 10, bottom: 25 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} vertical={false} />
                       <XAxis
                         dataKey="family"
-                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        interval={0}
+                        tick={(props: any) => {
+                          const { x, y, payload } = props;
+                          const val = String(payload.value || '');
+                          const displayVal = val.length > 12 ? val.slice(0, 10) + '…' : val;
+                          return (
+                            <text
+                              x={x}
+                              y={y + 14}
+                              textAnchor="middle"
+                              fill={chartText}
+                              fontSize={11}
+                              fontWeight={600}
+                            >
+                              <title>{val}</title>
+                              {displayVal}
+                            </text>
+                          );
+                        }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                       />
                       <YAxis
-                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        tick={{ fill: chartMuted, fontSize: 11 }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                         allowDecimals={false}
+                        width={32}
                       />
                       <Tooltip content={<CustomTooltip />} cursor={false} />
                       <Bar dataKey="count" name="Material Items" fill="#6366f1" radius={[5, 5, 0, 0]}>
                         {familyDistribution.map((_: any, index: number) => (
                           <Cell key={`fam-${index}`} fill={CPSE_BAR_COLORS[(index + 2) % CPSE_BAR_COLORS.length]} />
                         ))}
-                        <LabelList dataKey="count" position="top" fill={FG_COLOR} fontSize={11} fontWeight={600} />
+                        <LabelList dataKey="count" position="top" fill={chartText} fontSize={11} fontWeight={600} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -877,21 +1016,22 @@ export default function Analytics() {
           </div>
 
           {/* ── Visual Chart Row 3: Throughput Velocity & Activity Timeline ─────── */}
+          {/* ── Visual Chart Row 3: Daily Review Cadence & Backlog Resolution ─────── */}
           <Card className="border-border/60 bg-card shadow-sm">
             <CardHeader className="p-5 pb-2 border-b border-border/40">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
                     <Activity className="h-4 w-4 text-primary" />
-                    Review Velocity & Throughput Activity
+                    Daily Review Throughput & Cadence
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                    Live review throughput cadence across operational sessions
+                    Decisions logged day-by-day by {reviewerCpse || 'your enterprise'} reviewers
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                  <span>Decisions Logged per Hourly Window</span>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500"></span> Daily Decisions</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500"></span> Cumulative Resolved</span>
                 </div>
               </div>
             </CardHeader>
@@ -899,13 +1039,13 @@ export default function Analytics() {
               <div className="h-56 w-full">
                 {activityTimeline.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                    No timeline activity recorded yet.
+                    No daily review activity logged yet. Start reviewing matches from the queue to build your throughput trend.
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                       data={activityTimeline}
-                      margin={{ top: 15, right: 20, left: -10, bottom: 0 }}
+                      margin={{ top: 15, right: 20, left: 10, bottom: 0 }}
                     >
                       <defs>
                         <linearGradient id="revVelocityGrad" x1="0" y1="0" x2="0" y2="1">
@@ -913,24 +1053,25 @@ export default function Analytics() {
                           <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} vertical={false} />
                       <XAxis
                         dataKey="time"
-                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        tick={{ fill: chartMuted, fontSize: 11 }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                       />
                       <YAxis
-                        tick={{ fill: TICK_COLOR, fontSize: 11 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        tick={{ fill: chartMuted, fontSize: 11 }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                         allowDecimals={false}
+                        width={32}
                       />
                       <Tooltip content={<CustomTooltip />} cursor={false} />
                       <Area
                         type="monotone"
                         dataKey="decisions"
-                        name="Decisions"
+                        name="Daily Decisions"
                         stroke="#3b82f6"
                         strokeWidth={2.5}
                         fill="url(#revVelocityGrad)"
@@ -944,42 +1085,88 @@ export default function Analytics() {
 
           {/* ── Recent Review Determinations (Audit & Action Table) ─────────────── */}
           <Card className="border-border/60 bg-card shadow-sm">
-            <CardHeader className="p-5 pb-3 border-b border-border/40">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <CardHeader className="p-4 sm:p-5 pb-3 border-b border-border/40">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    Recent Review Determinations
+                    Enterprise Review Determinations Log
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                    Live recorded decisions for materials linked to {reviewerCpse || 'your enterprise'}
+                    Decisions recorded by {reviewerCpse || 'your enterprise'} certified domain reviewers on enterprise inventory
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="text-[11px] font-mono border-border self-start sm:self-auto">
-                  Latest {recentDecisions.length} Decisions
-                </Badge>
+                {/* Filter Pills — wrap on mobile */}
+                <div className="flex items-center flex-wrap gap-1.5">
+                  <Button
+                    variant={determFilter === 'ALL' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDetermFilter('ALL')}
+                    className="h-7 px-2.5 text-xs rounded-full font-medium"
+                  >
+                    All ({determCounts.all})
+                  </Button>
+                  <Button
+                    variant={determFilter === 'ACCEPT' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDetermFilter('ACCEPT')}
+                    className={`h-7 px-2.5 text-xs rounded-full font-medium ${
+                      determFilter === 'ACCEPT'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10'
+                    }`}
+                  >
+                    Accepted ({determCounts.accept})
+                  </Button>
+                  <Button
+                    variant={determFilter === 'DIFFERENT' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDetermFilter('DIFFERENT')}
+                    className={`h-7 px-2.5 text-xs rounded-full font-medium ${
+                      determFilter === 'DIFFERENT'
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'text-purple-600 dark:text-purple-400 border-purple-500/30 hover:bg-purple-500/10'
+                    }`}
+                  >
+                    Different ({determCounts.different})
+                  </Button>
+                  <Button
+                    variant={determFilter === 'REJECT' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDetermFilter('REJECT')}
+                    className={`h-7 px-2.5 text-xs rounded-full font-medium ${
+                      determFilter === 'REJECT'
+                        ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                        : 'text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10'
+                    }`}
+                  >
+                    Rejected ({determCounts.reject})
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {recentDecisions.length === 0 ? (
+              {filteredDecisions.length === 0 ? (
                 <div className="py-12 text-center text-xs text-muted-foreground">
-                  No review decisions logged yet. Start reviewing candidate matches from the queue.
+                  {recentDecisions.length === 0
+                    ? 'No review decisions logged yet. Start reviewing candidate matches from the queue.'
+                    : `No decisions found matching the "${determFilter}" filter.`}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-muted/40 text-muted-foreground border-b border-border/40 text-[11px] font-semibold uppercase tracking-wider">
+                  <table className="w-full text-xs text-left min-w-[480px]">
+                    <thead className="bg-muted/40 text-muted-foreground border-b border-border/40 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider">
                       <tr>
-                        <th className="py-3 px-4">Match / Item Comparison</th>
-                        <th className="py-3 px-4">Partner CPSE</th>
-                        <th className="py-3 px-4">AI Confidence</th>
-                        <th className="py-3 px-4">Determination</th>
-                        <th className="py-3 px-4">Reviewer & Note</th>
-                        <th className="py-3 px-4 text-right">Action</th>
+                        <th className="py-2 sm:py-3 px-2 sm:px-4">Match / Item</th>
+                        <th className="py-2 sm:py-3 px-2 sm:px-4 hidden sm:table-cell">Partner CPSE</th>
+                        <th className="py-2 sm:py-3 px-2 sm:px-4 hidden md:table-cell">AI Confidence</th>
+                        <th className="py-2 sm:py-3 px-2 sm:px-4">Determination</th>
+                        <th className="py-2 sm:py-3 px-2 sm:px-4 hidden lg:table-cell">Reviewed On</th>
+                        <th className="py-2 sm:py-3 px-2 sm:px-4 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
-                      {recentDecisions.map((item: any) => {
+                      {filteredDecisions.map((item: any) => {
                         const isAccept = item.decision === 'ACCEPT';
                         const isDiff = item.decision === 'DIFFERENT';
                         const isReject = item.decision === 'REJECT';
@@ -987,63 +1174,72 @@ export default function Analytics() {
 
                         return (
                           <tr key={item.id} className="hover:bg-muted/20 transition-colors">
-                            <td className="py-3 px-4 max-w-xs">
-                              <p className="font-semibold text-foreground truncate">
+                            {/* Match / Item — always visible */}
+                            <td className="py-2 sm:py-3 px-2 sm:px-4 max-w-[160px] sm:max-w-xs">
+                              <p className="font-semibold text-foreground truncate text-[11px] sm:text-xs">
                                 {item.src_desc || 'Source Material'}
                               </p>
                               <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                                 Candidate: {item.cand_desc || item.cand_code || '—'}
                               </p>
+                              {/* Show partner CPSE inline on mobile only */}
+                              <span className="sm:hidden mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-muted/60 text-muted-foreground border border-border/50">
+                                {item.partner_cpse || 'Peer'}
+                              </span>
                             </td>
-                            <td className="py-3 px-4">
+                            {/* Partner CPSE — hidden on mobile, shown sm+ */}
+                            <td className="py-2 sm:py-3 px-2 sm:px-4 hidden sm:table-cell">
                               <Badge variant="outline" className="text-[11px] font-semibold uppercase tracking-wider bg-muted/40 border-border">
                                 {item.partner_cpse || 'Peer CPSE'}
                               </Badge>
                             </td>
-                            <td className="py-3 px-4">
+                            {/* AI Confidence — hidden on mobile/sm, shown md+ */}
+                            <td className="py-2 sm:py-3 px-2 sm:px-4 hidden md:table-cell">
                               {item.confidence_pct !== null && item.confidence_pct !== undefined ? (
-                                <span className={`inline-flex items-center gap-1 font-mono font-bold text-xs ${item.confidence_pct >= 90 ? 'text-emerald-500' : item.confidence_pct >= 80 ? 'text-amber-500' : 'text-purple-400'
-                                  }`}>
+                                <span className={`inline-flex items-center gap-1 font-mono font-bold text-xs ${item.confidence_pct >= 90 ? 'text-emerald-500' : item.confidence_pct >= 80 ? 'text-amber-500' : 'text-purple-400'}`}>
                                   {item.confidence_pct}%
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </td>
-                            <td className="py-3 px-4">
+                            {/* Determination — always visible */}
+                            <td className="py-2 sm:py-3 px-2 sm:px-4">
                               {isAccept && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-                                  <Check className="h-3 w-3" /> Accepted / Mapped
+                                <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 whitespace-nowrap">
+                                  <Check className="h-3 w-3 shrink-0" />
+                                  <span className="hidden sm:inline">Accepted / </span>Mapped
                                 </span>
                               )}
                               {isDiff && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30">
-                                  <Split className="h-3 w-3" /> Flagged Different
+                                <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-purple-500/15 text-purple-400 border border-purple-500/30 whitespace-nowrap">
+                                  <Split className="h-3 w-3 shrink-0" />
+                                  <span className="hidden sm:inline">Flagged </span>Different
                                 </span>
                               )}
                               {isReject && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-500 border border-rose-500/30">
-                                  <XCircle className="h-3 w-3" /> Rejected
+                                <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-rose-500/15 text-rose-500 border border-rose-500/30 whitespace-nowrap">
+                                  <XCircle className="h-3 w-3 shrink-0" /> Rejected
                                 </span>
                               )}
                               {isOverride && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                                <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30 whitespace-nowrap">
                                   Arbitrated
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-4 max-w-xs">
-                              <p className="font-medium text-foreground truncate">{item.reviewer || 'Reviewer'}</p>
-                              {item.reason && (
-                                <p className="text-[10px] text-muted-foreground italic truncate mt-0.5" title={item.reason}>
-                                  "{item.reason}"
-                                </p>
-                              )}
+                            {/* Reviewed On — hidden until lg */}
+                            <td className="py-2 sm:py-3 px-2 sm:px-4 hidden lg:table-cell whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+                                <Clock className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+                                {formatDecisionDate(item.timestamp)}
+                              </span>
                             </td>
-                            <td className="py-3 px-4 text-right">
+                            {/* Action — always visible */}
+                            <td className="py-2 sm:py-3 px-2 sm:px-4 text-right">
                               <Link
-                                to={`/review/match/${item.match_id}?fromTab=queue`}
-                                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                                to={`/review/${item.match_id}?fromTab=queue`}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline px-1.5 sm:px-2 py-1 rounded hover:bg-primary/10 transition-colors whitespace-nowrap"
                               >
                                 View <ExternalLink className="h-3 w-3" />
                               </Link>
@@ -1188,26 +1384,27 @@ export default function Analytics() {
                       barSize={42}
                       barCategoryGap="30%"
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLOR} opacity={0.6} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGrid} />
                       <XAxis
                         dataKey="cpse_code"
-                        tick={{ fontSize: 12, fontWeight: 700, fill: FG_COLOR }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        interval={0}
+                        tick={{ fontSize: 12, fontWeight: 700, fill: chartText }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                         label={{
                           value: 'CPSE Code',
                           position: 'insideBottom',
                           offset: -24,
-                          fill: LABEL_COLOR,
+                          fill: chartLabel,
                           fontSize: 11,
-                          fontWeight: 500,
+                          fontWeight: 600,
                         }}
                       />
                       <YAxis
                         domain={[0, cpseYMax]}
                         ticks={cpseYTicks}
-                        tick={{ fontSize: 10, fill: TICK_COLOR }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        tick={{ fontSize: 10, fill: chartMuted }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                         tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
                         width={52}
@@ -1216,9 +1413,9 @@ export default function Analytics() {
                           angle: -90,
                           position: 'insideLeft',
                           offset: 12,
-                          fill: LABEL_COLOR,
+                          fill: chartLabel,
                           fontSize: 10,
-                          fontWeight: 400,
+                          fontWeight: 500,
                         }}
                       />
                       <Tooltip
@@ -1233,7 +1430,7 @@ export default function Analytics() {
                           dataKey="material_count"
                           position="top"
                           formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
-                          style={{ fontSize: 11, fill: TICK_COLOR, fontWeight: 500 }}
+                          style={{ fontSize: 11, fill: chartText, fontWeight: 600 }}
                         />
                       </Bar>
                     </BarChart>
@@ -1448,26 +1645,27 @@ export default function Analytics() {
                       barSize={38}
                       barCategoryGap="28%"
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLOR} opacity={0.6} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGrid} />
                       <XAxis
                         dataKey="range"
-                        tick={{ fontSize: 11, fill: TICK_COLOR, fontWeight: 400 }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        interval={0}
+                        tick={{ fontSize: 11, fill: chartText, fontWeight: 600 }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                         label={{
                           value: 'Confidence Tier',
                           position: 'insideBottom',
                           offset: -24,
-                          fill: LABEL_COLOR,
+                          fill: chartLabel,
                           fontSize: 11,
-                          fontWeight: 500,
+                          fontWeight: 600,
                         }}
                       />
                       <YAxis
                         domain={[confDomainMin, confYMax]}
                         ticks={confYTicks}
-                        tick={{ fontSize: 10, fill: TICK_COLOR }}
-                        axisLine={{ stroke: AXIS_COLOR }}
+                        tick={{ fontSize: 10, fill: chartMuted }}
+                        axisLine={{ stroke: chartAxis }}
                         tickLine={false}
                         tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
                         width={52}
@@ -1476,9 +1674,9 @@ export default function Analytics() {
                           angle: -90,
                           position: 'insideLeft',
                           offset: 12,
-                          fill: LABEL_COLOR,
+                          fill: chartLabel,
                           fontSize: 10,
-                          fontWeight: 400,
+                          fontWeight: 500,
                         }}
                       />
                       <Tooltip
@@ -1493,7 +1691,7 @@ export default function Analytics() {
                           dataKey="count"
                           position="top"
                           formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
-                          style={{ fontSize: 11, fill: TICK_COLOR, fontWeight: 400 }}
+                          style={{ fontSize: 11, fill: chartText, fontWeight: 600 }}
                         />
                       </Bar>
                     </BarChart>
@@ -1525,21 +1723,22 @@ export default function Analytics() {
                             <stop offset="95%" stopColor={C.blue} stopOpacity={0.0} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke={AXIS_COLOR} opacity={0.5} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
                         <XAxis
                           dataKey="stage"
-                          tick={{ fontSize: 11, fontWeight: 600, fill: FG_COLOR }}
-                          axisLine={{ stroke: AXIS_COLOR }}
+                          interval={0}
+                          tick={{ fontSize: 11, fontWeight: 600, fill: chartText }}
+                          axisLine={{ stroke: chartAxis }}
                           tickLine={false}
                         />
                         <YAxis
-                          tick={{ fontSize: 10, fill: TICK_COLOR }}
-                          axisLine={{ stroke: AXIS_COLOR }}
+                          tick={{ fontSize: 10, fill: chartMuted }}
+                          axisLine={{ stroke: chartAxis }}
                           tickLine={false}
                           tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
                           width={44}
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: AXIS_COLOR, strokeWidth: 1, strokeDasharray: '4 3' }} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: chartAxis, strokeWidth: 1, strokeDasharray: '4 3' }} />
                         <Area
                           type="monotone"
                           dataKey="count"

@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { nmcApi } from '@/services/nmcApi';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -73,60 +74,73 @@ function KpiCard({ title, value, sub, icon: Icon, loading }: {
 }
 
 // ── Filter row ────────────────────────────────────────────────────────────────
-function FilterRow({ filters, cpseId, setCpseId, matType, setMatType, uom, setUom, search, setSearch, showDate = false }: {
+function FilterRow({ filters, cpseId, setCpseId, matType, setMatType, uom, setUom, search, setSearch, showDate = false, period, setPeriod }: {
   filters: any; cpseId: string; setCpseId: (v: string) => void;
   matType: string; setMatType: (v: string) => void;
   uom: string; setUom: (v: string) => void;
   search: string; setSearch: (v: string) => void;
   showDate?: boolean;
+  period?: string; setPeriod?: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-3 items-end">
-      <div className="flex flex-col gap-1">
+    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2.5 sm:gap-3 items-end w-full">
+      <div className="flex flex-col gap-1 col-span-1">
         <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">CPSE</label>
         <Select value={cpseId} onValueChange={setCpseId}>
-          <SelectTrigger className="h-8 text-xs w-36"><SelectValue placeholder="All CPSEs" /></SelectTrigger>
+          <SelectTrigger className="h-8 text-xs w-full sm:w-36"><SelectValue placeholder="All CPSEs" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All CPSEs</SelectItem>
             {(filters?.cpses || []).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.code}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 col-span-1">
         <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Material Type</label>
         <Select value={matType} onValueChange={setMatType}>
-          <SelectTrigger className="h-8 text-xs w-40"><SelectValue placeholder="All Material Types" /></SelectTrigger>
+          <SelectTrigger className="h-8 text-xs w-full sm:w-40"><SelectValue placeholder="All Material Types" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Material Types</SelectItem>
             {(filters?.material_types || []).map((t: string) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 col-span-1">
         <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">UOM</label>
         <Select value={uom} onValueChange={setUom}>
-          <SelectTrigger className="h-8 text-xs w-28"><SelectValue placeholder="All UOMs" /></SelectTrigger>
+          <SelectTrigger className="h-8 text-xs w-full sm:w-28"><SelectValue placeholder="All UOMs" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All UOMs</SelectItem>
             {(filters?.uoms || []).map((u: string) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
+      {setPeriod && (
+        <div className="flex flex-col gap-1 col-span-1">
+          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Period</label>
+          <Select value={period || 'ALL'} onValueChange={setPeriod}>
+            <SelectTrigger className="h-8 text-xs w-full sm:w-32"><SelectValue placeholder="All Periods" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Periods</SelectItem>
+              {(filters?.demand_periods || []).map((p: string) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       {showDate && (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 col-span-1">
           <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">NMC</label>
           <Select value="ALL" onValueChange={() => {}}>
-            <SelectTrigger className="h-8 text-xs w-32"><SelectValue placeholder="All NMCs" /></SelectTrigger>
+            <SelectTrigger className="h-8 text-xs w-full sm:w-32"><SelectValue placeholder="All NMCs" /></SelectTrigger>
             <SelectContent><SelectItem value="ALL">All NMCs</SelectItem></SelectContent>
           </Select>
         </div>
       )}
 
-      <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+      <div className="flex flex-col gap-1 col-span-2 sm:col-span-1 sm:flex-1 min-w-full sm:min-w-[180px]">
         <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Search</label>
         <div className="relative">
           <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="Search NMC / Material…" className="pl-8 h-8 text-xs"
+          <Input placeholder="Search NMC / Material…" className="pl-8 h-8 text-xs w-full"
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
@@ -151,6 +165,13 @@ const FALLBACK_PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
 
 // ── Multi-color CPSE Vertical Column Bar Chart (Solid Bars, Dashboard-grade Tooltip) ──
 function CpseBarChart({ data, metricLabel = 'Units' }: { data: { label: string; value: number }[]; metricLabel?: string }) {
+  const { theme } = useTheme();
+  const isDark = theme !== 'light';
+  const chartText = isDark ? '#f8fafc' : '#0f172a';
+  const chartMuted = isDark ? '#94a3b8' : '#475569';
+  const chartAxis = isDark ? 'rgba(148, 163, 184, 0.25)' : 'rgba(100, 116, 139, 0.25)';
+  const chartGrid = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(100, 116, 139, 0.12)';
+
   if (!data?.length) return <Empty msg="No data available." />;
   const max = Math.max(...data.map(d => d.value), 1);
   const total = data.reduce((acc, d) => acc + d.value, 0) || 1;
@@ -162,22 +183,23 @@ function CpseBarChart({ data, metricLabel = 'Units' }: { data: { label: string; 
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 28, right: 20, left: 5, bottom: 10 }}
-          barSize={Math.min(54, Math.max(38, Math.floor(360 / Math.max(data.length, 1))))}
-          barCategoryGap="20%"
+          margin={{ top: 28, right: 16, left: -10, bottom: 10 }}
+          barSize={Math.min(52, Math.max(26, Math.floor(340 / Math.max(data.length, 1))))}
+          barCategoryGap="15%"
         >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGrid} />
           <XAxis
             type="category"
             dataKey="label"
-            tick={{ fontSize: 12, fill: FG, fontWeight: 700 }}
-            axisLine={{ stroke: 'rgba(148,163,184,0.2)' }}
+            tick={{ fontSize: 12, fill: chartText, fontWeight: 700 }}
+            axisLine={{ stroke: chartAxis }}
             tickLine={false}
+            interval={0}
           />
           <YAxis
             type="number"
             domain={[0, dom]}
-            tick={{ fontSize: 11, fill: TICK }}
+            tick={{ fontSize: 11, fill: chartMuted }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
@@ -217,7 +239,7 @@ function CpseBarChart({ data, metricLabel = 'Units' }: { data: { label: string; 
               dataKey="value"
               position="top"
               formatter={(v: any) => fmt(Number(v))}
-              style={{ fontSize: 11, fontWeight: 700, fill: '#f1f5f9' }}
+              style={{ fontSize: 11, fontWeight: 700, fill: chartText }}
             />
           </Bar>
         </BarChart>
@@ -228,27 +250,63 @@ function CpseBarChart({ data, metricLabel = 'Units' }: { data: { label: string; 
 
 // ── Top Materials by Aggregated Demand Chart (Solid Bar, Dashboard-grade Tooltip) ──
 function TopMaterialsChart({ data }: { data: { label: string; value: number; description?: string; uom?: string }[] }) {
+  const { theme } = useTheme();
+  const isDark = theme !== 'light';
+  const chartText = isDark ? '#f8fafc' : '#0f172a';
+  const chartMuted = isDark ? '#94a3b8' : '#475569';
+  const chartGrid = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(100, 116, 139, 0.12)';
+
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   if (!data?.length) return <Empty msg="No data available." />;
   const max = Math.max(...data.map(d => d.value), 1);
   const dom = Math.ceil(max * 1.25);
 
+  const yWidth = isMobile ? 95 : 140;
+
   return (
-    <div style={{ height: Math.max(260, data.length * 50 + 50) }}>
+    <div style={{ height: Math.max(260, data.length * (isMobile ? 44 : 50) + 40) }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout="vertical" margin={{ top: 10, right: 65, left: 10, bottom: 10 }} barSize={30}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={GRID} />
-          <XAxis type="number" domain={[0, dom]} tick={{ fontSize: 11, fill: TICK }} axisLine={false} tickLine={false}
-            tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
-          <YAxis type="category" dataKey="label" tick={{ fontSize: 10.5, fill: FG, fontFamily: 'monospace' }} axisLine={false} tickLine={false} width={185} />
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 10, right: isMobile ? 42 : 65, left: isMobile ? -5 : 5, bottom: 10 }}
+          barSize={isMobile ? 22 : 28}
+        >
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGrid} />
+          <XAxis
+            type="number"
+            domain={[0, dom]}
+            tick={{ fontSize: 11, fill: chartMuted }}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+          />
+          <YAxis
+            type="category"
+            dataKey="label"
+            tick={{ fontSize: isMobile ? 10 : 11, fill: chartText, fontFamily: 'monospace', fontWeight: 600 }}
+            axisLine={false}
+            tickLine={false}
+            width={yWidth}
+            interval={0}
+            tickFormatter={(v) => isMobile && v.length > 12 ? v.slice(0, 10) + '…' : v}
+          />
           <Tooltip
             cursor={false}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
               const p = payload[0].payload;
               return (
-                <div className="bg-popover/95 dark:bg-zinc-900/95 border border-border dark:border-zinc-800 rounded-md px-3.5 py-2.5 text-xs shadow-xl backdrop-blur-xs max-w-[300px]">
-                  <div className="font-mono text-xs font-bold text-purple-400 mb-1">{p.label}</div>
-                  {p.description && <div className="text-foreground text-xs font-medium mb-1.5 leading-snug">{p.description}</div>}
+                <div className="bg-popover/95 dark:bg-zinc-900/95 border border-border dark:border-zinc-800 rounded-md px-3.5 py-2.5 text-xs shadow-xl backdrop-blur-xs max-w-[280px] sm:max-w-[320px]">
+                  <div className="font-mono text-xs font-bold text-purple-600 dark:text-purple-400 mb-1">{p.label}</div>
+                  {p.description && <div className="text-foreground text-xs font-medium mb-1.5 leading-snug line-clamp-2">{p.description}</div>}
                   <div className="border-t border-border/40 dark:border-zinc-800/80 pt-1.5 text-muted-foreground text-[11px]">
                     Combined Demand: <span className="font-semibold text-foreground">{fmt(p.value)} {p.uom || 'Units'}</span>
                   </div>
@@ -261,7 +319,7 @@ function TopMaterialsChart({ data }: { data: { label: string; value: number; des
               dataKey="value"
               position="right"
               formatter={(v: any) => fmt(Number(v))}
-              style={{ fontSize: 11, fontWeight: 600, fill: FG }}
+              style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, fill: chartText }}
             />
           </Bar>
         </BarChart>
@@ -272,6 +330,9 @@ function TopMaterialsChart({ data }: { data: { label: string; value: number; des
 
 // ── Inventory status radial chart ─────────────────────────────────────
 function InvDonut({ s }: { s: any }) {
+  const { theme } = useTheme();
+  const isDark = theme !== 'light';
+
   if (!s) return <Spinner />;
   const onHand    = Number(s.total_on_hand ?? s.total_inventory_units ?? 0);
   const reserved  = Number(s.total_reserved ?? 0);
@@ -293,8 +354,8 @@ function InvDonut({ s }: { s: any }) {
       <div className="relative w-[210px] h-[210px] flex items-center justify-center">
         {/* SVG outline rings */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 210 210">
-          <circle cx="105" cy="105" r="88" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-border dark:text-zinc-800" />
-          <circle cx="105" cy="105" r="54" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-border dark:text-zinc-800" />
+          <circle cx="105" cy="105" r="88" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-border/60 dark:text-zinc-800" />
+          <circle cx="105" cy="105" r="54" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-border/60 dark:text-zinc-800" />
         </svg>
 
         <ResponsiveContainer width="100%" height="100%">
@@ -309,7 +370,7 @@ function InvDonut({ s }: { s: any }) {
               dataKey="value"
               startAngle={90}
               endAngle={-270}
-              stroke="#09090b"
+              stroke={isDark ? '#09090b' : '#ffffff'}
               strokeWidth={2}
               onMouseEnter={(data) => setHoveredSlice(data)}
               onMouseLeave={() => setHoveredSlice(null)}
@@ -320,7 +381,7 @@ function InvDonut({ s }: { s: any }) {
                   <Cell
                     key={`cell-${i}`}
                     fill={e.fill}
-                    stroke={isHov ? '#ffffff' : '#09090b'}
+                    stroke={isHov ? (isDark ? '#ffffff' : '#0f172a') : (isDark ? '#09090b' : '#ffffff')}
                     strokeWidth={isHov ? 2.5 : 1.5}
                     className="cursor-pointer transition-all duration-200"
                   />
@@ -440,25 +501,25 @@ function InvDetailModal({ row, onClose }: { row: any; onClose: () => void }) {
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl w-[95vw] p-0 overflow-hidden border border-border bg-card dark:bg-zinc-950 rounded-xl shadow-2xl flex flex-col max-h-[90vh] [&>button:last-child]:hidden">
         {/* header */}
-        <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
-          <div>
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-start justify-between gap-3 shrink-0 bg-card">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm font-semibold text-emerald-600 dark:text-emerald-400">{row.nmc_code}</span>
+              <span className="font-mono text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400">{row.nmc_code}</span>
               {row.uom && <Badge variant="outline" className="text-[10px]">UOM: {row.uom}</Badge>}
             </div>
-            <p className="text-sm font-medium text-foreground mt-0.5">{row.canonical_description}</p>
-            <p className="text-xs text-muted-foreground">Selected NMC / Inventory Detail</p>
+            <p className="text-xs sm:text-sm font-medium text-foreground mt-0.5 break-words line-clamp-2 sm:line-clamp-none">{row.canonical_description}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Selected NMC / Inventory Detail</p>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose}><X className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hover:bg-muted" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
 
         {/* body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
           {detailQ.isLoading ? <Spinner /> : !d ? <Empty msg="Detail not available." /> : (
             <>
               {/* metadata chips */}
               {d.cmm && (
-                <div className="flex flex-wrap gap-2 text-xs">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[11px] sm:text-xs">
                   {d.cmm.material_type && <span className="bg-muted/40 border border-border/50 rounded px-2 py-0.5 text-muted-foreground">Category: {d.cmm.material_type}</span>}
                   {d.cmm.grade && <span className="bg-muted/40 border border-border/50 rounded px-2 py-0.5 text-muted-foreground">Grade: {d.cmm.grade}</span>}
                   {d.cmm.specifications && <span className="bg-muted/40 border border-border/50 rounded px-2 py-0.5 text-muted-foreground">Spec: {d.cmm.specifications}</span>}
@@ -466,13 +527,13 @@ function InvDetailModal({ row, onClose }: { row: any; onClose: () => void }) {
               )}
 
               {/* CPSE table + stat cards side by side */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
                 <div className="lg:col-span-2 overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[360px]">
                     <thead>
                       <tr className="border-b border-border bg-muted/30 dark:bg-zinc-900/60">
                         {['CPSE','Material Code','On Hand','Reserved','Available'].map(h => (
-                          <th key={h} className="text-left p-3 text-muted-foreground font-semibold">{h}</th>
+                          <th key={h} className="text-left p-2.5 sm:p-3 text-muted-foreground font-semibold whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -481,24 +542,24 @@ function InvDetailModal({ row, onClose }: { row: any; onClose: () => void }) {
                         ? <tr><td colSpan={5} className="p-6 text-center text-muted-foreground text-xs">No CPSE records.</td></tr>
                         : (d.cpse_inventory || []).map((r: any, i: number) => (
                           <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                            <td className="p-3 font-semibold text-foreground">{r.cpse_code}</td>
-                            <td className="p-3 font-mono text-muted-foreground">{r.original_material_code || '—'}</td>
-                            <td className="p-3 text-right tabular-nums">{fmt(r.quantity_on_hand)}</td>
-                            <td className="p-3 text-right tabular-nums text-muted-foreground">{fmt(r.reserved_quantity)}</td>
-                            <td className="p-3 text-right tabular-nums font-semibold text-foreground">{fmt(r.available_quantity)}</td>
+                            <td className="p-2.5 sm:p-3 font-semibold text-foreground whitespace-nowrap">{r.cpse_code}</td>
+                            <td className="p-2.5 sm:p-3 font-mono text-muted-foreground whitespace-nowrap">{r.original_material_code || '—'}</td>
+                            <td className="p-2.5 sm:p-3 text-right tabular-nums whitespace-nowrap">{fmt(r.quantity_on_hand)}</td>
+                            <td className="p-2.5 sm:p-3 text-right tabular-nums text-muted-foreground whitespace-nowrap">{fmt(r.reserved_quantity)}</td>
+                            <td className="p-2.5 sm:p-3 text-right tabular-nums font-semibold text-foreground whitespace-nowrap">{fmt(r.available_quantity)}</td>
                           </tr>
                         ))
                       }
                     </tbody>
                   </table>
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
                   {[
                     { label: 'Total On Hand',   val: totalOnHand,   icon: Boxes,         cls: 'text-blue-400'   },
                     { label: 'Total Reserved',  val: totalReserved, icon: Layers,        cls: 'text-amber-400'  },
                     { label: 'Total Available', val: totalAvail,    icon: CheckCircle2,  cls: 'text-emerald-600 dark:text-emerald-400'},
                   ].map(({ label, val, icon: Ic, cls }) => (
-                    <div key={label} className="bg-card dark:bg-black border border-border dark:border-zinc-800 rounded-lg p-3 flex items-center justify-between">
+                    <div key={label} className="bg-card dark:bg-black border border-border dark:border-zinc-800 rounded-lg p-2.5 sm:p-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Ic className={`h-4 w-4 ${cls}`} />
                         <span className="text-xs text-muted-foreground">{label}</span>
@@ -509,7 +570,7 @@ function InvDetailModal({ row, onClose }: { row: any; onClose: () => void }) {
                       </div>
                     </div>
                   ))}
-                  <div className="flex items-center gap-2 bg-muted/20 border border-border/40 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2 bg-muted/20 border border-border/40 rounded-lg px-3 py-2 sm:col-span-3 lg:col-span-1">
                     <Info className="h-4 w-4 text-muted-foreground shrink-0" />
                     <p className="text-[11px] text-muted-foreground">Inventory As Of: 24 Sep 2026</p>
                   </div>
@@ -542,30 +603,30 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl w-[95vw] p-0 overflow-hidden border border-border bg-card dark:bg-zinc-950 rounded-xl shadow-2xl flex flex-col max-h-[90vh] [&>button:last-child]:hidden">
-        <div className="px-6 py-5 border-b border-border flex items-start justify-between gap-4 shrink-0 bg-card">
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="font-mono text-xs font-semibold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border flex items-start justify-between gap-3 sm:gap-4 shrink-0 bg-card">
+          <div className="space-y-2 min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-xs font-semibold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
                 {cmm?.national_material_code || '…'}
               </span>
-              <Badge variant="outline" className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground border-border/80 bg-muted/40 px-2.5 py-0.5 rounded-md">
+              <Badge variant="outline" className="text-[10px] sm:text-[11px] font-medium uppercase tracking-wider text-muted-foreground border-border/80 bg-muted/40 px-2 py-0.5 rounded-md">
                 {cmm?.material_type || 'Material'}
               </Badge>
             </div>
-            <h2 className="text-base sm:text-lg font-semibold text-foreground tracking-tight leading-snug">
+            <h2 className="text-sm sm:text-lg font-semibold text-foreground tracking-tight leading-snug break-words line-clamp-2 sm:line-clamp-none">
               {cmm?.canonical_description || 'Common Material'}
             </h2>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground pt-0.5">
+            <div className="flex items-center gap-2.5 sm:gap-3 text-xs text-muted-foreground pt-0.5 flex-wrap">
               <span className="inline-flex items-center gap-1.5">
                 <span className="font-medium text-muted-foreground">Grade:</span>
-                <span className="font-mono font-medium text-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/60">
+                <span className="font-mono font-medium text-foreground bg-muted/50 px-1.5 sm:px-2 py-0.5 rounded border border-border/60 text-[11px] sm:text-xs">
                   {cmm?.grade || '—'}
                 </span>
               </span>
-              <span className="text-muted-foreground/40 font-bold">·</span>
+              <span className="text-muted-foreground/40 font-bold hidden sm:inline">·</span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="font-medium text-muted-foreground">UOM:</span>
-                <span className="font-mono font-medium text-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/60">
+                <span className="font-mono font-medium text-foreground bg-muted/50 px-1.5 sm:px-2 py-0.5 rounded border border-border/60 text-[11px] sm:text-xs">
                   {cmm?.uom || '—'}
                 </span>
               </span>
@@ -573,24 +634,24 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hover:bg-muted" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
-        <div className="flex border-b border-border shrink-0 px-4">
+        <div className="flex border-b border-border shrink-0 px-2 sm:px-4 overflow-x-auto scrollbar-none flex-nowrap">
           {TABS.map(({ key, label, Icon }) => (
             <button key={key}
-              className={`px-4 py-2.5 text-xs font-medium border-b-2 flex items-center gap-1.5 transition-colors ${tab === key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-medium border-b-2 flex items-center gap-1.5 transition-colors whitespace-nowrap ${tab === key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
               onClick={() => setTab(key as any)}>
               <Icon className="h-3.5 w-3.5" />{label}
             </button>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4">
           {tab === 'combined' && (
             combQ.isLoading ? <Spinner /> : !combQ.data ? <Empty msg="No combined data." /> : (
               <div className="space-y-4">
                 {(combQ.data.uom_analysis || []).map((ua: any, i: number) => {
                   const isSurplus = ua.net_requirement != null && ua.net_requirement <= 0;
                   return (
-                    <div key={i} className="rounded-lg border border-border bg-card p-4 space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                    <div key={i} className="rounded-lg border border-border bg-card p-3 sm:p-4 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-border/60 gap-1.5">
                         <span className="text-xs font-semibold text-foreground tracking-wide uppercase flex items-center gap-1.5">
                           <ArrowRightLeft className="h-3.5 w-3.5 text-primary" />
                           Material Balance Analysis ({ua.uom})
@@ -599,10 +660,10 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
                           variant="outline"
                           className={
                             ua.net_requirement == null
-                              ? 'text-[11px] text-muted-foreground border-border bg-muted/40'
+                              ? 'text-[10px] sm:text-[11px] text-muted-foreground border-border bg-muted/40 self-start sm:self-auto'
                               : isSurplus
-                              ? 'text-[11px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                              : 'text-[11px] text-primary border-primary/30 bg-primary/10'
+                              ? 'text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 self-start sm:self-auto'
+                              : 'text-[10px] sm:text-[11px] text-primary border-primary/30 bg-primary/10 self-start sm:self-auto'
                           }
                         >
                           {ua.net_requirement == null
@@ -613,25 +674,25 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
                         </Badge>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3 text-xs">
-                        <div className="bg-muted/20 border border-border/50 rounded-lg p-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 text-xs">
+                        <div className="bg-muted/20 border border-border/50 rounded-lg p-2.5 sm:p-3">
                           <p className="text-muted-foreground text-[11px] font-medium mb-1">Available Inventory</p>
-                          <p className="font-bold text-base tabular-nums text-foreground">
+                          <p className="font-bold text-sm sm:text-base tabular-nums text-foreground">
                             {fmt(ua.available_inventory)}{' '}
                             <span className="text-xs font-normal text-muted-foreground">{ua.uom}</span>
                           </p>
                         </div>
-                        <div className="bg-muted/20 border border-border/50 rounded-lg p-3">
+                        <div className="bg-muted/20 border border-border/50 rounded-lg p-2.5 sm:p-3">
                           <p className="text-muted-foreground text-[11px] font-medium mb-1">Combined Demand</p>
-                          <p className="font-bold text-base tabular-nums text-foreground">
+                          <p className="font-bold text-sm sm:text-base tabular-nums text-foreground">
                             {fmt(ua.combined_demand)}{' '}
                             <span className="text-xs font-normal text-muted-foreground">{ua.uom}</span>
                           </p>
                         </div>
-                        <div className="bg-muted/20 border border-border/50 rounded-lg p-3">
+                        <div className="bg-muted/20 border border-border/50 rounded-lg p-2.5 sm:p-3">
                           <p className="text-muted-foreground text-[11px] font-medium mb-1">Net Requirement</p>
                           <p
-                            className={`font-bold text-base tabular-nums ${
+                            className={`font-bold text-sm sm:text-base tabular-nums ${
                               ua.net_requirement == null
                                 ? 'text-muted-foreground'
                                 : isSurplus
@@ -664,13 +725,13 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
                       </h3>
                     </div>
                     <div className="overflow-x-auto rounded-lg border border-border">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs min-w-[320px]">
                         <thead>
                           <tr className="border-b border-border bg-muted/30">
-                            <th className="text-left p-2.5 text-muted-foreground font-semibold">CPSE</th>
-                            <th className="text-right p-2.5 text-muted-foreground font-semibold">Available</th>
-                            <th className="text-right p-2.5 text-muted-foreground font-semibold">On Hand</th>
-                            <th className="text-left p-2.5 text-muted-foreground font-semibold">UOM</th>
+                            <th className="text-left p-2.5 text-muted-foreground font-semibold whitespace-nowrap">CPSE</th>
+                            <th className="text-right p-2.5 text-muted-foreground font-semibold whitespace-nowrap">Available</th>
+                            <th className="text-right p-2.5 text-muted-foreground font-semibold whitespace-nowrap">On Hand</th>
+                            <th className="text-left p-2.5 text-muted-foreground font-semibold whitespace-nowrap">UOM</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -683,10 +744,10 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
                           ) : (
                             combQ.data.cpse_inventory.map((r: any, i: number) => (
                               <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                                <td className="p-2.5 font-semibold text-foreground">{r.cpse_code}</td>
-                                <td className="p-2.5 text-right tabular-nums font-semibold">{fmt(r.available_quantity)}</td>
-                                <td className="p-2.5 text-right tabular-nums text-muted-foreground">{fmt(r.quantity_on_hand)}</td>
-                                <td className="p-2.5 text-muted-foreground">{r.uom || '—'}</td>
+                                <td className="p-2.5 font-semibold text-foreground whitespace-nowrap">{r.cpse_code}</td>
+                                <td className="p-2.5 text-right tabular-nums font-semibold whitespace-nowrap">{fmt(r.available_quantity)}</td>
+                                <td className="p-2.5 text-right tabular-nums text-muted-foreground whitespace-nowrap">{fmt(r.quantity_on_hand)}</td>
+                                <td className="p-2.5 text-muted-foreground whitespace-nowrap">{r.uom || '—'}</td>
                               </tr>
                             ))
                           )}
@@ -703,13 +764,13 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
                       </h3>
                     </div>
                     <div className="overflow-x-auto rounded-lg border border-border">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs min-w-[320px]">
                         <thead>
                           <tr className="border-b border-border bg-muted/30">
-                            <th className="text-left p-2.5 text-muted-foreground font-semibold">CPSE</th>
-                            <th className="text-right p-2.5 text-muted-foreground font-semibold">Required</th>
-                            <th className="text-left p-2.5 text-muted-foreground font-semibold">Period</th>
-                            <th className="text-left p-2.5 text-muted-foreground font-semibold">UOM</th>
+                            <th className="text-left p-2.5 text-muted-foreground font-semibold whitespace-nowrap">CPSE</th>
+                            <th className="text-right p-2.5 text-muted-foreground font-semibold whitespace-nowrap">Required</th>
+                            <th className="text-left p-2.5 text-muted-foreground font-semibold whitespace-nowrap">Period</th>
+                            <th className="text-left p-2.5 text-muted-foreground font-semibold whitespace-nowrap">UOM</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -722,10 +783,10 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
                           ) : (
                             combQ.data.cpse_demand.map((r: any, i: number) => (
                               <tr key={i} className="border-b border-border/40 hover:bg-muted/20">
-                                <td className="p-2.5 font-semibold text-foreground">{r.cpse_code}</td>
-                                <td className="p-2.5 text-right tabular-nums font-semibold">{fmt(r.required_quantity)}</td>
-                                <td className="p-2.5 text-muted-foreground">{r.demand_period || '—'}</td>
-                                <td className="p-2.5 text-muted-foreground">{r.uom || '—'}</td>
+                                <td className="p-2.5 font-semibold text-foreground whitespace-nowrap">{r.cpse_code}</td>
+                                <td className="p-2.5 text-right tabular-nums font-semibold whitespace-nowrap">{fmt(r.required_quantity)}</td>
+                                <td className="p-2.5 text-muted-foreground whitespace-nowrap">{r.demand_period || '—'}</td>
+                                <td className="p-2.5 text-muted-foreground whitespace-nowrap">{r.uom || '—'}</td>
                               </tr>
                             ))
                           )}
@@ -740,21 +801,21 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
           {tab === 'inventory' && (
             invQ.isLoading ? <Spinner /> : !invQ.data ? <Empty msg="Detail not available." /> : (
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-xs">
+                <table className="w-full text-xs min-w-[380px]">
                   <thead><tr className="border-b border-border bg-muted/30">
                     {['CPSE','Material Code','On Hand','Reserved','Available','UOM'].map(h =>
-                      <th key={h} className="text-left p-3 text-muted-foreground font-semibold">{h}</th>
+                      <th key={h} className="text-left p-2.5 sm:p-3 text-muted-foreground font-semibold whitespace-nowrap">{h}</th>
                     )}
                   </tr></thead>
                   <tbody>
                     {invQ.data.cpse_inventory.map((r: any) => (
                       <tr key={r.inventory_id} className="border-b border-border/40 hover:bg-muted/20">
-                        <td className="p-3 font-semibold text-foreground">{r.cpse_code}</td>
-                        <td className="p-3 font-mono text-muted-foreground">{r.original_material_code || '—'}</td>
-                        <td className="p-3 text-right tabular-nums">{fmt(r.quantity_on_hand)}</td>
-                        <td className="p-3 text-right tabular-nums text-muted-foreground">{fmt(r.reserved_quantity)}</td>
-                        <td className="p-3 text-right tabular-nums font-semibold">{fmt(r.available_quantity)}</td>
-                        <td className="p-3 text-muted-foreground">{r.uom || '—'}</td>
+                        <td className="p-2.5 sm:p-3 font-semibold text-foreground whitespace-nowrap">{r.cpse_code}</td>
+                        <td className="p-2.5 sm:p-3 font-mono text-muted-foreground whitespace-nowrap">{r.original_material_code || '—'}</td>
+                        <td className="p-2.5 sm:p-3 text-right tabular-nums whitespace-nowrap">{fmt(r.quantity_on_hand)}</td>
+                        <td className="p-2.5 sm:p-3 text-right tabular-nums text-muted-foreground whitespace-nowrap">{fmt(r.reserved_quantity)}</td>
+                        <td className="p-2.5 sm:p-3 text-right tabular-nums font-semibold whitespace-nowrap">{fmt(r.available_quantity)}</td>
+                        <td className="p-2.5 sm:p-3 text-muted-foreground whitespace-nowrap">{r.uom || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -765,21 +826,21 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
           {tab === 'demand' && (
             demQ.isLoading ? <Spinner /> : !demQ.data ? <Empty msg="Detail not available." /> : (
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-xs">
+                <table className="w-full text-xs min-w-[380px]">
                   <thead><tr className="border-b border-border bg-muted/30">
                     {['CPSE','Plant','Required Qty','Forecast Qty','Period','UOM'].map(h =>
-                      <th key={h} className="text-left p-3 text-muted-foreground font-semibold">{h}</th>
+                      <th key={h} className="text-left p-2.5 sm:p-3 text-muted-foreground font-semibold whitespace-nowrap">{h}</th>
                     )}
                   </tr></thead>
                   <tbody>
                     {demQ.data.cpse_demand.map((r: any) => (
                       <tr key={r.demand_id} className="border-b border-border/40 hover:bg-muted/20">
-                        <td className="p-3 font-semibold text-foreground">{r.cpse_code}</td>
-                        <td className="p-3 text-muted-foreground">{r.plant || '—'}</td>
-                        <td className="p-3 text-right tabular-nums font-semibold">{fmt(r.required_quantity)}</td>
-                        <td className="p-3 text-right tabular-nums text-muted-foreground">{r.forecast_quantity != null ? fmt(r.forecast_quantity) : '—'}</td>
-                        <td className="p-3 text-muted-foreground">{r.demand_period || '—'}</td>
-                        <td className="p-3 text-muted-foreground">{r.uom || '—'}</td>
+                        <td className="p-2.5 sm:p-3 font-semibold text-foreground whitespace-nowrap">{r.cpse_code}</td>
+                        <td className="p-2.5 sm:p-3 text-muted-foreground whitespace-nowrap">{r.plant || '—'}</td>
+                        <td className="p-2.5 sm:p-3 text-right tabular-nums font-semibold whitespace-nowrap">{fmt(r.required_quantity)}</td>
+                        <td className="p-2.5 sm:p-3 text-right tabular-nums text-muted-foreground whitespace-nowrap">{r.forecast_quantity != null ? fmt(r.forecast_quantity) : '—'}</td>
+                        <td className="p-2.5 sm:p-3 text-muted-foreground whitespace-nowrap">{r.demand_period || '—'}</td>
+                        <td className="p-2.5 sm:p-3 text-muted-foreground whitespace-nowrap">{r.uom || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -793,22 +854,22 @@ function DemandDetailModal({ cmmId, onClose }: { cmmId: string; onClose: () => v
                 ? <Empty msg="No procurement history." sub="Populated from historical PO data linked to accepted NMC mappings." />
                 : (
                   <div className="overflow-x-auto rounded-lg border border-border">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-xs min-w-[460px]">
                       <thead><tr className="border-b border-border bg-muted/30">
                         {['CPSE','PO Number','Supplier','Quantity','Unit Price','UOM','PO Date'].map(h =>
-                          <th key={h} className="text-left p-3 text-muted-foreground font-semibold">{h}</th>
+                          <th key={h} className="text-left p-2.5 sm:p-3 text-muted-foreground font-semibold whitespace-nowrap">{h}</th>
                         )}
                       </tr></thead>
                       <tbody>
                         {histQ.data.history.map((r: any) => (
                           <tr key={r.id} className="border-b border-border/40 hover:bg-muted/20">
-                            <td className="p-3 font-semibold text-foreground">{r.cpse_code}</td>
-                            <td className="p-3 font-mono text-muted-foreground">{r.po_number}</td>
-                            <td className="p-3 text-foreground">{r.supplier_name}</td>
-                            <td className="p-3 text-right tabular-nums font-semibold">{fmt(r.quantity)}</td>
-                            <td className="p-3 text-right tabular-nums text-muted-foreground">{r.unit_price != null ? `₹${fmt(r.unit_price, 2)}` : '—'}</td>
-                            <td className="p-3 text-muted-foreground">{r.uom || '—'}</td>
-                            <td className="p-3 text-muted-foreground whitespace-nowrap">{r.po_date ? new Date(r.po_date).toLocaleDateString('en-IN') : '—'}</td>
+                            <td className="p-2.5 sm:p-3 font-semibold text-foreground whitespace-nowrap">{r.cpse_code}</td>
+                            <td className="p-2.5 sm:p-3 font-mono text-muted-foreground whitespace-nowrap">{r.po_number}</td>
+                            <td className="p-2.5 sm:p-3 text-foreground whitespace-nowrap">{r.supplier_name}</td>
+                            <td className="p-2.5 sm:p-3 text-right tabular-nums font-semibold whitespace-nowrap">{fmt(r.quantity)}</td>
+                            <td className="p-2.5 sm:p-3 text-right tabular-nums text-muted-foreground whitespace-nowrap">{r.unit_price != null ? `₹${fmt(r.unit_price, 2)}` : '—'}</td>
+                            <td className="p-2.5 sm:p-3 text-muted-foreground whitespace-nowrap">{r.uom || '—'}</td>
+                            <td className="p-2.5 sm:p-3 text-muted-foreground whitespace-nowrap">{r.po_date ? new Date(r.po_date).toLocaleDateString('en-IN') : '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -952,7 +1013,7 @@ function InventoryTab({ filters }: { filters: any }) {
                   </table>
                 </div>
                 {nmcQ.data.total_pages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-border/40 bg-muted/10">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10">
                     <p className="text-xs text-muted-foreground">Page {nmcQ.data.page} of {nmcQ.data.total_pages} · {nmcQ.data.total} records</p>
                     <div className="flex gap-1">
                       <Button variant="outline" size="sm" className="h-7 px-2" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
@@ -1016,22 +1077,11 @@ function DemandTab({ filters }: { filters: any }) {
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-end">
-        <FilterRow filters={filters} cpseId={cpseId} setCpseId={(v) => { setCpseId(v); reset(); }}
-          matType={matType} setMatType={(v) => { setMatType(v); reset(); }}
-          uom={uom} setUom={(v) => { setUom(v); reset(); }}
-          search={search} setSearch={(v) => { setSearch(v); reset(); }} />
-        <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Period</label>
-          <Select value={demPeriod} onValueChange={(v) => { setDemPeriod(v); reset(); }}>
-            <SelectTrigger className="h-8 text-xs w-32"><SelectValue placeholder="All Periods" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Periods</SelectItem>
-              {(filters?.demand_periods || []).map((p: string) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <FilterRow filters={filters} cpseId={cpseId} setCpseId={(v) => { setCpseId(v); reset(); }}
+        matType={matType} setMatType={(v) => { setMatType(v); reset(); }}
+        uom={uom} setUom={(v) => { setUom(v); reset(); }}
+        period={demPeriod} setPeriod={(v) => { setDemPeriod(v); reset(); }}
+        search={search} setSearch={(v) => { setSearch(v); reset(); }} />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1101,7 +1151,7 @@ function DemandTab({ filters }: { filters: any }) {
                   </table>
                 </div>
                 {nmcQ.data.total_pages > 1 && (
-                  <div className="flex items-center justify-between px-4 py-2.5 border-t border-border/40 bg-muted/10">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2.5 border-t border-border/40 bg-muted/10">
                     <p className="text-xs text-muted-foreground">Page {nmcQ.data.page} of {nmcQ.data.total_pages} · {nmcQ.data.total} records</p>
                     <div className="flex gap-1">
                       <Button variant="outline" size="sm" className="h-7 px-2" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-3.5 w-3.5" /></Button>
