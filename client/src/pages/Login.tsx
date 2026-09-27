@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { Shield, Key, AlertCircle, ArrowRight, Eye, EyeOff, Building2 } from 'lucide-react';
+import { Shield, Key, AlertCircle, ArrowRight, Eye, EyeOff, Building2, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 const CPSE_NAMES: Record<string, string> = {
@@ -38,10 +38,13 @@ export default function Login() {
   const { loginAdmin, loginReviewer } = useAuth();
 
   const locationState = location.state as any;
-  // If coming from the Review Queue gate, auto-open the Reviewer tab
-  const defaultTab = locationState?.tab === 'reviewer' ? 'reviewer' : 'admin';
+  // Controlled tab state — initialized once so re-renders cannot reset it unexpectedly
+  const [activeTab, setActiveTab] = useState<'admin' | 'reviewer'>(
+    locationState?.tab === 'reviewer' ? 'reviewer' : 'admin'
+  );
 
-  const [adminPassword, setAdminPassword] = useState('nmc-admin-2026');
+  // Initial password should be empty (no prefill)
+  const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [reviewerId, setReviewerId] = useState('');
   const [reviewerPassword, setReviewerPassword] = useState('');
@@ -49,38 +52,72 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const activeSubmissionRef = useRef<'admin' | 'reviewer' | null>(null);
+
   const adminDestination = locationState?.from || '/dashboard';
   const reviewerDestination = '/review';
 
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!adminPassword.trim()) {
+      setError('Please enter the admin password');
+      return;
+    }
     setError(null);
     setLoading(true);
+    activeSubmissionRef.current = 'admin';
+
     try {
       await loginAdmin(adminPassword);
+      if (activeSubmissionRef.current !== 'admin') return;
+
       toast.success('Central Administrator authenticated');
-      navigate(adminDestination, { replace: true });
+      // Route Central Admin directly to /dashboard, avoiding reviewer gates or circular login loops
+      const dest = (adminDestination && adminDestination !== '/login' && adminDestination !== '/review')
+        ? adminDestination
+        : '/dashboard';
+      navigate(dest, { replace: true, state: {} });
     } catch (err: any) {
+      if (activeSubmissionRef.current !== 'admin') return;
       setError(err.message || 'Invalid admin credentials');
       toast.error('Authentication failed');
     } finally {
-      setLoading(false);
+      if (activeSubmissionRef.current === 'admin') {
+        setLoading(false);
+        activeSubmissionRef.current = null;
+      }
     }
   };
 
   const handleReviewerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!reviewerId.trim()) {
+      setError('Please enter your Reviewer ID');
+      return;
+    }
+    if (!reviewerPassword.trim()) {
+      setError('Please enter your reviewer password');
+      return;
+    }
     setError(null);
     setLoading(true);
+    activeSubmissionRef.current = 'reviewer';
+
     try {
       await loginReviewer({ reviewerId, password: reviewerPassword });
+      if (activeSubmissionRef.current !== 'reviewer') return;
+
       toast.success(`Welcome, Reviewer (${reviewerId})`);
-      navigate(reviewerDestination, { replace: true });
+      navigate(reviewerDestination, { replace: true, state: {} });
     } catch (err: any) {
+      if (activeSubmissionRef.current !== 'reviewer') return;
       setError(err.message || 'Invalid reviewer credentials');
       toast.error('Authentication failed');
     } finally {
-      setLoading(false);
+      if (activeSubmissionRef.current === 'reviewer') {
+        setLoading(false);
+        activeSubmissionRef.current = null;
+      }
     }
   };
 
@@ -114,13 +151,30 @@ export default function Login() {
               </div>
             )}
 
-            <Tabs defaultValue={defaultTab} className="w-full">
+            <Tabs
+              value={activeTab}
+              onValueChange={(val) => {
+                if (!loading) {
+                  setError(null);
+                  setActiveTab(val as 'admin' | 'reviewer');
+                }
+              }}
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="admin" className="gap-2" onClick={() => setError(null)}>
+                <TabsTrigger
+                  value="admin"
+                  className="gap-2 transition-opacity"
+                  disabled={loading}
+                >
                   <Shield className="h-3.5 w-3.5" />
                   Central Admin
                 </TabsTrigger>
-                <TabsTrigger value="reviewer" className="gap-2" onClick={() => setError(null)}>
+                <TabsTrigger
+                  value="reviewer"
+                  className="gap-2 transition-opacity"
+                  disabled={loading}
+                >
                   <Key className="h-3.5 w-3.5" />
                   Reviewer
                 </TabsTrigger>
@@ -144,6 +198,7 @@ export default function Login() {
                         onChange={(e) => setAdminPassword(e.target.value)}
                         autoComplete="new-password"
                         className="pr-10"
+                        disabled={loading}
                         required
                       />
                       <button
@@ -152,14 +207,24 @@ export default function Login() {
                         onClick={() => setShowAdminPassword((prev) => !prev)}
                         title={showAdminPassword ? "Hide password" : "Show password"}
                         tabIndex={-1}
+                        disabled={loading}
                       >
                         {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full gap-2" disabled={loading}>
-                    {loading ? 'Authenticating...' : 'Sign in as Central Admin'}
-                    <ArrowRight className="h-4 w-4" />
+                  <Button type="submit" className="w-full gap-2" disabled={loading || !adminPassword.trim()}>
+                    {loading ? (
+                      <>
+                        <RotateCw className="h-4 w-4 animate-spin" />
+                        <span>Authenticating as Central Admin...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Sign in as Central Admin</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
                   </Button>
                 </form>
               </TabsContent>
@@ -176,13 +241,14 @@ export default function Login() {
                       id="rev-id"
                       name="reviewer_code_identifier"
                       type="text"
-                      placeholder="Enter Reviewer ID"
+                      placeholder="Enter Reviewer ID (e.g. HPCL-REV-001)"
                       value={reviewerId}
                       onChange={(e) => setReviewerId(e.target.value)}
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="none"
                       spellCheck={false}
+                      disabled={loading}
                       required
                     />
                   </div>
@@ -228,6 +294,7 @@ export default function Login() {
                         onChange={(e) => setReviewerPassword(e.target.value)}
                         autoComplete="new-password"
                         className="pr-10"
+                        disabled={loading}
                         required
                       />
                       <button
@@ -236,15 +303,29 @@ export default function Login() {
                         onClick={() => setShowReviewerPassword((prev) => !prev)}
                         title={showReviewerPassword ? "Hide password" : "Show password"}
                         tabIndex={-1}
+                        disabled={loading}
                       >
                         {showReviewerPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full gap-2 bg-amber-600 hover:bg-amber-700 text-white" disabled={loading}>
-                    {loading ? 'Authenticating...' : 'Sign in as Reviewer'}
-                    <ArrowRight className="h-4 w-4" />
+                  <Button
+                    type="submit"
+                    className="w-full gap-2 bg-amber-600 hover:bg-amber-700 text-white"
+                    disabled={loading || !reviewerId.trim() || !reviewerPassword.trim()}
+                  >
+                    {loading ? (
+                      <>
+                        <RotateCw className="h-4 w-4 animate-spin" />
+                        <span>Authenticating Reviewer...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Sign in as Reviewer</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
                   </Button>
                 </form>
               </TabsContent>
