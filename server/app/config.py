@@ -48,10 +48,18 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = "nmc-admin-2026"
     REVIEWER_KEY: str = "nmc-reviewer-key"
 
+    # Supabase
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
+
     # Database
     # If DATABASE_URL is set in env and points to PostgreSQL, use it.
     # Otherwise fall back to a local SQLite DB.
     DATABASE_URL: str = ""
+
+    # Environment
+    PYTHON_ENV: str = "development"
+    RAW_DATA_PATH: str = "./data/raw/CPSE_Material_Master_cleaned.csv"
 
     @property
     def effective_db_url(self) -> str:
@@ -78,6 +86,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()

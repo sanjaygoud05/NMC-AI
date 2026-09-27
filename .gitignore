@@ -99,6 +99,15 @@ server/data/uploads/*
 !server/data/uploads/datasets_manifest.json
 !server/data/uploads/.gitkeep
 
+# Pipeline-generated processed data (re-generatable, too large for GitHub)
+data/processed/*.csv
+data/processed/*.json
+!data/processed/README.md
+
+# Raw source CSVs (uploaded by users, not for version control)
+data/raw/*.csv
+!data/raw/README.md
+
 # ML artifacts
 ml/embeddings/*.bin
 ml/embeddings/*.pkl
