@@ -107,7 +107,7 @@ export default function Dashboard() {
 
   return (
     <AppLayout requireAdmin>
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
@@ -161,7 +161,7 @@ export default function Dashboard() {
         </div>
 
         {/* CPSE Catalog Breakdown */}
-        <div className="space-y-3">
+        <div className="space-y-3 order-last md:order-none">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">CPSE Catalog Breakdown</h2>
             <Link to="/manage-cpses">
@@ -334,7 +334,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Governance & Decision Summary ───────────────────────────────────── */}
-        <div className="space-y-3">
+        <div className="space-y-3 order-last md:order-none">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="text-base font-semibold text-foreground">Governance &amp; Decision Summary</h2>

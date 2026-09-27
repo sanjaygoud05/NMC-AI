@@ -131,7 +131,7 @@ export function AppSidebar() {
     <Sidebar className="bg-sidebar border-r border-sidebar-border">
       <SidebarHeader className="h-16 px-4 flex items-center justify-start border-b border-sidebar-border w-full">
         <Link to={isAdmin ? '/dashboard' : isReviewer ? '/review' : '/login'} className="flex items-center gap-3 group">
-          <div className="h-9 w-9 rounded-full overflow-hidden shrink-0 group-hover:scale-105 transition-transform bg-white">
+          <div className="h-12 w-12 rounded-full overflow-hidden shrink-0 group-hover:scale-105 transition-transform bg-white">
             <img src="/favicon.png" alt="NMC Logo" className="h-full w-full object-contain" />
           </div>
           <div>
