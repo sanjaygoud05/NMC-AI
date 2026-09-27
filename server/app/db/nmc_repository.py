@@ -787,17 +787,36 @@ class NMCRepository:
                 )
             )
 
+            status_clean = status.strip() if status else None
             cpse_code = None
             if cpse_id and cpse_id.upper() != "ALL":
                 cpse_obj = session.get(CPSE, cpse_id)
                 if cpse_obj:
                     cpse_code = cpse_obj.code
-                stmt = stmt.where(
-                    or_(
-                        SrcMat.cpse_id == cpse_id,
-                        CandMat.cpse_id == cpse_id,
+
+                # For REJECTED or DIFFERENT: only show decisions made by/for this CPSE's items.
+                # Candidate CPSE side will not see other CPSEs' rejections/different tags.
+                # Admin (when cpse_id is None or ALL) continues to see all.
+                if status_clean in ("REJECTED", "DIFFERENT"):
+                    if cpse_code:
+                        stmt = stmt.where(
+                            or_(
+                                MaterialMatch.gate1_cpse_code == cpse_code,
+                                and_(
+                                    SrcMat.cpse_id == cpse_id,
+                                    or_(MaterialMatch.gate1_cpse_code.is_(None), MaterialMatch.gate1_cpse_code == cpse_code),
+                                ),
+                            )
+                        )
+                    else:
+                        stmt = stmt.where(SrcMat.cpse_id == cpse_id)
+                else:
+                    stmt = stmt.where(
+                        or_(
+                            SrcMat.cpse_id == cpse_id,
+                            CandMat.cpse_id == cpse_id,
+                        )
                     )
-                )
 
             if status:
                 status_clean = status.strip()
@@ -1104,9 +1123,56 @@ class NMCRepository:
                 )
                 awaiting_peer_count = _count_cond(MaterialMatch.status == "GATE_1_APPROVED")
 
+            if cpse_id and cpse_id.upper() != "ALL":
+                if cpse_code:
+                    decided_cond = or_(
+                        MaterialMatch.gate1_cpse_code == cpse_code,
+                        and_(
+                            SrcMat.cpse_id == cpse_id,
+                            or_(MaterialMatch.gate1_cpse_code.is_(None), MaterialMatch.gate1_cpse_code == cpse_code),
+                        ),
+                    )
+                else:
+                    decided_cond = (SrcMat.cpse_id == cpse_id)
+
+                different_count = session.execute(
+                    select(func.count(MaterialMatch.id))
+                    .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+                    .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+                    .where(
+                        and_(
+                            SrcMat.original_description.isnot(None),
+                            func.trim(SrcMat.original_description) != "",
+                            CandMat.original_description.isnot(None),
+                            func.trim(CandMat.original_description) != "",
+                            MaterialMatch.status != "SUPERSEDED_BY_CMM",
+                            MaterialMatch.status == "DIFFERENT",
+                            decided_cond,
+                        )
+                    )
+                ).scalar() or 0
+
+                rejected_count = session.execute(
+                    select(func.count(MaterialMatch.id))
+                    .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+                    .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+                    .where(
+                        and_(
+                            SrcMat.original_description.isnot(None),
+                            func.trim(SrcMat.original_description) != "",
+                            CandMat.original_description.isnot(None),
+                            func.trim(CandMat.original_description) != "",
+                            MaterialMatch.status != "SUPERSEDED_BY_CMM",
+                            MaterialMatch.status == "REJECTED",
+                            decided_cond,
+                        )
+                    )
+                ).scalar() or 0
+            else:
+                different_count = _count_cond(MaterialMatch.status == "DIFFERENT")
+                rejected_count = _count_cond(MaterialMatch.status == "REJECTED")
+
             mapped_count = _count_cond(MaterialMatch.status.in_(["ACCEPTED", "OVERRIDDEN"]))
-            different_count = _count_cond(MaterialMatch.status == "DIFFERENT")
-            rejected_count = _count_cond(MaterialMatch.status == "REJECTED")
 
             return {
                 "pending": pending_count,
@@ -1599,6 +1665,10 @@ class NMCRepository:
                     m.gate1_reviewer = gate1_data.get("reviewer")
                     m.gate1_cpse_code = gate1_data.get("cpse_code")
                     m.gate1_at = gate1_data.get("timestamp") or datetime.now(timezone.utc)
+                elif decision in ("REJECT", "DIFFERENT") or (decision == "OVERRIDE" and override_outcome == "DIFFERENT"):
+                    m.gate1_reviewer = reviewer
+                    m.gate1_cpse_code = cpse_code
+                    m.gate1_at = datetime.now(timezone.utc)
 
                 m.updated_at = datetime.now(timezone.utc)
 

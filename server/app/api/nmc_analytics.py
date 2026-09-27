@@ -702,19 +702,22 @@ def get_reviewer_analytics(
     decision breakdown, match confidence tiers, peer CPSE candidate pairs,
     velocity timeline, and enriched recent determinations.
     """
+    clean_cpse_id = str(cpse_id).strip() if (isinstance(cpse_id, str) and cpse_id.strip() and cpse_id.strip().lower() not in ("undefined", "null", "none")) else None
+    clean_cpse_code = str(cpse_code).strip() if (isinstance(cpse_code, str) and cpse_code.strip() and cpse_code.strip().lower() not in ("undefined", "null", "none")) else None
+
     with nmc_repo.get_session() as s:
         target_cpse = None
-        if cpse_id:
-            target_cpse = s.get(CPSE, cpse_id)
-        if not target_cpse and cpse_code:
+        if clean_cpse_id:
+            target_cpse = s.get(CPSE, clean_cpse_id)
+        if not target_cpse and clean_cpse_code:
             target_cpse = s.execute(
-                select(CPSE).where(func.upper(CPSE.code) == cpse_code.strip().upper())
+                select(CPSE).where(func.upper(CPSE.code) == clean_cpse_code.upper())
             ).scalar_one_or_none()
 
         # If not supplied in query, infer from reviewer auth context
         if not target_cpse and hasattr(role, "cpse_code") and role.cpse_code:
             target_cpse = s.execute(
-                select(CPSE).where(func.upper(CPSE.code) == role.cpse_code.strip().upper())
+                select(CPSE).where(func.upper(CPSE.code) == str(role.cpse_code).strip().upper())
             ).scalar_one_or_none()
         if not target_cpse and hasattr(role, "cpse_id") and role.cpse_id:
             target_cpse = s.get(CPSE, role.cpse_id)
@@ -892,17 +895,34 @@ def get_reviewer_analytics(
         ]
 
         # 7. Velocity timeline (hourly and recent trend)
-        timeline_stmt = (
-            select(func.strftime('%H:00', ReviewDecision.timestamp), func.count(ReviewDecision.id))
-            .join(MaterialMatch, ReviewDecision.match_id == MaterialMatch.id)
-            .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
-            .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
-            .where(or_(SrcMat.cpse_id == cid, CandMat.cpse_id == cid))
-            .group_by(func.strftime('%H:00', ReviewDecision.timestamp))
-            .order_by(func.strftime('%H:00', ReviewDecision.timestamp))
-        )
-        velocity_rows = s.execute(timeline_stmt).all()
-        activity_timeline = [{"time": r[0], "decisions": r[1]} for r in velocity_rows]
+        activity_timeline = []
+        try:
+            is_postgres = False
+            try:
+                bind = s.get_bind()
+                is_postgres = bool(bind and "postgres" in bind.dialect.name.lower())
+            except Exception:
+                pass
+
+            if is_postgres:
+                hour_func = func.to_char(ReviewDecision.timestamp, 'HH24:00')
+            else:
+                hour_func = func.strftime('%H:00', ReviewDecision.timestamp)
+
+            timeline_stmt = (
+                select(hour_func, func.count(ReviewDecision.id))
+                .join(MaterialMatch, ReviewDecision.match_id == MaterialMatch.id)
+                .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+                .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+                .where(or_(SrcMat.cpse_id == cid, CandMat.cpse_id == cid))
+                .group_by(hour_func)
+                .order_by(hour_func)
+            )
+            velocity_rows = s.execute(timeline_stmt).all()
+            activity_timeline = [{"time": r[0], "decisions": r[1]} for r in velocity_rows if r[0]]
+        except Exception as e:
+            logger.warning("Failed to calculate activity timeline: %s", e)
+            activity_timeline = []
 
         # 8. Rich recent decisions for this CPSE (with material descriptions, confidence, and peer CPSE)
         recent_stmt = (
