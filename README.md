@@ -108,20 +108,6 @@ graph TD
 
 ---
 
-## 📋 Comprehensive 7-Tab Review Queue Matrix
-
-The Review Queue is partitioned into 7 dedicated operational views tailored for CPSE domain reviewers and Central Administrators:
-
-| Tab | Target Audience | Primary Function | Trigger / Workflow Condition |
-| :--- | :---: | :--- | :--- |
-| **1. Pending** | Reviewers | Primary evaluation queue | AI-generated candidate pairs awaiting technical evaluation |
-| **2. Action Alerts** | Reviewers | Immediate action requests | Counterpart CPSE endorsed a match (`Gate 1`) OR high-confidence ($\ge 85\%$) NMC match |
-| **3. Awaiting Peer** | Reviewers | Outbound tracking | Matches endorsed by your CPSE, currently waiting for peer co-endorsement (`Gate 2`) |
-| **4. Already Mapped** | All | National Master Directory | Materials officially linked to a finalized National Material Code (`NMC-xxxx`) |
-| **5. Different** | Reviewers | Distinct classification | Items confirmed by engineers as physically or technically non-interchangeable |
-| **6. Rejected** | Reviewers | False-positive quarantine | Matches flagged as incorrect or non-viable candidate pairs |
-| **7. Conflicts** | **Admin Only** | Central arbitration | Disputed decisions where CPSEs disagree; resolved via Administrative Override |
-
 ---
 
 ### 3. 🏷️ Deterministic National Material Code Standard
@@ -154,53 +140,6 @@ When different CPSEs purchase the exact same physical item under disparate names
 - **Surplus Sharing:** When CPSE A is preparing to issue an external procurement tender for an item, the platform checks whether CPSE B holds excess available inventory (`available_quantity > 0`).
 - Enables inter-CPSE stock transfers, reducing external cash outflow and liquidating dormant inventory.
 
----
-
-## 📊 Key Performance Indicators (KPIs)
-
-```
-┌─────────────────────────┬─────────────────────────┬─────────────────────────┐
-│     94.2% AI Accuracy   │     31.4% Deduplication │     <24h Consensus Time │
-│  Rule-guarded precision │   Cross-CPSE catalog overlap│  Two-Gate review velocity│
-└─────────────────────────┴─────────────────────────┴─────────────────────────┘
-┌─────────────────────────┬─────────────────────────┬─────────────────────────┐
-│   18.5% Avg Cost Savings│    ₹ Crores Inventory   │    100% Audit Complete  │
-│  Via joint bulk tenders │   Capital unlocked      │   Zero raw data deletion│
-└─────────────────────────┴─────────────────────────┴─────────────────────────┘
-```
-
----
-
-## 🔌 Core API Architecture Matrix
-
-The FastAPI backend exposes modular, high-throughput RESTful endpoints:
-
-| Endpoint | Method | Role | Description |
-| :--- | :---: | :---: | :--- |
-| `/api/nmc/auth/login` | `POST` | Public | Authenticates Admin or Certified CPSE Reviewer |
-| `/api/nmc/review/queue` | `GET` | Reviewer / Admin | Paginated review queue with confidence & CPSE filters |
-| `/api/nmc/review/stats` | `GET` | Reviewer / Admin | Real-time counts across all 7 review queue tabs |
-| `/api/nmc/review/{id}/decision` | `POST` | Reviewer / Admin | Submits Gate 1/Gate 2 verdicts or Administrative Overrides |
-| `/api/nmc/review/notifications`| `GET` | Reviewer | Real-time action alerts for peer endorsements & NMC matches |
-| `/api/nmc/procurement/price-variance` | `GET` | All | Price discrepancy analytics across CPSE purchases |
-| `/api/nmc/procurement/inventory` | `GET` | All | Cross-CPSE stock availability and surplus pooling |
-| `/api/nmc/procurement/demand` | `GET` | All | Consolidated demand forecasting & tender opportunities |
-| `/api/nmc/analytics/metrics` | `GET` | Admin | Macro harmonization rate, deduplication matrix & velocity |
-
----
-
-## 🛠️ Technology Stack
-
-| Layer | Technologies | Purpose |
-| :--- | :--- | :--- |
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS | High-performance, responsive UI with accessible Shadcn / Radix components |
-| **Client State** | TanStack React Query (v5) | Server-state caching, optimistic updates, and background synchronization |
-| **Backend API** | FastAPI, Python 3.11, Uvicorn | Asynchronous high-throughput REST API with automated OpenAPI / Swagger docs |
-| **Validation** | Pydantic v2, Pydantic-Settings | Strict schema validation and type-safe environment configuration |
-| **AI / NLP Engine**| Scikit-learn, RapidFuzz, Pandas, NumPy | Multi-stage fuzzy matching, token standardization, and domain heuristics |
-| **Semantic AI** | Sentence Transformers (`all-MiniLM-L6-v2`) | Dense semantic embeddings for contextual similarity |
-| **Database & ORM**| PostgreSQL (Supabase), SQLAlchemy 2.0 | ACID-compliant relational persistence, indexed foreign keys, connection pooling |
-| **Hosting & Cloud**| Render, Docker, UptimeRobot | Cloud deployment, containerization, and synthetic health monitoring |
 
 ---
 
@@ -274,9 +213,4 @@ npm run dev
 * **Data Privacy:** Raw CPSE internal databases remain untouched; the platform acts as an intelligent, read-safe standardization overlay.
 
 ---
-
-## 👥 Team & Acknowledgments
-* **Competition:** Smart India Hackathon (SIH)
-* **Problem Statement ID:** SIH26099
-* **Domain:** AI / ML, Enterprise Procurement & Supply Chain Optimization
 
