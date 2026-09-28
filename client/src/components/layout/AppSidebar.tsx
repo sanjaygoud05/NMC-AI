@@ -16,6 +16,7 @@ import {
 import { NavLink } from '@/components/NavLink';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { getCpseLogo } from '@/lib/cpseLogos';
 import {
   Sidebar,
   SidebarContent,
@@ -201,11 +202,17 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <div className="flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-primary/20">
+            <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-primary/20 overflow-hidden bg-white">
               {isAdmin ? (
                 <ShieldCheck className="h-4 w-4 text-primary" />
+              ) : isReviewer && getCpseLogo(reviewerCpse) ? (
+                <img
+                  src={getCpseLogo(reviewerCpse)!}
+                  alt={reviewerCpse || ''}
+                  className="h-full w-full object-contain p-0.5 rounded-full"
+                />
               ) : reviewerName ? (
-                reviewerName.charAt(0).toUpperCase()
+                <span className="text-primary font-bold">{reviewerName.charAt(0).toUpperCase()}</span>
               ) : (
                 <UserCheck className="h-4 w-4 text-primary" />
               )}

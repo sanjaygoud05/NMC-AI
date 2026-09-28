@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { getCpseLogo } from '@/lib/cpseLogos';
 
 export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();
@@ -115,6 +116,9 @@ export default function MatchDetail() {
 
   const src = match.source_material;
   const cand = match.candidate_material;
+  const srcLogo = getCpseLogo(src?.cpse_code, src?.cpse_name);
+  const candLogo = getCpseLogo(cand?.cpse_code, cand?.cpse_name);
+  const disputeLogo = getCpseLogo(match.dispute_cpse_code || src?.cpse_code);
   const explanation = match.explanation || {};
   const confScore = match.final_confidence ? Math.round(match.final_confidence * 100) : 0;
   const semScore = match.semantic_similarity ? Math.round(match.semantic_similarity * 100) : 0;
@@ -166,7 +170,6 @@ export default function MatchDetail() {
                     : 'bg-muted text-muted-foreground border border-border'
               }`}
             >
-              <Sparkles className="h-3 w-3 mr-1 inline shrink-0" />
               {match.confidence_label || 'Low'} Confidence ({confScore}%)
             </Badge>
           </div>
@@ -175,17 +178,28 @@ export default function MatchDetail() {
         {/* 1. Side-by-Side Comparison Header */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Source Material Card */}
-          <Card className="border-border/70 border-t-4 border-t-blue-500">
-            <CardHeader className="pb-3">
+          <Card className="border-border/70 border-t-4 border-t-blue-500 shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 bg-muted/15 border-b border-border/40">
               <div className="flex items-center justify-between">
-                <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono text-xs">
-                  Source: {src?.cpse_code || 'CPSE 1'}
-                </Badge>
-                <span className="font-mono text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  {srcLogo ? (
+                    <div className="h-8 w-8 rounded-full overflow-hidden border border-blue-500/30 bg-white flex items-center justify-center p-0.5 shadow-2xs shrink-0 ring-2 ring-blue-500/10">
+                      <img
+                        src={srcLogo}
+                        alt={src?.cpse_code || 'Source CPSE'}
+                        className={`h-full w-full object-contain rounded-full ${src?.cpse_code?.toUpperCase().includes('ONGC') ? 'scale-110' : ''}`}
+                      />
+                    </div>
+                  ) : null}
+                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono text-xs font-semibold hover:bg-blue-500/10 hover:text-blue-600">
+                    Source: {src?.cpse_code || 'CPSE 1'}
+                  </Badge>
+                </div>
+                <span className="font-mono text-xs text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/40">
                   {src?.original_material_code || 'No Code'}
                 </span>
               </div>
-              <CardTitle className="text-base mt-2 leading-snug">
+              <CardTitle className="text-base mt-2.5 leading-snug">
                 {src?.original_description}
               </CardTitle>
               <CardDescription className="text-xs">
@@ -193,7 +207,18 @@ export default function MatchDetail() {
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="pt-2 space-y-2 text-xs divide-y divide-border/40">
+            <CardContent className="pt-2.5 space-y-2 text-xs divide-y divide-border/40">
+              <div className="flex justify-between py-1.5 items-center">
+                <span className="text-muted-foreground">Enterprise:</span>
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  {srcLogo && (
+                    <span className="h-5 w-5 rounded-full overflow-hidden border border-border/50 bg-white inline-flex items-center justify-center shrink-0">
+                      <img src={srcLogo} alt="" className={`h-full w-full object-contain rounded-full ${src?.cpse_code?.toUpperCase().includes('ONGC') ? 'scale-110' : ''}`} />
+                    </span>
+                  )}
+                  {src?.cpse_code || '—'}
+                </span>
+              </div>
               <div className="flex justify-between py-1.5">
                 <span className="text-muted-foreground">Material Family:</span>
                 <span className="font-semibold text-foreground capitalize">{src?.material_family || '—'}</span>
@@ -230,17 +255,28 @@ export default function MatchDetail() {
           </Card>
 
           {/* Candidate Material Card */}
-          <Card className="border-border/70 border-t-4 border-t-indigo-500">
-            <CardHeader className="pb-3">
+          <Card className="border-border/70 border-t-4 border-t-indigo-500 shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 bg-muted/15 border-b border-border/40">
               <div className="flex items-center justify-between">
-                <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-mono text-xs">
-                  Candidate: {cand?.cpse_code || 'CPSE 2'}
-                </Badge>
-                <span className="font-mono text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  {candLogo ? (
+                    <div className="h-8 w-8 rounded-full overflow-hidden border border-indigo-500/30 bg-white flex items-center justify-center p-0.5 shadow-2xs shrink-0 ring-2 ring-indigo-500/10">
+                      <img
+                        src={candLogo}
+                        alt={cand?.cpse_code || 'Candidate CPSE'}
+                        className={`h-full w-full object-contain rounded-full ${cand?.cpse_code?.toUpperCase().includes('ONGC') ? 'scale-110' : ''}`}
+                      />
+                    </div>
+                  ) : null}
+                  <Badge variant="outline" className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-mono text-xs font-semibold hover:bg-indigo-500/10 hover:text-indigo-600">
+                    Candidate: {cand?.cpse_code || 'CPSE 2'}
+                  </Badge>
+                </div>
+                <span className="font-mono text-xs text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/40">
                   {cand?.original_material_code || 'No Code'}
                 </span>
               </div>
-              <CardTitle className="text-base mt-2 leading-snug">
+              <CardTitle className="text-base mt-2.5 leading-snug">
                 {cand?.original_description}
               </CardTitle>
               <CardDescription className="text-xs">
@@ -248,7 +284,18 @@ export default function MatchDetail() {
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="pt-2 space-y-2 text-xs divide-y divide-border/40">
+            <CardContent className="pt-2.5 space-y-2 text-xs divide-y divide-border/40">
+              <div className="flex justify-between py-1.5 items-center">
+                <span className="text-muted-foreground">Enterprise:</span>
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  {candLogo && (
+                    <span className="h-5 w-5 rounded-full overflow-hidden border border-border/50 bg-white inline-flex items-center justify-center shrink-0">
+                      <img src={candLogo} alt="" className={`h-full w-full object-contain rounded-full ${cand?.cpse_code?.toUpperCase().includes('ONGC') ? 'scale-110' : ''}`} />
+                    </span>
+                  )}
+                  {cand?.cpse_code || '—'}
+                </span>
+              </div>
               <div className="flex justify-between py-1.5">
                 <span className="text-muted-foreground">Material Family:</span>
                 <span className="font-semibold text-foreground capitalize">{cand?.material_family || '—'}</span>
@@ -358,6 +405,11 @@ export default function MatchDetail() {
                   <div className="flex items-center gap-2">
                     <UserCheck className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                     <span className="font-semibold text-muted-foreground">Raised by:</span>
+                    {disputeLogo && (
+                      <span className="h-5 w-5 rounded-full overflow-hidden border border-rose-500/30 bg-white inline-flex items-center justify-center shrink-0 p-0.5">
+                        <img src={disputeLogo} alt="" className="h-full w-full object-contain rounded-full" />
+                      </span>
+                    )}
                     <Badge variant="outline" className="border-rose-500/30 text-rose-700 dark:text-rose-300 bg-rose-500/10 font-mono text-xs">
                       {match.dispute_cpse_code || src?.cpse_code || 'CPSE'}
                     </Badge>
@@ -542,9 +594,23 @@ export default function MatchDetail() {
                 <span className="font-semibold text-foreground">{match.cmm.uom || '—'}</span>
               </div>
               {match.cmm.source_cpses && match.cmm.source_cpses.length > 0 && (
-                <div className="flex justify-between py-1.5">
+                <div className="flex justify-between py-1.5 items-center">
                   <span className="text-muted-foreground">Source CPSEs:</span>
-                  <span className="font-semibold text-foreground">{match.cmm.source_cpses.join(', ')}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {match.cmm.source_cpses.map((cCode: string) => {
+                      const cLogo = getCpseLogo(cCode);
+                      return (
+                        <span key={cCode} className="inline-flex items-center gap-1.5 font-semibold text-foreground bg-muted/60 px-2 py-0.5 rounded-full text-[11px] border border-border/50">
+                          {cLogo && (
+                            <span className="h-3.5 w-3.5 rounded-full overflow-hidden border border-border/40 bg-white inline-flex items-center justify-center shrink-0">
+                              <img src={cLogo} alt="" className="h-full w-full object-contain rounded-full" />
+                            </span>
+                          )}
+                          {cCode}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -567,20 +633,20 @@ export default function MatchDetail() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Select Action</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setDecision('ACCEPT')}
                     className={
-                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all ' +
+                      'text-xs h-11 sm:h-10 px-3 gap-2 font-semibold border-2 transition-all w-full justify-center ' +
                       (decision === 'ACCEPT'
-                        ? 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white shadow-md shadow-emerald-500/30'
-                        : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500 dark:text-emerald-400 dark:hover:bg-emerald-950/40')
+                        ? 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white shadow-sm'
+                        : 'border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-800 dark:hover:text-emerald-300')
                     }
                   >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Accept
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>Accept</span>
                   </Button>
 
                   <Button
@@ -588,14 +654,14 @@ export default function MatchDetail() {
                     variant="outline"
                     onClick={() => setDecision('REJECT')}
                     className={
-                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all ' +
+                      'text-xs h-11 sm:h-10 px-3 gap-2 font-semibold border-2 transition-all w-full justify-center ' +
                       (decision === 'REJECT'
-                        ? 'bg-red-600 hover:bg-red-700 border-red-600 text-white shadow-md shadow-red-500/30'
-                        : 'border-red-400/40 text-red-600 hover:bg-red-50 hover:border-red-500 dark:text-red-400 dark:hover:bg-red-950/40')
+                        ? 'bg-rose-600 hover:bg-rose-700 border-rose-600 text-white shadow-sm'
+                        : 'border-rose-400/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-300')
                     }
                   >
-                    <XCircle className="h-3.5 w-3.5" />
-                    Reject
+                    <XCircle className="h-4 w-4 shrink-0" />
+                    <span>Reject</span>
                   </Button>
 
                   <Button
@@ -603,14 +669,14 @@ export default function MatchDetail() {
                     variant="outline"
                     onClick={() => setDecision('DIFFERENT')}
                     className={
-                      'text-xs h-10 gap-1.5 font-semibold border-2 transition-all ' +
+                      'text-xs h-11 sm:h-10 px-3 gap-2 font-semibold border-2 transition-all w-full justify-center ' +
                       (decision === 'DIFFERENT'
-                        ? 'bg-amber-500 hover:bg-amber-600 border-amber-500 text-white shadow-md shadow-amber-500/30'
-                        : 'border-amber-400/40 text-amber-600 hover:bg-amber-50 hover:border-amber-500 dark:text-amber-400 dark:hover:bg-amber-950/40')
+                        ? 'bg-amber-500 hover:bg-amber-600 border-amber-500 text-white shadow-sm'
+                        : 'border-amber-400/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300')
                     }
                   >
-                    <Split className="h-3.5 w-3.5" />
-                    Mark as Different
+                    <Split className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Mark as Different</span>
                   </Button>
                 </div>
               </div>
@@ -630,8 +696,13 @@ export default function MatchDetail() {
               </div>
             </CardContent>
 
-            <CardFooter className="pt-2 flex justify-between border-t border-border/40">
-              <Button variant="ghost" size="sm" onClick={() => navigate(backUrl, { state: { tab: fromTab } })} className="text-xs">
+            <CardFooter className="pt-3 flex flex-col-reverse sm:flex-row sm:justify-between gap-2.5 border-t border-border/40">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(backUrl, { state: { tab: fromTab } })}
+                className="text-xs w-full sm:w-auto hover:bg-muted/70 hover:text-foreground"
+              >
                 Cancel
               </Button>
               <Button
@@ -644,11 +715,11 @@ export default function MatchDetail() {
                   })
                 }
                 className={
-                  'gap-2 font-semibold px-5 transition-all text-xs ' +
+                  'gap-2 font-semibold px-5 transition-all text-xs w-full sm:w-auto h-10 sm:h-9 ' +
                   (decision === 'ACCEPT'
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                     : decision === 'REJECT'
-                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
                       : 'bg-amber-500 hover:bg-amber-600 text-white')
                 }
               >

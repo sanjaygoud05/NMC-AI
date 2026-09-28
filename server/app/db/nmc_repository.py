@@ -1988,6 +1988,94 @@ class NMCRepository:
                 "total_pages": max(1, (total + page_size - 1) // page_size),
             }
 
+    def _calculate_data_quality_score(self, session, cpse_id: Optional[str] = None, total_materials: int = 0) -> float:
+        """
+        Dynamically analyzes and computes the Data Quality Score across 4 core dimensions
+        from live database catalog records:
+        1. Completeness (40%): Non-null population rate across core & specification fields
+        2. Uniqueness (30%): Distinct material code deduplication rate
+        3. Validity (15%): Schema formatting & mandatory field constraints
+        4. Consistency (15%): Standardization conformance, canonical keys, and conflict resolution
+        """
+        if total_materials <= 0:
+            return 0.0
+
+        mat_filter = [Dataset.is_active == True]
+        if cpse_id:
+            mat_filter.append(Material.cpse_id == cpse_id)
+
+        # 1. Field Completeness (40% weight): Core identification + Engineering Spec fields
+        check_fields = [
+            Material.original_material_code,
+            Material.original_description,
+            Material.material_family,
+            Material.material_type,
+            Material.uom,
+            Material.grade,
+            Material.dimensions,
+            Material.specifications,
+        ]
+        non_null_sums = 0
+        for f in check_fields:
+            cnt = session.execute(
+                select(func.count(Material.id))
+                .join(Dataset, Material.dataset_id == Dataset.id)
+                .where(and_(*mat_filter, f.isnot(None), func.length(func.trim(func.cast(f, Material.original_description.type))) > 0))
+            ).scalar() or 0
+            non_null_sums += cnt
+
+        # Extracted technical attributes coverage
+        attrs_list = session.execute(
+            select(Material.attributes)
+            .join(Dataset, Material.dataset_id == Dataset.id)
+            .where(*mat_filter)
+        ).scalars().all()
+
+        attr_checks = 0
+        attr_passed = 0
+        spec_keys = ['manufacturer', 'manufacturer_part_no', 'coating', 'standard']
+        for attrs in attrs_list:
+            a = attrs or {}
+            for k in spec_keys:
+                attr_checks += 1
+                if a.get(k):
+                    attr_passed += 1
+
+        total_comp_checks = (len(check_fields) * total_materials) + attr_checks
+        total_comp_passed = non_null_sums + attr_passed
+        completeness = (total_comp_passed / total_comp_checks) * 100.0 if total_comp_checks else 0.0
+
+        # 2. Uniqueness & Deduplication (30% weight)
+        distinct_codes = session.execute(
+            select(func.count(func.distinct(Material.original_material_code)))
+            .join(Dataset, Material.dataset_id == Dataset.id)
+            .where(and_(*mat_filter))
+        ).scalar() or 0
+        uniqueness = (distinct_codes / total_materials) * 100.0 if total_materials else 0.0
+
+        # 3. Schema Validity (15% weight)
+        valid_cnt = session.execute(
+            select(func.count(Material.id))
+            .join(Dataset, Material.dataset_id == Dataset.id)
+            .where(
+                and_(
+                    *mat_filter,
+                    func.length(func.trim(Material.original_material_code)) >= 2,
+                    func.length(func.trim(Material.original_description)) >= 5,
+                    Material.cpse_id.isnot(None),
+                )
+            )
+        ).scalar() or 0
+        validity = (valid_cnt / total_materials) * 100.0 if total_materials else 0.0
+
+        # 4. Standardization Consistency (15% weight)
+        has_canonical = sum(1 for a in attrs_list if (a or {}).get('canonical_key'))
+        clean_conflicts = sum(1 for a in attrs_list if (a or {}).get('_conflict_count', 0) == 0)
+        consistency = ((has_canonical / total_materials) * 0.5 + (clean_conflicts / total_materials) * 0.5) * 100.0 if total_materials else 0.0
+
+        quality = (completeness * 0.40) + (uniqueness * 0.30) + (validity * 0.15) + (consistency * 0.15)
+        return round(quality, 1)
+
     # -----------------------------------------------------------------------
     # Dashboard / Analytics
     # -----------------------------------------------------------------------
@@ -2081,7 +2169,7 @@ class NMCRepository:
                         match_base.where(MaterialMatch.status == "DIFFERENT").subquery()
                     )
                 ).scalar() or 0
-                quality_score = 93 if total_materials > 0 else 0
+                quality_score = self._calculate_data_quality_score(session, cpse_id=cpse_id, total_materials=total_materials)
             else:
                 total_cpsEs = session.execute(select(func.count(CPSE.id)).where(CPSE.status == "ACTIVE")).scalar() or 0
                 total_materials = session.execute(
@@ -2119,7 +2207,7 @@ class NMCRepository:
                 high_confidence = session.execute(
                     select(func.count(MaterialMatch.id)).where(MaterialMatch.final_confidence >= 0.8)
                 ).scalar() or 0
-                quality_score = 93 if total_materials > 0 else 0
+                quality_score = self._calculate_data_quality_score(session, cpse_id=None, total_materials=total_materials)
 
                 exact_matches = session.execute(
                     select(func.count(MaterialMatch.id)).where(MaterialMatch.final_confidence >= 0.90)

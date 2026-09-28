@@ -5,6 +5,7 @@ import { AlertCircle, TrendingUp, Clock, BarChart3, ArrowRight } from 'lucide-re
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { nmcApi } from '@/services/nmcApi';
+import { getCpseLogo } from '@/lib/cpseLogos';
 import {
   ResponsiveContainer,
   PieChart,
@@ -452,6 +453,7 @@ export function DashboardAnalyticsOverview({
               ) : (
                 cpseDistribution.map((item, idx) => {
                   const isHovered = hoveredSlice?.name === item.name;
+                  const logo = getCpseLogo(item.code, item.fullName);
                   return (
                     <div
                       key={idx}
@@ -467,6 +469,15 @@ export function DashboardAnalyticsOverview({
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: item.color }}
                       />
+                      {logo && (
+                        <div className="h-4 w-4 rounded-full overflow-hidden border border-border/60 bg-white flex items-center justify-center shrink-0 p-px shadow-2xs">
+                          <img
+                            src={logo}
+                            alt={item.code}
+                            className="h-full w-full object-contain rounded-full"
+                          />
+                        </div>
+                      )}
                       <span className="font-semibold text-foreground truncate flex-1 min-w-0">
                         {item.fullName}
                       </span>

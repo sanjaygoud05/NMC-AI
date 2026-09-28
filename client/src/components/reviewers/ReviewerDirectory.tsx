@@ -52,6 +52,7 @@ import {
   User,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getCpseLogo } from '@/lib/cpseLogos';
 
 export function ReviewerDirectory() {
   const queryClient = useQueryClient();
@@ -237,16 +238,26 @@ export function ReviewerDirectory() {
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {/* CPSE Filter */}
           <Select value={selectedCpse} onValueChange={setSelectedCpse}>
-            <SelectTrigger className="w-[140px] h-9 text-xs">
+            <SelectTrigger className="w-[150px] h-9 text-xs">
               <SelectValue placeholder="All CPSEs" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL" className="text-xs">All CPSEs</SelectItem>
-              {cpses?.map((c: any) => (
-                <SelectItem key={c.id} value={c.code} className="text-xs">
-                  {c.code}
-                </SelectItem>
-              ))}
+              {cpses?.map((c: any) => {
+                const logo = getCpseLogo(c.code, c.name);
+                return (
+                  <SelectItem key={c.id} value={c.code} className="text-xs">
+                    <div className="flex items-center gap-2">
+                      {logo && (
+                        <span className="h-4 w-4 rounded-full overflow-hidden border border-border/60 bg-white inline-flex items-center justify-center shrink-0 p-0.5">
+                          <img src={logo} alt="" className="h-full w-full object-contain rounded-full" />
+                        </span>
+                      )}
+                      <span>{c.code}</span>
+                    </div>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
 
@@ -305,17 +316,32 @@ export function ReviewerDirectory() {
 
                   return (
                     <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                      {/* Reviewer Name & ID */}
+                      {/* Reviewer Name & ID with Avatar */}
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-foreground text-sm leading-snug">
-                          {r.name}
-                        </div>
-                        <div className="font-mono text-[11px] text-muted-foreground mt-0.5">
-                          {r.id}
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-primary/20 overflow-hidden relative shadow-2xs">
+                            {getCpseLogo(r.cpse_code, r.cpse_name) ? (
+                              <img
+                                src={getCpseLogo(r.cpse_code, r.cpse_name)!}
+                                alt={r.cpse_code}
+                                className="h-full w-full object-contain bg-white p-0.5"
+                              />
+                            ) : (
+                              <span>{(r.name || 'R').charAt(0).toUpperCase()}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-foreground text-sm leading-snug truncate max-w-[200px]" title={r.name}>
+                              {r.name}
+                            </div>
+                            <div className="font-mono text-[11px] text-muted-foreground mt-0.5">
+                              {r.id}
+                            </div>
+                          </div>
                         </div>
                       </td>
 
-                      {/* CPSE */}
+                      {/* CPSE Enterprise */}
                       <td className="py-3 px-4">
                         <div className="font-bold text-foreground text-xs">
                           {r.cpse_code}
@@ -448,12 +474,23 @@ export function ReviewerDirectory() {
           {profileReviewer && (
             <div className="space-y-4 py-1 text-xs">
               <div className="bg-muted/40 p-3.5 rounded-lg space-y-2 border border-border/50">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground">{profileReviewer.name}</h3>
-                    <p className="font-mono text-[11px] text-muted-foreground">{profileReviewer.id}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {getCpseLogo(profileReviewer.cpse_code, profileReviewer.cpse_name) && (
+                      <div className="h-11 w-11 rounded-full overflow-hidden border border-border/80 bg-white flex items-center justify-center shrink-0 p-1 shadow-sm">
+                        <img
+                          src={getCpseLogo(profileReviewer.cpse_code, profileReviewer.cpse_name)!}
+                          alt={profileReviewer.cpse_code}
+                          className="h-full w-full object-contain rounded-full"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">{profileReviewer.name}</h3>
+                      <p className="font-mono text-[11px] text-muted-foreground">{profileReviewer.id}</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 bg-background px-2 py-1 rounded border border-border">
+                  <div className="flex items-center gap-1.5 bg-background px-2 py-1 rounded border border-border shrink-0">
                     <span
                       className={`h-2 w-2 rounded-full ${
                         profileReviewer.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
@@ -467,11 +504,22 @@ export function ReviewerDirectory() {
               </div>
 
               <div className="space-y-2.5">
-                <div className="flex justify-between py-1 border-b border-border/50">
-                  <span className="text-muted-foreground">CPSE Enterprise</span>
-                  <span className="font-semibold text-foreground text-right">
-                    {profileReviewer.cpse_code} — {profileReviewer.cpse_name}
-                  </span>
+                <div className="flex items-center justify-between py-1 border-b border-border/50 gap-2">
+                  <span className="text-muted-foreground shrink-0">CPSE Enterprise</span>
+                  <div className="flex items-center gap-1.5 justify-end">
+                    {getCpseLogo(profileReviewer.cpse_code, profileReviewer.cpse_name) && (
+                      <span className="h-4 w-4 rounded-full overflow-hidden border border-border/60 bg-white inline-flex items-center justify-center shrink-0 p-0.5">
+                        <img
+                          src={getCpseLogo(profileReviewer.cpse_code, profileReviewer.cpse_name)!}
+                          alt=""
+                          className="h-full w-full object-contain rounded-full"
+                        />
+                      </span>
+                    )}
+                    <span className="font-semibold text-foreground text-right">
+                      {profileReviewer.cpse_code} — {profileReviewer.cpse_name}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex justify-between py-1 border-b border-border/50">
@@ -637,22 +685,38 @@ export function ReviewerDirectory() {
                 </SelectTrigger>
                 <SelectContent>
                   {cpses && cpses.length > 0 ? (
-                    cpses.map((c: any) => (
-                      <SelectItem key={c.id} value={c.code} className="text-sm">
-                        {c.code} — {c.name}
-                      </SelectItem>
-                    ))
+                    cpses.map((c: any) => {
+                      const logo = getCpseLogo(c.code, c.name);
+                      return (
+                        <SelectItem key={c.id} value={c.code} className="text-sm">
+                          <div className="flex items-center gap-2">
+                            {logo && (
+                              <span className="h-4 w-4 rounded-full overflow-hidden border border-border/60 bg-white inline-flex items-center justify-center shrink-0 p-0.5">
+                                <img src={logo} alt="" className="h-full w-full object-contain rounded-full" />
+                              </span>
+                            )}
+                            <span>{c.code} — {c.name}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })
                   ) : (
                     <>
-                      <SelectItem value="HPCL">HPCL — Hindustan Petroleum Corporation</SelectItem>
-                      <SelectItem value="IOCL">IOCL — Indian Oil Corporation</SelectItem>
-                      <SelectItem value="ONGC">ONGC — Oil and Natural Gas Corporation</SelectItem>
-                      <SelectItem value="GAIL">GAIL — GAIL (India) Limited</SelectItem>
-                      <SelectItem value="BHEL">BHEL — Bharat Heavy Electricals</SelectItem>
-                      <SelectItem value="NTPC">NTPC — National Thermal Power Corporation</SelectItem>
-                      <SelectItem value="BPCL">BPCL — Bharat Petroleum Corporation</SelectItem>
-                      <SelectItem value="CIL">CIL — Coal India Limited</SelectItem>
-                      <SelectItem value="SAIL">SAIL — Steel Authority of India</SelectItem>
+                      {['HPCL', 'IOCL', 'ONGC', 'GAIL', 'BPCL', 'SAIL', 'NTPC', 'HAL', 'CPCL'].map((code) => {
+                        const logo = getCpseLogo(code);
+                        return (
+                          <SelectItem key={code} value={code}>
+                            <div className="flex items-center gap-2">
+                              {logo && (
+                                <span className="h-4 w-4 rounded-full overflow-hidden border border-border/60 bg-white inline-flex items-center justify-center shrink-0 p-0.5">
+                                  <img src={logo} alt="" className="h-full w-full object-contain rounded-full" />
+                                </span>
+                              )}
+                              <span>{code}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </>
                   )}
                 </SelectContent>

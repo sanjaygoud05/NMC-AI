@@ -35,6 +35,7 @@ import {
   CheckCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getCpseLogo } from '@/lib/cpseLogos';
 
 // Confidence band options for the dropdown filter
 const CONF_OPTIONS = [
@@ -401,6 +402,11 @@ export default function Review() {
             <td className="p-3 min-w-[200px] max-w-[280px]">
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-xs">
+                  {getCpseLogo(m.dispute_cpse_code || m.source_cpse_code) && (
+                    <span className="h-4 w-4 rounded-full overflow-hidden border border-rose-500/30 bg-white inline-flex items-center justify-center shrink-0 p-0.5">
+                      <img src={getCpseLogo(m.dispute_cpse_code || m.source_cpse_code)!} alt="" className="h-full w-full object-contain rounded-full" />
+                    </span>
+                  )}
                   <Badge
                     variant="outline"
                     className="text-[10px] px-1.5 py-0 font-mono font-bold border-rose-500/30 text-rose-700 dark:text-rose-300 bg-rose-500/10"
@@ -699,8 +705,18 @@ export default function Review() {
 
         {/* ── Reviewer CPSE Scoping Banner ── */}
         {isReviewer && reviewerCpse && (
-          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
-            <Building2 className="h-4 w-4 shrink-0 text-primary" />
+          <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground shadow-2xs">
+            {getCpseLogo(reviewerCpse) ? (
+              <span className="h-6 w-6 rounded-full overflow-hidden border border-border/80 bg-white inline-flex items-center justify-center shrink-0 p-0.5 shadow-2xs">
+                <img
+                  src={getCpseLogo(reviewerCpse)!}
+                  alt={reviewerCpse}
+                  className="h-full w-full object-contain rounded-full"
+                />
+              </span>
+            ) : (
+              <Building2 className="h-4 w-4 shrink-0 text-primary" />
+            )}
             <span className="leading-relaxed">
               Signed in as <strong className="text-foreground">{reviewerName || 'Reviewer'}</strong>
               {' '}— review queue is scoped exclusively to{' '}
@@ -934,8 +950,14 @@ export default function Review() {
 
                 {/* CPSE Dropdown — locked for reviewers, open for admins */}
                 {isReviewer ? (
-                  <div className="flex items-center gap-1.5 h-9 px-2.5 w-[150px] rounded-md border border-input bg-muted/40 text-xs text-muted-foreground cursor-not-allowed select-none">
-                    <Building2 className="h-3 w-3 shrink-0" />
+                  <div className="flex items-center gap-1.5 h-9 px-2.5 w-[160px] rounded-md border border-input bg-muted/40 text-xs text-muted-foreground cursor-not-allowed select-none">
+                    {getCpseLogo(reviewerCpse) ? (
+                      <span className="h-4 w-4 rounded-full overflow-hidden border border-border/60 bg-white inline-flex items-center justify-center shrink-0 p-0.5">
+                        <img src={getCpseLogo(reviewerCpse)!} alt="" className="h-full w-full object-contain rounded-full" />
+                      </span>
+                    ) : (
+                      <Building2 className="h-3 w-3 shrink-0" />
+                    )}
                     <span className="font-medium text-foreground truncate">{reviewerCpse}</span>
                     <span className="text-muted-foreground text-[10px] whitespace-nowrap">— Scoped</span>
                   </div>
@@ -949,11 +971,21 @@ export default function Review() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ALL" className="text-xs">All CPSEs</SelectItem>
-                      {cpses?.map((c: any) => (
-                        <SelectItem key={c.id} value={c.id} className="text-xs">
-                          {c.code} — {c.name}
-                        </SelectItem>
-                      ))}
+                      {cpses?.map((c: any) => {
+                        const logo = getCpseLogo(c.code, c.name);
+                        return (
+                          <SelectItem key={c.id} value={c.id} className="text-xs">
+                            <div className="flex items-center gap-2">
+                              {logo && (
+                                <span className="h-4 w-4 rounded-full overflow-hidden border border-border/60 bg-white inline-flex items-center justify-center shrink-0 p-0.5">
+                                  <img src={logo} alt="" className="h-full w-full object-contain rounded-full" />
+                                </span>
+                              )}
+                              <span>{c.code}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 )}

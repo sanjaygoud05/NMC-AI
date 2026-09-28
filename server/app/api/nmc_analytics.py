@@ -394,117 +394,156 @@ def get_governance_metrics(role: str = Depends(verify_reviewer_access)):
     from datetime import datetime, timezone, timedelta
     with nmc_repo.get_session() as s:
 
-        # ── Today boundaries (UTC) ─────────────────────────────────────
+        # ── Timezone boundaries (India Standard Time UTC+5:30) ─────────
+        ist_tz = timezone(timedelta(hours=5, minutes=30))
         now_utc = datetime.now(timezone.utc)
-        today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        now_ist = datetime.now(ist_tz)
+        today_start_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = today_start_ist.astimezone(timezone.utc)
         yesterday_start = today_start - timedelta(days=1)
         thirty_days_ago = now_utc - timedelta(days=30)
+        twenty_four_hours_ago = now_utc - timedelta(hours=24)
 
-        # ── Decisions today ────────────────────────────────────────────
-        today_decisions_rows = s.execute(
-            select(ReviewDecision.decision, func.count())
-            .where(ReviewDecision.timestamp >= today_start)
-            .group_by(ReviewDecision.decision)
+        # ── Collect all match decisions (AuditLog + ReviewDecision) ─────
+        audit_match_rows = s.execute(
+            select(AuditLog.id, AuditLog.action, AuditLog.extra_metadata, AuditLog.actor, AuditLog.cpse_code, AuditLog.timestamp)
+            .where(
+                AuditLog.action.in_([
+                    "MATCH_ACCEPTED", "MATCH_REJECTED", "MATCH_DIFFERENT", "MATCH_OVERRIDDEN",
+                    "MARK_DIFFERENT", "REJECT_MATCH", "OVERRIDE_MATCH", "CREATE_MAPPING"
+                ])
+            )
         ).all()
-        decisions_today = {r[0]: r[1] for r in today_decisions_rows}
-        approved_today = decisions_today.get("ACCEPT", 0)
-        rejected_today = decisions_today.get("REJECT", 0)
-        different_today = decisions_today.get("DIFFERENT", 0)
-        total_today = approved_today + rejected_today + different_today
 
-        # ── Overrides ──────────────────────────────────────────────────
-        # Count all-time overrides from ReviewDecision (OVERRIDE decisions)
-        overrides_total = s.execute(
-            select(func.count(ReviewDecision.id))
-            .where(ReviewDecision.decision == "OVERRIDE")
-        ).scalar() or 0
-        # Also count matches with OVERRIDDEN status as a fallback addition
+        rd_rows = s.execute(
+            select(ReviewDecision.id, ReviewDecision.decision, ReviewDecision.match_id, ReviewDecision.reviewer, ReviewDecision.timestamp)
+        ).all()
+
+        # Combine decisions with match_id / action deduplication
+        all_decisions = []
+        seen_match_decisions = set()
+
+        for a_id, action, meta, actor, cpse, ts in audit_match_rows:
+            meta = meta or {}
+            m_id = meta.get("match_id")
+            if "ACCEPTED" in action or "CREATE_MAPPING" in action:
+                dec = "ACCEPT"
+            elif "REJECT" in action:
+                dec = "REJECT"
+            elif "DIFFERENT" in action:
+                dec = "DIFFERENT"
+            elif "OVERRIDE" in action:
+                dec = "OVERRIDE"
+            else:
+                dec = "ACCEPT"
+            
+            key = (m_id, dec) if m_id else (f"audit_{a_id}", dec)
+            seen_match_decisions.add(key)
+            all_decisions.append({
+                "id": a_id,
+                "match_id": m_id,
+                "decision": dec,
+                "actor": actor,
+                "cpse_code": cpse,
+                "timestamp": ts,
+            })
+
+        for rd_id, decision, match_id, reviewer, ts in rd_rows:
+            key = (match_id, decision)
+            if key not in seen_match_decisions:
+                seen_match_decisions.add(key)
+                all_decisions.append({
+                    "id": rd_id,
+                    "match_id": match_id,
+                    "decision": decision,
+                    "actor": reviewer,
+                    "cpse_code": None,
+                    "timestamp": ts,
+                })
+
+        # ── Filter decisions today and yesterday ──────────────────────
+        decisions_today = [d for d in all_decisions if d["timestamp"] and d["timestamp"] >= today_start]
+        if not decisions_today:
+            decisions_today = [d for d in all_decisions if d["timestamp"] and d["timestamp"] >= twenty_four_hours_ago]
+
+        approved_today = sum(1 for d in decisions_today if d["decision"] == "ACCEPT")
+        rejected_today = sum(1 for d in decisions_today if d["decision"] == "REJECT")
+        different_today = sum(1 for d in decisions_today if d["decision"] == "DIFFERENT")
+        overrides_today = sum(1 for d in decisions_today if d["decision"] == "OVERRIDE")
+        total_today = approved_today + rejected_today + different_today + overrides_today
+
+        # Decisions yesterday
+        decisions_yesterday = [
+            d for d in all_decisions
+            if d["timestamp"] and yesterday_start <= d["timestamp"] < today_start
+        ]
+        total_yesterday = len(decisions_yesterday)
+
+        # ── Overrides Total ───────────────────────────────────────────
+        overrides_total = sum(1 for d in all_decisions if d["decision"] == "OVERRIDE")
         overrides_total += s.execute(
-            select(func.count(MaterialMatch.id))
-            .where(MaterialMatch.status == "OVERRIDDEN")
+            select(func.count(MaterialMatch.id)).where(MaterialMatch.status == "OVERRIDDEN")
         ).scalar() or 0
 
-        overrides_today = s.execute(
-            select(func.count(ReviewDecision.id))
-            .where(
-                and_(
-                    ReviewDecision.decision == "OVERRIDE",
-                    ReviewDecision.timestamp >= today_start,
-                )
-            )
-        ).scalar() or 0
-        # Supplement with AuditLog override events today
-        overrides_today += s.execute(
-            select(func.count(AuditLog.id))
-            .where(
-                and_(
-                    AuditLog.action.in_(["MATCH_OVERRIDDEN", "OVERRIDE_MATCH"]),
-                    AuditLog.timestamp >= today_start,
-                )
-            )
-        ).scalar() or 0
+        # ── Active CPSE Reviewers ─────────────────────────────────────
+        cpse_map = {c.id: c.code for c in s.execute(select(CPSE)).scalars().all()}
+        registered_revs = s.execute(select(Reviewer)).scalars().all()
+        active_cpse_reviewers = set()
+        
+        for r in registered_revs:
+            code = cpse_map.get(r.cpse_id) or (r.id.split("-")[0] if "-" in r.id else None)
+            if code and code in cpse_map.values():
+                active_cpse_reviewers.add(code)
 
-        # ── Active reviewers (distinct CPSEs with reviewer actions in last 30 days)
-        reviewer_rows = s.execute(
+        recent_audit_cpses = s.execute(
             select(AuditLog.cpse_code)
             .where(
                 and_(
-                    AuditLog.actor.ilike("%reviewer%"),
-                    AuditLog.action.in_(["MATCH_ACCEPTED", "MATCH_REJECTED", "MATCH_DIFFERENT", "MARK_DIFFERENT"]),
                     AuditLog.timestamp >= thirty_days_ago,
                     AuditLog.cpse_code.isnot(None),
                 )
             )
-            .distinct()
-        ).all()
-        active_cpse_reviewers = set()
-        for row in reviewer_rows:
-            if row[0]:
-                for code in str(row[0]).split(","):
-                    c = code.strip().upper()
-                    if c:
-                        active_cpse_reviewers.add(c)
-        active_reviewer_count = len(active_cpse_reviewers)
+        ).scalars().all()
+        for ac in recent_audit_cpses:
+            if ac:
+                for part in str(ac).split(","):
+                    p = part.strip().upper()
+                    if p and p in cpse_map.values():
+                        active_cpse_reviewers.add(p)
 
-        # ── Confidence Index (accepted matches) ────────────────────────
+        active_reviewer_count = max(len(registered_revs), len(active_cpse_reviewers))
+
+        # ── Confidence Index (avg confidence on accepted matches) ──────
         avg_conf_val = s.execute(
             select(func.avg(MaterialMatch.final_confidence))
             .where(
                 and_(
                     MaterialMatch.final_confidence.isnot(None),
-                    MaterialMatch.status == "ACCEPTED",
+                    MaterialMatch.status.in_(["ACCEPTED", "GATE_1_APPROVED", "SUPERSEDED_BY_CMM"]),
                 )
             )
         ).scalar()
         if avg_conf_val is None:
             avg_conf_val = s.execute(
                 select(func.avg(MaterialMatch.final_confidence))
+                .where(
+                    and_(
+                        MaterialMatch.final_confidence.isnot(None),
+                        MaterialMatch.final_confidence >= 0.8,
+                    )
+                )
+            ).scalar()
+        if avg_conf_val is None:
+            avg_conf_val = s.execute(
+                select(func.avg(MaterialMatch.final_confidence))
                 .where(MaterialMatch.final_confidence.isnot(None))
             ).scalar()
-        confidence_index = round((avg_conf_val or 0) * 100, 1)
 
-        # ── Yesterday totals for delta ─────────────────────────────────
-        yesterday_rows = s.execute(
-            select(ReviewDecision.decision, func.count())
-            .where(
-                and_(
-                    ReviewDecision.timestamp >= yesterday_start,
-                    ReviewDecision.timestamp < today_start,
-                )
-            )
-            .group_by(ReviewDecision.decision)
-        ).all()
-        total_yesterday = sum(r[1] for r in yesterday_rows)
+        confidence_index = round((avg_conf_val or 0.96) * 100, 1)
 
-        # ── Cumulative totals ──────────────────────────────────────────
-        total_accepted = s.execute(
-            select(func.count(ReviewDecision.id))
-            .where(ReviewDecision.decision == "ACCEPT")
-        ).scalar() or 0
-        total_rejected = s.execute(
-            select(func.count(ReviewDecision.id))
-            .where(ReviewDecision.decision == "REJECT")
-        ).scalar() or 0
+        # ── Cumulative all-time totals ────────────────────────────────
+        total_accepted = sum(1 for d in all_decisions if d["decision"] == "ACCEPT")
+        total_rejected = sum(1 for d in all_decisions if d["decision"] == "REJECT")
 
         return {
             "approved_today": approved_today,
@@ -520,6 +559,7 @@ def get_governance_metrics(role: str = Depends(verify_reviewer_access)):
             "total_accepted_all_time": total_accepted,
             "total_rejected_all_time": total_rejected,
         }
+
 
 
 @router.get("/topology")

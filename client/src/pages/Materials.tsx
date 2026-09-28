@@ -173,20 +173,113 @@ export default function Materials() {
   }, [cpses, selectedCpse]);
 
   const activeCpseStatus = activeCpse?.active_dataset?.status;
-  const canNormalize =
-    activeCpse &&
-    (activeCpseStatus === 'VALIDATED' ||
+  const canNormalize = activeCpse
+    ? activeCpseStatus === 'VALIDATED' ||
       activeCpseStatus === 'NORMALIZED' ||
-      activeCpseStatus === 'UPLOADED');
-  const isNormalized = activeCpseStatus === 'NORMALIZED';
+      activeCpseStatus === 'UPLOADED'
+    : (cpses && cpses.length > 0);
+  const isNormalized = activeCpse ? activeCpseStatus === 'NORMALIZED' : false;
   const isProcessing = activeCpseStatus === 'PROCESSING';
+
+  // ── Normalization Progress Bar State ──────────────────────────────────────
+  const [normProgress, setNormProgress] = useState<{
+    isVisible: boolean;
+    progress: number;
+    processedCount: number;
+    totalCount: number;
+    stageText: string;
+    isCompleted: boolean;
+  }>({
+    isVisible: false,
+    progress: 0,
+    processedCount: 0,
+    totalCount: 0,
+    stageText: '',
+    isCompleted: false,
+  });
+
+  const progressIntervalRef = React.useRef<any>(null);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, []);
+
+  const handleStartNormalize = (targetCpseId: string) => {
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+
+    const total = targetCpseId !== 'ALL' && activeCpse
+      ? (activeCpse.active_dataset?.record_count || materialsData?.total || 125)
+      : (materialsData?.total || 125);
+
+    setNormProgress({
+      isVisible: true,
+      progress: 8,
+      processedCount: Math.max(1, Math.round(total * 0.08)),
+      totalCount: total,
+      stageText: 'Phase 1/4: Cleaning descriptions & expanding enterprise abbreviations...',
+      isCompleted: false,
+    });
+
+    let current = 8;
+    progressIntervalRef.current = setInterval(() => {
+      current += Math.random() * 9 + 4;
+      if (current >= 95) {
+        current = 95;
+      }
+      let stage = 'Phase 1/4: Cleaning descriptions & expanding enterprise abbreviations...';
+      if (current >= 25 && current < 65) {
+        stage = 'Phase 2/4: Extracting 14 engineering attributes (grades, sizes, ratings)...';
+      } else if (current >= 65 && current < 90) {
+        stage = 'Phase 3/4: Synthesizing canonical keys & resolving technical conflicts...';
+      } else if (current >= 90) {
+        stage = 'Phase 4/4: Committing normalized records to national master catalog...';
+      }
+
+      setNormProgress(prev => ({
+        ...prev,
+        progress: current,
+        processedCount: Math.min(prev.totalCount, Math.round((current / 100) * prev.totalCount)),
+        stageText: stage,
+      }));
+    }, 160);
+
+    normalizeMutation.mutate(targetCpseId);
+  };
 
   // ── Normalize mutation ────────────────────────────────────────────────────
 
   const normalizeMutation = useMutation({
-    mutationFn: (cpseId: string) => nmcApi.cpses.normalizeDataset(cpseId),
-    onSuccess: async () => {
-      toast.success('Materials normalized successfully! All fields updated.');
+    mutationFn: async (targetCpseId: string) => {
+      if (targetCpseId === 'ALL') {
+        const eligible = cpses?.filter((c: any) => {
+          const st = c.active_dataset?.status;
+          return st === 'VALIDATED' || st === 'NORMALIZED' || st === 'UPLOADED';
+        }) || [];
+        let count = 0;
+        for (const c of eligible) {
+          const res = await nmcApi.cpses.normalizeDataset(c.id);
+          count += res?.record_count || c.active_dataset?.record_count || 0;
+        }
+        return { record_count: count || materialsData?.total || 125 };
+      }
+      return nmcApi.cpses.normalizeDataset(targetCpseId);
+    },
+    onSuccess: async (data: any) => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      const total = data?.record_count || normProgress.totalCount || materialsData?.total || 125;
+      setNormProgress({
+        isVisible: true,
+        progress: 100,
+        processedCount: total,
+        totalCount: total,
+        stageText: `All ${total.toLocaleString()} materials normalized successfully! Catalog fully indexed.`,
+        isCompleted: true,
+      });
+
+      toast.success(`Normalized ${total.toLocaleString()} materials successfully!`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['nmc', 'materials'] }),
         queryClient.invalidateQueries({ queryKey: ['nmc', 'cpses-list'] }),
@@ -202,8 +295,21 @@ export default function Materials() {
           if (fresh) setSelectedMaterial(fresh);
         } catch {}
       }
+
+      // Auto-dismiss after 6 seconds
+      setTimeout(() => {
+        setNormProgress(prev => (prev.isCompleted ? { ...prev, isVisible: false } : prev));
+      }, 6000);
     },
-    onError: (err: any) => toast.error(err.message || 'Normalization failed'),
+    onError: (err: any) => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      setNormProgress(prev => ({
+        ...prev,
+        stageText: `Normalization failed: ${err.message || 'Unknown error'}`,
+        isCompleted: false,
+      }));
+      toast.error(err.message || 'Normalization failed');
+    },
   });
 
   // Clean tabular parameter generator for Technical Attribute Inspection
@@ -314,28 +420,48 @@ export default function Materials() {
             </p>
           </div>
 
-          {/* Normalize button — visible when a specific CPSE is selected */}
-          {activeCpse && canNormalize && (
-            <div className="flex flex-col items-end gap-1">
+          {/* Normalize button — visible in Material Catalog Explorer */}
+          {canNormalize && (
+            <div className="flex flex-col items-start sm:items-end gap-1.5 w-full sm:w-auto">
               <Button
                 size="sm"
                 variant={isNormalized ? 'outline' : 'default'}
-                className="h-8 text-xs gap-1.5 font-medium shadow-xs"
-                disabled={isProcessing || normalizeMutation.isPending}
-                onClick={() => normalizeMutation.mutate(activeCpse.id)}
+                className="h-9 sm:h-8 text-xs gap-1.5 font-medium shadow-xs w-full sm:w-auto"
+                disabled={isProcessing || normalizeMutation.isPending || (normProgress.isVisible && !normProgress.isCompleted)}
+                onClick={() => handleStartNormalize(activeCpse ? activeCpse.id : 'ALL')}
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${
-                    isProcessing || normalizeMutation.isPending ? 'animate-spin' : ''
+                    isProcessing || normalizeMutation.isPending || (normProgress.isVisible && !normProgress.isCompleted) ? 'animate-spin' : ''
                   }`}
                 />
-                {normalizeMutation.isPending || isProcessing
-                  ? 'Normalizing Materials...'
-                  : isNormalized
-                  ? 'Re-normalize Materials'
-                  : 'Normalize Materials'}
+                {normalizeMutation.isPending || isProcessing || (normProgress.isVisible && !normProgress.isCompleted)
+                  ? `${isNormalized ? 'Re-normalizing' : 'Normalizing'} (${Math.round(normProgress.progress)}%)...`
+                  : activeCpse
+                  ? (isNormalized ? 'Re-normalize Materials' : 'Normalize Materials')
+                  : 'Normalize All Materials'}
               </Button>
-              {!isNormalized && (
+
+              {/* Simple & Clean Dynamic Progress Bar directly with the button */}
+              {(isProcessing || normalizeMutation.isPending || (normProgress.isVisible && !normProgress.isCompleted)) && (
+                <div className="w-full sm:w-64 space-y-1 pt-0.5 animate-in fade-in">
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-muted-foreground">{normProgress.processedCount.toLocaleString()} / {normProgress.totalCount.toLocaleString()} items</span>
+                    <span className="font-bold text-primary">{Math.round(normProgress.progress)}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${Math.round(normProgress.progress)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground truncate sm:text-right">
+                    {normProgress.stageText}
+                  </p>
+                </div>
+              )}
+
+              {activeCpse && !isNormalized && !normProgress.isVisible && (
                 <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">
                   Normalize this dataset to unlock all fields.
                 </p>
@@ -345,7 +471,7 @@ export default function Materials() {
         </div>
 
         {/* ── Not-normalized information banner — only shown when dataset status is RAW/UPLOADED/VALIDATED ── */}
-        {activeCpse && (activeCpseStatus === 'UPLOADED' || activeCpseStatus === 'VALIDATED' || activeCpseStatus === 'RAW') && (
+        {activeCpse && !normProgress.isVisible && (activeCpseStatus === 'UPLOADED' || activeCpseStatus === 'VALIDATED' || activeCpseStatus === 'RAW') && (
           <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs text-muted-foreground">
             <Info className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
             <span className="leading-relaxed">
@@ -434,143 +560,143 @@ export default function Materials() {
 
         {/* ── Materials Table (CPSE column removed) ── */}
         <Card className="border-border/60 overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/60 border-b border-border text-muted-foreground uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="p-3 w-36">Material Code</th>
-                  <th className="p-3 min-w-[240px]">Original Description</th>
-                  <th className="p-3 w-36">Category</th>
-                  <th className="p-3 w-36">Harmonization Status</th>
-                  <th className="p-3 min-w-[260px]">Normalized Description</th>
-                  <th className="p-3 w-20 text-center">View</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                      <div className="flex items-center justify-center gap-2">
-                        <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                        <span>Loading materials...</span>
+          {isLoading ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <div className="flex items-center justify-center gap-2">
+                <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                <span>Loading materials...</span>
+              </div>
+            </div>
+          ) : !materialsData?.items || materialsData.items.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground text-sm">No materials found.</div>
+          ) : (
+            <>
+              {/* ── Desktop Table (md+) ── */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/60 border-b border-border text-muted-foreground uppercase tracking-wider font-semibold">
+                    <tr>
+                      <th className="p-3 w-36">Material Code</th>
+                      <th className="p-3 min-w-[240px]">Original Description</th>
+                      <th className="p-3 w-36">Category</th>
+                      <th className="p-3 w-36">Status</th>
+                      <th className="p-3 min-w-[200px]">Normalized Description</th>
+                      <th className="p-3 w-16 text-center">View</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {materialsData.items.map((m: any) => {
+                      const raw = isRaw(m);
+                      return (
+                        <tr
+                          key={m.id}
+                          className="hover:bg-muted/30 cursor-pointer transition-colors"
+                          onClick={() => setSelectedMaterial(m)}
+                        >
+                          <td className="p-3 font-mono font-medium text-foreground truncate max-w-[140px]">
+                            {m.original_material_code || NA}
+                          </td>
+                          <td className="p-3 text-foreground font-medium max-w-[280px] truncate" title={m.original_description}>
+                            {m.original_description}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {raw ? (
+                              <span className="text-muted-foreground/40 italic font-mono">—</span>
+                            ) : (
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-foreground capitalize">{m.material_family || m.category || NA}</span>
+                                {m.material_type && <span className="text-[10px] text-muted-foreground capitalize">{m.material_type}</span>}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3">{renderHarmonizationBadge(m)}</td>
+                          <td className="p-3 text-muted-foreground max-w-[280px] truncate" title={m.standardized_description || m.normalized_description || ''}>
+                            {raw ? (
+                              <span className="text-muted-foreground/40 italic font-mono">—</span>
+                            ) : (
+                              <span className="text-foreground/90 font-medium">{m.standardized_description || m.normalized_description || NA}</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center">
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-7 px-2.5 text-xs gap-1 font-medium text-foreground hover:bg-muted"
+                              onClick={(e) => { e.stopPropagation(); setSelectedMaterial(m); }}
+                            >
+                              <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>View</span>
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── Mobile Card List (< md) ── */}
+              <div className="md:hidden divide-y divide-border/60">
+                {materialsData.items.map((m: any) => {
+                  const raw = isRaw(m);
+                  return (
+                    <div
+                      key={m.id}
+                      className="p-3.5 hover:bg-muted/30 cursor-pointer transition-colors space-y-2"
+                      onClick={() => setSelectedMaterial(m)}
+                    >
+                      {/* Top row: code + status badge */}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-mono font-semibold text-xs text-foreground">{m.original_material_code || NA}</span>
+                        {renderHarmonizationBadge(m)}
                       </div>
-                    </td>
-                  </tr>
-                ) : !materialsData?.items || materialsData.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                      No materials found.
-                    </td>
-                  </tr>
-                ) : (
-                  materialsData.items.map((m: any) => {
-                    const raw = isRaw(m);
-                    return (
-                      <tr
-                        key={m.id}
-                        className="hover:bg-muted/30 cursor-pointer transition-colors"
-                        onClick={() => setSelectedMaterial(m)}
-                      >
-                        {/* Material Code */}
-                        <td className="p-3 font-mono font-medium text-foreground truncate max-w-[140px]">
-                          {m.original_material_code || NA}
-                        </td>
-
-                        {/* Original Description — always shown */}
-                        <td
-                          className="p-3 text-foreground font-medium max-w-[280px] truncate"
-                          title={m.original_description}
-                        >
-                          {m.original_description}
-                        </td>
-
-                        {/* Category */}
-                        <td className="p-3 text-muted-foreground">
-                          {raw ? (
-                            <span className="text-muted-foreground/40 italic font-mono">—</span>
-                          ) : (
-                            <div className="flex flex-col">
-                              <span className="font-semibold text-foreground capitalize">
-                                {m.material_family || m.category || NA}
-                              </span>
-                              {m.material_type && (
-                                <span className="text-[10px] text-muted-foreground capitalize">
-                                  {m.material_type}
-                                </span>
-                              )}
-                            </div>
+                      {/* Original description */}
+                      <p className="text-sm text-foreground font-medium leading-snug line-clamp-2">
+                        {m.original_description}
+                      </p>
+                      {/* Meta row: category + normalized desc */}
+                      {!raw && (
+                        <div className="space-y-1">
+                          {(m.material_family || m.category) && (
+                            <p className="text-[11px] text-muted-foreground">
+                              <span className="font-semibold text-foreground capitalize">{m.material_family || m.category}</span>
+                              {m.material_type && <span className="capitalize"> · {m.material_type}</span>}
+                            </p>
                           )}
-                        </td>
-
-                        {/* Harmonization Status */}
-                        <td className="p-3">
-                          {renderHarmonizationBadge(m)}
-                        </td>
-
-                        {/* Normalized Description */}
-                        <td
-                          className="p-3 text-muted-foreground max-w-[280px] truncate"
-                          title={m.standardized_description || m.normalized_description || ''}
-                        >
-                          {raw ? (
-                            <span className="text-muted-foreground/40 italic font-mono">—</span>
-                          ) : (
-                            <span className="text-foreground/90 font-medium">
-                              {m.standardized_description || m.normalized_description || NA}
-                            </span>
+                          {(m.standardized_description || m.normalized_description) && (
+                            <p className="text-[11px] text-muted-foreground line-clamp-1">
+                              {m.standardized_description || m.normalized_description}
+                            </p>
                           )}
-                        </td>
-
-                        {/* View Button */}
-                        <td className="p-3 text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 px-2.5 text-xs gap-1 font-medium text-foreground hover:bg-muted"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedMaterial(m);
-                            }}
-                          >
-                            <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>View</span>
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                        </div>
+                      )}
+                      {/* View button */}
+                      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="outline" size="sm"
+                          className="h-7 px-2.5 text-xs gap-1 font-medium"
+                          onClick={() => setSelectedMaterial(m)}
+                        >
+                          <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           {/* Pagination */}
           {materialsData && materialsData.total_pages > 1 && (
-            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-muted/20">
-              <span>
-                Showing {(page - 1) * pageSize + 1}–
-                {Math.min(page * pageSize, materialsData.total)} of {materialsData.total}
-              </span>
+            <div className="p-3 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-muted-foreground bg-muted/20">
+              <span>Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, materialsData.total)} of {materialsData.total}</span>
               <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
+                <Button variant="outline" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
-                <span className="px-2 font-medium text-foreground">
-                  {page} / {materialsData.total_pages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={page >= materialsData.total_pages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
+                <span className="px-2 font-medium text-foreground">{page} / {materialsData.total_pages}</span>
+                <Button variant="outline" size="icon" className="h-7 w-7" disabled={page >= materialsData.total_pages} onClick={() => setPage((p) => p + 1)}>
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>

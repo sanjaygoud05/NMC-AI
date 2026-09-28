@@ -74,11 +74,18 @@ def list_cpsEs():
 
 @router.post("")
 def create_cpse(req: CreateCPSERequest, _role: str = Depends(verify_admin_access)):
-    """Create a new CPSE. Admin-only."""
-    existing = nmc_repo.get_cpse(req.code.upper())
+    """Create a new CPSE. Admin-only. Supports registering the same enterprise again."""
+    code_to_use = req.code.strip().upper()
+    existing = nmc_repo.get_cpse(code_to_use)
     if existing:
-        raise HTTPException(status_code=409, detail=f"CPSE with code '{req.code.upper()}' already exists.")
-    return nmc_repo.create_cpse(name=req.name, code=req.code, description=req.description or "")
+        base_code = code_to_use
+        suffix = 2
+        candidate = f"{base_code}-{suffix}"
+        while nmc_repo.get_cpse(candidate):
+            suffix += 1
+            candidate = f"{base_code}-{suffix}"
+        code_to_use = candidate
+    return nmc_repo.create_cpse(name=req.name.strip(), code=code_to_use, description=req.description or "")
 
 
 @router.get("/{cpse_id}")

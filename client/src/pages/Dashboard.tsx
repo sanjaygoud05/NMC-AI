@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { nmcApi } from '@/services/nmcApi';
 import { DashboardAnalyticsOverview } from '@/components/dashboard/DashboardAnalyticsOverview';
+import { getCpseLogo } from '@/lib/cpseLogos';
 import {
   Database,
   Building2,
@@ -204,16 +205,30 @@ export default function Dashboard() {
                   const totalItems = activeDs?.record_count ?? c.material_count ?? 0;
                   const mapped = c.mapped_count ?? 0;
                   const pct = totalItems > 0 ? Math.round((mapped / totalItems) * 100) : 0;
+                  const logo = getCpseLogo(c.code, c.name);
 
                   return (
                     <React.Fragment key={c.id}>
-                      {/* ── Laptop / Desktop row (unchanged) ── */}
+                      {/* ── Laptop / Desktop row ── */}
                       <div className="hidden md:grid md:grid-cols-[2rem_1fr_8rem_8rem_6rem] gap-x-3 px-4 py-2.5 border-b border-border/40 last:border-b-0 hover:bg-muted/20 transition-colors">
                         {/* # */}
                         <span className="text-xs text-muted-foreground/60 flex items-center">{idx + 1}</span>
 
                         {/* Enterprise */}
-                        <div className="min-w-0 flex items-center gap-2">
+                        <div className="min-w-0 flex items-center gap-2.5">
+                          {logo ? (
+                            <div className="h-9 w-9 rounded-full overflow-hidden border border-border/60 bg-white flex items-center justify-center shrink-0 p-0.5 shadow-2xs">
+                              <img
+                                src={logo}
+                                alt={c.code || c.name}
+                                className="h-full w-full object-contain rounded-full"
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+                              {(c.code || c.name || 'CP').slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
                           <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
                           <Badge
                             variant="outline"
@@ -263,8 +278,21 @@ export default function Dashboard() {
                       {/* ── Mobile row (< md): Optimized card layout ── */}
                       <div className="md:hidden p-3.5 border-b border-border/40 last:border-b-0 space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <span className="text-xs text-muted-foreground/60 font-medium shrink-0">#{idx + 1}</span>
+                            {logo ? (
+                              <div className="h-9 w-9 rounded-full overflow-hidden border border-border/60 bg-white flex items-center justify-center shrink-0 p-0.5 shadow-2xs">
+                                <img
+                                  src={logo}
+                                  alt={c.code || c.name}
+                                  className="h-full w-full object-contain rounded-full"
+                                />
+                              </div>
+                            ) : (
+                              <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+                                {(c.code || c.name || 'CP').slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
                             <span className="text-sm font-semibold text-foreground truncate">{c.name}</span>
                           </div>
                           <Badge
@@ -357,31 +385,31 @@ export default function Dashboard() {
               <>
                 {/* Today's throughput — compact horizontal bar */}
                 <div className="px-4 py-3 border-b border-border/40 bg-muted/30">
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Activity className="h-3.5 w-3.5" />
                       <span className="font-medium text-foreground">Today's Review Throughput</span>
                       <span className="text-muted-foreground/70">({govMetrics?.total_today ?? 0} decisions)</span>
                     </div>
-                    <div className="flex items-center gap-4 ml-auto">
+                    <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                       <div className="flex items-center gap-1.5">
                         <ThumbsUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                         <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{govMetrics?.approved_today ?? 0}</span>
                         <span className="text-[11px] text-muted-foreground">Approved</span>
                       </div>
-                      <div className="w-px h-3.5 bg-border/60" />
+                      <div className="w-px h-3.5 bg-border/60 hidden sm:block" />
                       <div className="flex items-center gap-1.5">
                         <ThumbsDown className="h-3.5 w-3.5 text-rose-500" />
                         <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{govMetrics?.rejected_today ?? 0}</span>
                         <span className="text-[11px] text-muted-foreground">Rejected</span>
                       </div>
-                      <div className="w-px h-3.5 bg-border/60" />
+                      <div className="w-px h-3.5 bg-border/60 hidden sm:block" />
                       <div className="flex items-center gap-1.5">
                         <GitCompare className="h-3.5 w-3.5 text-purple-500" />
                         <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{govMetrics?.different_today ?? 0}</span>
                         <span className="text-[11px] text-muted-foreground">Different</span>
                       </div>
-                      <div className="w-px h-3.5 bg-border/60" />
+                      <div className="w-px h-3.5 bg-border/60 hidden sm:block" />
                       <div className="flex items-center gap-1.5">
                         <RotateCcw className="h-3.5 w-3.5 text-amber-500" />
                         <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{govMetrics?.overrides_today ?? 0}</span>
@@ -402,7 +430,7 @@ export default function Dashboard() {
                     </div>
                     <div className="my-2.5">
                       <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
-                        {govMetrics?.active_reviewer_count ?? '—'}
+                        {govMetrics?.active_reviewer_count ?? 0}
                       </span>
                     </div>
                     <div className="space-y-1.5">
@@ -430,7 +458,7 @@ export default function Dashboard() {
                     </div>
                     <div className="my-2.5">
                       <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
-                        {govMetrics?.overrides_total ?? '—'}
+                        {govMetrics?.overrides_total ?? 0}
                       </span>
                     </div>
                     <div>
@@ -449,7 +477,7 @@ export default function Dashboard() {
                     </div>
                     <div className="my-2.5">
                       <span className="text-3xl font-bold tracking-tight text-foreground font-sans">
-                        {govMetrics?.confidence_index ?? '—'}%
+                        {govMetrics?.confidence_index != null ? `${govMetrics.confidence_index}%` : '—'}
                       </span>
                     </div>
                     <div className="space-y-1.5">
@@ -468,8 +496,8 @@ export default function Dashboard() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2.5 border-t border-border/40 bg-muted/20 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-4">
+                <div className="px-4 py-2.5 border-t border-border/40 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                     <span>All-time decisions:</span>
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">✓ {govMetrics?.total_accepted_all_time ?? 0} Accepted</span>
                     <span className="text-rose-600 dark:text-rose-400 font-medium">✗ {govMetrics?.total_rejected_all_time ?? 0} Rejected</span>
