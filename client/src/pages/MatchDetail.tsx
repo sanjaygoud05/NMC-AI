@@ -130,6 +130,32 @@ export default function MatchDetail() {
     match.dispute_decision === 'DIFFERENT' ||
     (match.review_decisions && match.review_decisions.some((d: any) => d.decision === 'DIFFERENT'));
 
+  const isGate1Approved = match.status === 'GATE_1_APPROVED';
+  const gate1Cpse =
+    match.gate1_cpse_code ||
+    (match.review_decisions && match.review_decisions.length > 0
+      ? match.review_decisions[0].cpse_code
+      : null);
+  const isSameCpseAsGate1 = Boolean(
+    reviewerCpse &&
+      gate1Cpse &&
+      reviewerCpse.trim().toUpperCase() === gate1Cpse.trim().toUpperCase()
+  );
+
+  // Can the current user submit a routine or Gate 2 review decision?
+  const canReview =
+    !isConflict &&
+    (match.status === 'PENDING_REVIEW' ||
+      (isGate1Approved && (!isSameCpseAsGate1 || isAdmin)));
+
+  const isAwaitingPeerForViewer =
+    !isConflict && isGate1Approved && isSameCpseAsGate1 && !isAdmin;
+
+  const counterpartCpse =
+    gate1Cpse && src?.cpse_code && gate1Cpse.toUpperCase() === src.cpse_code.toUpperCase()
+      ? cand?.cpse_code || cand?.cpse_name
+      : src?.cpse_code || src?.cpse_name;
+
   return (
     <AppLayout requireReviewer>
       <div className="space-y-6 max-w-6xl mx-auto">
@@ -155,11 +181,18 @@ export default function MatchDetail() {
                   : match.status === 'ACCEPTED' || match.status === 'OVERRIDDEN'
                     ? 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10'
                     : match.status === 'GATE_1_APPROVED'
-                      ? 'border-sky-500/40 text-sky-700 dark:text-sky-300 bg-sky-500/10'
+                      ? 'border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10'
                       : 'border-border text-foreground')
               }
             >
-              Status: <span className="ml-1 uppercase font-bold">{match.status}</span>
+              Status:{' '}
+              <span className="ml-1 uppercase font-bold">
+                {match.status === 'GATE_1_APPROVED'
+                  ? canReview
+                    ? 'ACTION REQUIRED (GATE 2 CO-ENDORSEMENT)'
+                    : 'GATE 1 APPROVED (AWAITING PEER)'
+                  : match.status}
+              </span>
             </Badge>
             <Badge
               className={`text-xs px-2.5 py-1 font-medium shadow-none whitespace-nowrap ${
@@ -617,22 +650,51 @@ export default function MatchDetail() {
           </Card>
         )}
 
-        {/* 5. ROUTINE REVIEW ACTIONS (When NOT a conflict) */}
+        {/* 5. REVIEW ACTIONS (Routine Gate 1 or Gate 2 Action Alert) */}
 
-        {/* For Pending review cases (Reviewer Gate 1) */}
-        {!isConflict && match.status === 'PENDING_REVIEW' && (
-          <Card className="border-border/60">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">
-                Submit Reviewer Determination
-              </CardTitle>
-              <CardDescription className="text-xs mt-0.5">
-                Review this candidate match pair.
+        {/* Actionable Review Card: For PENDING_REVIEW or GATE_1_APPROVED (when viewer is eligible for Gate 2) */}
+        {canReview && (
+          <Card className={isGate1Approved ? "border-emerald-500/40 shadow-sm" : "border-border/60"}>
+            <CardHeader className={isGate1Approved ? "pb-3 bg-emerald-500/5 border-b border-emerald-500/20" : "pb-3"}>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  {isGate1Approved ? (
+                    <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <UserCheck className="h-4 w-4 text-primary" />
+                  )}
+                  <CardTitle className="text-base">
+                    {isGate1Approved
+                      ? 'Gate 2 Peer Evaluation & Co-Endorsement (Action Alert)'
+                      : match.match_category === 'ALREADY_MAPPED'
+                        ? 'Confirm Link to Established National Master Code'
+                        : 'Submit Reviewer Determination'}
+                  </CardTitle>
+                </div>
+
+                <Badge
+                  className={
+                    isGate1Approved
+                      ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs'
+                      : 'bg-muted text-foreground border border-border text-xs'
+                  }
+                >
+                  {isGate1Approved
+                    ? `Endorsed by ${gate1Cpse || 'Peer CPSE'} (Gate 1)`
+                    : 'Pending Verification'}
+                </Badge>
+              </div>
+
+              <CardDescription className="text-xs mt-1">
+                {isGate1Approved
+                  ? `${gate1Cpse || 'Counterpart CPSE'} evaluated and endorsed this candidate match. Please inspect the engineering attributes below and submit your co-endorsement to mint the National Master Code.`
+                  : 'Review this candidate match pair across technical and metallurgical dimensions.'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+
+            <CardContent className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Select Action</Label>
+                <Label className="text-xs font-semibold">Select Action</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <Button
                     type="button"
@@ -646,22 +708,13 @@ export default function MatchDetail() {
                     }
                   >
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>Accept</span>
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setDecision('REJECT')}
-                    className={
-                      'text-xs h-11 sm:h-10 px-3 gap-2 font-semibold border-2 transition-all w-full justify-center ' +
-                      (decision === 'REJECT'
-                        ? 'bg-rose-600 hover:bg-rose-700 border-rose-600 text-white shadow-sm'
-                        : 'border-rose-400/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-300')
-                    }
-                  >
-                    <XCircle className="h-4 w-4 shrink-0" />
-                    <span>Reject</span>
+                    <span className="truncate">
+                      {isGate1Approved
+                        ? 'Co-Endorse (Accept)'
+                        : match.match_category === 'ALREADY_MAPPED'
+                          ? 'Accept & Link'
+                          : 'Accept'}
+                    </span>
                   </Button>
 
                   <Button
@@ -678,16 +731,35 @@ export default function MatchDetail() {
                     <Split className="h-4 w-4 shrink-0" />
                     <span className="truncate">Mark as Different</span>
                   </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDecision('REJECT')}
+                    className={
+                      'text-xs h-11 sm:h-10 px-3 gap-2 font-semibold border-2 transition-all w-full justify-center ' +
+                      (decision === 'REJECT'
+                        ? 'bg-rose-600 hover:bg-rose-700 border-rose-600 text-white shadow-sm'
+                        : 'border-rose-400/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-300')
+                    }
+                  >
+                    <XCircle className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Reject</span>
+                  </Button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="review-reason" className="text-xs">
+                <Label htmlFor="review-reason" className="text-xs font-semibold">
                   Engineering Rationale / Notes
                 </Label>
                 <Textarea
                   id="review-reason"
-                  placeholder="Document justification for acceptance, rejection, or technical differences..."
+                  placeholder={
+                    isGate1Approved
+                      ? 'Document engineering confirmation for Gate 2 co-endorsement (e.g. Dimensions and grade verified)...'
+                      : 'Document justification for acceptance, rejection, or technical differences...'
+                  }
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={2}
@@ -711,7 +783,11 @@ export default function MatchDetail() {
                 onClick={() =>
                   decisionMutation.mutate({
                     decision,
-                    reason,
+                    reason:
+                      reason.trim() ||
+                      (isGate1Approved && decision === 'ACCEPT'
+                        ? 'Gate 2 consensus co-endorsement confirmed'
+                        : undefined),
                   })
                 }
                 className={
@@ -723,14 +799,48 @@ export default function MatchDetail() {
                       : 'bg-amber-500 hover:bg-amber-600 text-white')
                 }
               >
-                {decisionMutation.isPending ? 'Recording...' : 'Confirm Determination'}
+                {decisionMutation.isPending
+                  ? 'Recording...'
+                  : isGate1Approved && decision === 'ACCEPT'
+                    ? 'Confirm Gate 2 Co-Endorsement'
+                    : decision === 'ACCEPT'
+                      ? 'Confirm & Endorse (Gate 1)'
+                      : decision === 'REJECT'
+                        ? 'Confirm Rejection'
+                        : 'Confirm Marked as Different'}
               </Button>
             </CardFooter>
           </Card>
         )}
 
-        {/* Non-conflict already decided match */}
-        {!isConflict && match.status !== 'PENDING_REVIEW' && (
+        {/* Awaiting Peer banner for reviewer whose CPSE already endorsed Gate 1 */}
+        {isAwaitingPeerForViewer && (
+          <Card className="border-sky-500/40 bg-sky-500/5 shadow-sm">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 mt-0.5 border border-sky-500/30">
+                  <Clock className="h-4 w-4 animate-pulse" />
+                </div>
+                <div className="space-y-1.5 flex-1 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-foreground text-sm">Gate 1 Endorsement Recorded</span>
+                    <Badge variant="outline" className="border-sky-500/40 text-sky-700 dark:text-sky-300 bg-sky-500/10 font-mono text-[10px]">
+                      GATE_1_APPROVED
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Your enterprise (<strong>{gate1Cpse}</strong>) has evaluated and endorsed this candidate pair.
+                    An <strong>Action Alert</strong> has been broadcast to <strong>{counterpartCpse || 'the counterpart CPSE'}</strong> for independent peer verification (Gate 2).
+                    Once confirmed by their technical reviewer, the National Master Code will be minted.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Finalized or Decided non-conflict match (Accepted or Rejected) */}
+        {!isConflict && !canReview && !isAwaitingPeerForViewer && (
           <Card className="border-border/60">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between gap-3">

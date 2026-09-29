@@ -351,7 +351,7 @@ export default function Review() {
         <tr
           key={m.id}
           className="hover:bg-muted/30 cursor-pointer transition-colors"
-          onClick={() => navigate('/matches/' + m.id)}
+          onClick={() => navigate('/matches/' + m.id, { state: { fromTab: activeTab } })}
         >
           <td className="p-3 font-mono font-semibold text-foreground">
             {m.source_cpse_code || '—'}
@@ -517,7 +517,10 @@ export default function Review() {
                   variant="ghost"
                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   title="View full details"
-                  onClick={() => navigate('/matches/' + m.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/matches/' + m.id, { state: { fromTab: activeTab } });
+                  }}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -531,7 +534,10 @@ export default function Review() {
                   className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-700"
                   title={isNmcLinkAlert ? 'Accept & Link to NMC' : 'Gate 2: Confirm & Endorse Match (Accept)'}
                   disabled={decisionMutation.isPending}
-                  onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'ACCEPT' })}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    decisionMutation.mutate({ matchId: m.id, decision: 'ACCEPT' });
+                  }}
                 >
                   <CheckCircle2 className="h-4 w-4" />
                 </Button>
@@ -541,7 +547,10 @@ export default function Review() {
                   className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
                   title="Mark as Different"
                   disabled={decisionMutation.isPending}
-                  onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'DIFFERENT' })}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    decisionMutation.mutate({ matchId: m.id, decision: 'DIFFERENT' });
+                  }}
                 >
                   <Split className="h-4 w-4" />
                 </Button>
@@ -551,7 +560,10 @@ export default function Review() {
                   className="h-7 w-7 text-destructive hover:bg-destructive/10"
                   title="Reject Match"
                   disabled={decisionMutation.isPending}
-                  onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'REJECT' })}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    decisionMutation.mutate({ matchId: m.id, decision: 'REJECT' });
+                  }}
                 >
                   <XCircle className="h-4 w-4" />
                 </Button>
@@ -560,7 +572,10 @@ export default function Review() {
                   variant="ghost"
                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   title="Inspect Details"
-                  onClick={() => navigate('/matches/' + m.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/matches/' + m.id, { state: { fromTab: activeTab } });
+                  }}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -593,7 +608,10 @@ export default function Review() {
                   variant="ghost"
                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   title="Inspect Details"
-                  onClick={() => navigate('/matches/' + m.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/matches/' + m.id, { state: { fromTab: activeTab } });
+                  }}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -606,7 +624,10 @@ export default function Review() {
                   variant="ghost"
                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
                   title="Inspect Details"
-                  onClick={() => navigate('/matches/' + m.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/matches/' + m.id, { state: { fromTab: activeTab } });
+                  }}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>

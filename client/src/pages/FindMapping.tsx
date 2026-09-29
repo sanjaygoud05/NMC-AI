@@ -118,11 +118,10 @@ export default function FindMapping() {
 
               <Badge
                 variant="outline"
-                className={`text-xs ${
-                  isReady
+                className={`text-xs ${isReady
                     ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
                     : 'border-amber-500/40 text-amber-600 dark:text-amber-400'
-                }`}
+                  }`}
               >
                 {readiness ? `${readiness.normalized} / ${readiness.total} CPSEs Normalized` : 'Checking...'}
               </Badge>
@@ -130,9 +129,8 @@ export default function FindMapping() {
             <CardDescription className="text-xs mt-1">
               {isReady
                 ? 'All registered CPSE datasets have been cleaned, extracted, and normalized. Cross-CPSE candidate generation is unlocked.'
-                : `Cross-CPSE matching requires all active CPSE datasets to be normalized. Pending CPSEs: ${
-                    readiness?.pending_cpses?.join(', ') || 'No active CPSEs'
-                  }`}
+                : `Cross-CPSE matching requires all active CPSE datasets to be normalized. Pending CPSEs: ${readiness?.pending_cpses?.join(', ') || 'No active CPSEs'
+                }`}
             </CardDescription>
           </CardHeader>
 

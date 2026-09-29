@@ -232,15 +232,14 @@ export default function Dashboard() {
                           <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
                           <Badge
                             variant="outline"
-                            className={`text-[10px] px-1.5 py-0 shrink-0 ${
-                              status === 'NORMALIZED'
+                            className={`text-[10px] px-1.5 py-0 shrink-0 ${status === 'NORMALIZED'
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                                 : status === 'VALIDATED'
-                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-                                : status === 'PROCESSING'
-                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                : 'bg-muted text-muted-foreground border-border/40'
-                            }`}
+                                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                                  : status === 'PROCESSING'
+                                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                    : 'bg-muted text-muted-foreground border-border/40'
+                              }`}
                           >
                             {status}
                           </Badge>
@@ -263,9 +262,8 @@ export default function Dashboard() {
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
                             <div
-                              className={`h-full rounded-full transition-all ${
-                                pct > 0 ? 'bg-primary' : 'bg-transparent'
-                              }`}
+                              className={`h-full rounded-full transition-all ${pct > 0 ? 'bg-primary' : 'bg-transparent'
+                                }`}
                               style={{ width: `${Math.min(100, pct)}%` }}
                             />
                           </div>
@@ -297,15 +295,14 @@ export default function Dashboard() {
                           </div>
                           <Badge
                             variant="outline"
-                            className={`text-[10px] px-1.5 py-0 shrink-0 font-medium ${
-                              status === 'NORMALIZED'
+                            className={`text-[10px] px-1.5 py-0 shrink-0 font-medium ${status === 'NORMALIZED'
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                                 : status === 'VALIDATED'
-                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-                                : status === 'PROCESSING'
-                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                : 'bg-muted text-muted-foreground border-border/40'
-                            }`}
+                                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                                  : status === 'PROCESSING'
+                                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                    : 'bg-muted text-muted-foreground border-border/40'
+                              }`}
                           >
                             {status}
                           </Badge>
@@ -333,9 +330,8 @@ export default function Dashboard() {
                           </div>
                           <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all ${
-                                pct > 0 ? 'bg-primary' : 'bg-transparent'
-                              }`}
+                              className={`h-full rounded-full transition-all ${pct > 0 ? 'bg-primary' : 'bg-transparent'
+                                }`}
                               style={{ width: `${Math.min(100, pct)}%` }}
                             />
                           </div>

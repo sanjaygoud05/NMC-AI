@@ -108,10 +108,10 @@ export function DashboardAnalyticsOverview({
   const totalCandidatePairs = pendingCount + differentCount + rejectedCount + acceptedCount;
 
   const candidateDistributionData = [
-    { name: 'Pending',   count: pendingCount,   fill: '#0284c7' },
+    { name: 'Pending', count: pendingCount, fill: '#0284c7' },
     { name: 'Different', count: differentCount, fill: '#8b5cf6' },
-    { name: 'Rejected',  count: rejectedCount,  fill: '#f43f5e' },
-    { name: 'Accepted',  count: acceptedCount,  fill: '#10b981' },
+    { name: 'Rejected', count: rejectedCount, fill: '#f43f5e' },
+    { name: 'Accepted', count: acceptedCount, fill: '#10b981' },
   ];
 
   const maxCandidateVal = Math.max(...candidateDistributionData.map(c => c.count), 1);
@@ -459,11 +459,10 @@ export function DashboardAnalyticsOverview({
                       key={idx}
                       onMouseEnter={() => setHoveredSlice(item)}
                       onMouseLeave={() => setHoveredSlice(null)}
-                      className={`flex items-center gap-2 text-xs py-1.5 px-2 rounded cursor-pointer transition-colors ${
-                        isHovered
+                      className={`flex items-center gap-2 text-xs py-1.5 px-2 rounded cursor-pointer transition-colors ${isHovered
                           ? 'bg-muted/80 dark:bg-zinc-850 border border-border/80 dark:border-zinc-700'
                           : 'hover:bg-muted/40 dark:hover:bg-zinc-900/60 border border-transparent'
-                      }`}
+                        }`}
                     >
                       <span
                         className="w-2.5 h-2.5 rounded-full shrink-0"

@@ -112,7 +112,7 @@ export default function Materials() {
         .then((m) => {
           if (m) setSelectedMaterial(m);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [id]);
 
@@ -175,8 +175,8 @@ export default function Materials() {
   const activeCpseStatus = activeCpse?.active_dataset?.status;
   const canNormalize = activeCpse
     ? activeCpseStatus === 'VALIDATED' ||
-      activeCpseStatus === 'NORMALIZED' ||
-      activeCpseStatus === 'UPLOADED'
+    activeCpseStatus === 'NORMALIZED' ||
+    activeCpseStatus === 'UPLOADED'
     : (cpses && cpses.length > 0);
   const isNormalized = activeCpse ? activeCpseStatus === 'NORMALIZED' : false;
   const isProcessing = activeCpseStatus === 'PROCESSING';
@@ -293,7 +293,7 @@ export default function Materials() {
         try {
           const fresh = await nmcApi.materials.get(selectedMaterial.id);
           if (fresh) setSelectedMaterial(fresh);
-        } catch {}
+        } catch { }
       }
 
       // Auto-dismiss after 6 seconds
@@ -431,15 +431,14 @@ export default function Materials() {
                 onClick={() => handleStartNormalize(activeCpse ? activeCpse.id : 'ALL')}
               >
                 <RefreshCw
-                  className={`h-3.5 w-3.5 ${
-                    isProcessing || normalizeMutation.isPending || (normProgress.isVisible && !normProgress.isCompleted) ? 'animate-spin' : ''
-                  }`}
+                  className={`h-3.5 w-3.5 ${isProcessing || normalizeMutation.isPending || (normProgress.isVisible && !normProgress.isCompleted) ? 'animate-spin' : ''
+                    }`}
                 />
                 {normalizeMutation.isPending || isProcessing || (normProgress.isVisible && !normProgress.isCompleted)
                   ? `${isNormalized ? 'Re-normalizing' : 'Normalizing'} (${Math.round(normProgress.progress)}%)...`
                   : activeCpse
-                  ? (isNormalized ? 'Re-normalize Materials' : 'Normalize Materials')
-                  : 'Normalize All Materials'}
+                    ? (isNormalized ? 'Re-normalize Materials' : 'Normalize Materials')
+                    : 'Normalize All Materials'}
               </Button>
 
               {/* Simple & Clean Dynamic Progress Bar directly with the button */}
@@ -749,8 +748,8 @@ export default function Materials() {
                     {selectedMaterial.mapping_status === 'MAPPED'
                       ? 'This material has been harmonized across CPSE catalogs and recorded in the Common Material Master.'
                       : isRaw(selectedMaterial)
-                      ? 'Dataset has been uploaded but not yet normalized. Run Normalize Materials to extract engineering parameters and enable cross-CPSE matching.'
-                      : 'Processed through the NMC normalization pipeline. No equivalent cross-CPSE candidate has been found yet — material stands as unique in its catalog.'}
+                        ? 'Dataset has been uploaded but not yet normalized. Run Normalize Materials to extract engineering parameters and enable cross-CPSE matching.'
+                        : 'Processed through the NMC normalization pipeline. No equivalent cross-CPSE candidate has been found yet — material stands as unique in its catalog.'}
                   </div>
 
                   {/* 2. Canonical Normalized Identity */}
@@ -886,9 +885,8 @@ export default function Materials() {
                         </Badge>
                       </div>
                       <ChevronRight
-                        className={`h-4 w-4 text-muted-foreground group-hover:text-primary transition-transform duration-200 ${
-                          payloadOpen ? 'rotate-90' : ''
-                        }`}
+                        className={`h-4 w-4 text-muted-foreground group-hover:text-primary transition-transform duration-200 ${payloadOpen ? 'rotate-90' : ''
+                          }`}
                       />
                     </button>
                     {payloadOpen && (
