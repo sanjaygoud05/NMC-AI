@@ -868,8 +868,16 @@ class NMCRepository:
                         stmt = stmt.where(MaterialMatch.status == "GATE_1_APPROVED")
                 elif status_clean in ("mapped", "ACCEPTED,OVERRIDDEN"):
                     stmt = stmt.where(MaterialMatch.status.in_(["ACCEPTED", "OVERRIDDEN"]))
-                elif status_clean == "DIFFERENT":
-                    stmt = stmt.where(MaterialMatch.status == "DIFFERENT")
+                elif status_clean in ("conflicts", "DIFFERENT"):
+                    stmt = stmt.where(
+                        or_(
+                            MaterialMatch.status == "DIFFERENT",
+                            and_(
+                                MaterialMatch.status == "REJECTED",
+                                MaterialMatch.gate1_cpse_code.isnot(None),
+                            ),
+                        )
+                    )
                 elif status_clean == "REJECTED":
                     stmt = stmt.where(MaterialMatch.status == "REJECTED")
                 elif status_clean == "action_needed":
@@ -970,8 +978,8 @@ class NMCRepository:
                             d["cmm_id"] = cmm.id
                             d["canonical_description"] = cmm.canonical_description
 
-                # For DIFFERENT (disputed conflicts for admin arbitration)
-                if m.status == "DIFFERENT":
+                # For DIFFERENT or peer-disputed conflicts for admin arbitration
+                if m.status == "DIFFERENT" or (m.status == "REJECTED" and m.gate1_cpse_code is not None):
                     rd = session.execute(
                         select(ReviewDecision)
                         .where(ReviewDecision.match_id == m.id)
@@ -1135,6 +1143,13 @@ class NMCRepository:
                 else:
                     decided_cond = (SrcMat.cpse_id == cpse_id)
 
+                conflicts_cond = or_(
+                    MaterialMatch.status == "DIFFERENT",
+                    and_(
+                        MaterialMatch.status == "REJECTED",
+                        MaterialMatch.gate1_cpse_code.isnot(None),
+                    ),
+                )
                 different_count = session.execute(
                     select(func.count(MaterialMatch.id))
                     .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
@@ -1147,6 +1162,23 @@ class NMCRepository:
                             func.trim(CandMat.original_description) != "",
                             MaterialMatch.status != "SUPERSEDED_BY_CMM",
                             MaterialMatch.status == "DIFFERENT",
+                            decided_cond,
+                        )
+                    )
+                ).scalar() or 0
+
+                conflicts_count = session.execute(
+                    select(func.count(MaterialMatch.id))
+                    .join(SrcMat, MaterialMatch.source_material_id == SrcMat.id)
+                    .join(CandMat, MaterialMatch.candidate_material_id == CandMat.id)
+                    .where(
+                        and_(
+                            SrcMat.original_description.isnot(None),
+                            func.trim(SrcMat.original_description) != "",
+                            CandMat.original_description.isnot(None),
+                            func.trim(CandMat.original_description) != "",
+                            MaterialMatch.status != "SUPERSEDED_BY_CMM",
+                            conflicts_cond,
                             decided_cond,
                         )
                     )
@@ -1169,6 +1201,14 @@ class NMCRepository:
                     )
                 ).scalar() or 0
             else:
+                conflicts_cond = or_(
+                    MaterialMatch.status == "DIFFERENT",
+                    and_(
+                        MaterialMatch.status == "REJECTED",
+                        MaterialMatch.gate1_cpse_code.isnot(None),
+                    ),
+                )
+                conflicts_count = _count_cond(conflicts_cond)
                 different_count = _count_cond(MaterialMatch.status == "DIFFERENT")
                 rejected_count = _count_cond(MaterialMatch.status == "REJECTED")
 
@@ -1180,7 +1220,7 @@ class NMCRepository:
                 "alerts": alerts_count,
                 "awaiting_peer": awaiting_peer_count,
                 "different": different_count,
-                "conflicts": different_count,
+                "conflicts": conflicts_count,
                 "rejected": rejected_count,
                 "mapped": mapped_count,
             }

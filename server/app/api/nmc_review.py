@@ -280,7 +280,7 @@ def submit_decision(
                 "message": f"Match accepted by Administrator. National Master {cmm['national_material_code']} created.",
             }
 
-        # Case 3: CPSE Reviewer - Peer-to-Peer Gate 2 (Consensus)
+        # Case 3: CPSE Reviewer - Peer-to-Peer Consensus Confirmation
         if current_status == "GATE_1_APPROVED" and gate1_cpse:
             if gate1_cpse.upper() == (cpse_code or "").upper():
                 raise HTTPException(
@@ -309,7 +309,7 @@ def submit_decision(
                 match_id=match_id,
                 reviewer=reviewer_name,
                 decision="ACCEPT",
-                reason=req.reason or "Gate 2 consensus confirmation",
+                reason=req.reason or "Peer consensus confirmation",
                 cpse_code=cpse_code,
                 new_status="ACCEPTED",
             )
@@ -322,7 +322,7 @@ def submit_decision(
                 "message": f"Consensus achieved! National Master Code {cmm['national_material_code']} established by {gate1_cpse} and {cpse_code}.",
             }
 
-        # Case 4: CPSE Reviewer - Peer-to-Peer Gate 1 (First Endorsement)
+        # Case 4: CPSE Reviewer - Initial Peer Endorsement
         src_code = match.get("source_material", {}).get("cpse_code") or ""
         cand_code = match.get("candidate_material", {}).get("cpse_code") or ""
         counterpart_code = cand_code if src_code.upper() == (cpse_code or "").upper() else src_code
@@ -332,7 +332,7 @@ def submit_decision(
             match_id=match_id,
             reviewer=reviewer_name,
             decision="ACCEPT",
-            reason=req.reason or "Gate 1 verification and endorsement submitted",
+            reason=req.reason or "Initial verification and endorsement submitted",
             cpse_code=cpse_code,
             new_status="GATE_1_APPROVED",
             gate1_data={
@@ -363,21 +363,36 @@ def submit_decision(
         }
     else:
         # REJECT, DIFFERENT, or OVERRIDE (DIFFERENT)
+        # If this match was already endorsed by a peer (GATE_1_APPROVED),
+        # then the counterpart rejecting it or marking it as different creates a peer dispute that goes to Conflicts!
+        is_peer_dispute = bool(current_status == "GATE_1_APPROVED" and gate1_cpse)
+        target_status = "DIFFERENT" if (decision_upper == "DIFFERENT" or is_peer_dispute) else decision_upper
+
+        dispute_reason = req.reason
+        if is_peer_dispute and decision_upper == "REJECT":
+            dispute_reason = req.reason or f"Peer Rejection: Endorsed by {gate1_cpse}, but rejected by {cpse_code}."
+
         record = nmc_repo.record_review_decision(
             match_id=match_id,
             reviewer=reviewer_name,
             decision=decision_upper,
-            reason=req.reason,
+            reason=dispute_reason,
             cpse_code=cpse_code,
             override_outcome=override_outcome_upper,
+            new_status=target_status,
         )
         nmc_repo.mark_notifications_acted_for_match(match_id)
+        msg = (
+            f"Match rejected by {cpse_code}. Since {gate1_cpse} previously endorsed it, this conflict has been escalated to Administrator Arbitration."
+            if is_peer_dispute
+            else (f"Match marked as {decision_upper} ({override_outcome_upper})" if override_outcome_upper else f"Match marked as {decision_upper}.")
+        )
         return {
             "status": "SUCCESS",
-            "match_status": record.get("status", decision_upper),
+            "match_status": target_status,
             "decision": record,
             "cmm": None,
-            "message": f"Match marked as {decision_upper} ({override_outcome_upper})" if override_outcome_upper else f"Match marked as {decision_upper}.",
+            "message": msg,
         }
 
 

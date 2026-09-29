@@ -114,7 +114,7 @@ export default function Review() {
             : activeTab === 'different'
               ? 'DIFFERENT'
               : activeTab === 'conflicts'
-                ? 'DIFFERENT'
+                ? 'conflicts'
                 : 'REJECTED';
 
   // Real backend-queried data based on status, cpse, and confidence_label (confidence filter only applies in Pending)
@@ -179,8 +179,8 @@ export default function Review() {
   const mappedCount = stats?.mapped ?? 0;
   const differentCount = stats?.different ?? 0;
   const rejectedCount = stats?.rejected ?? 0;
-  // Conflicts = DIFFERENT matches needing admin override (same count as different for admin)
-  const conflictsCount = isAdmin ? (stats?.different ?? 0) : 0;
+  // Conflicts = DIFFERENT matches + peer-disputed rejections needing admin override
+  const conflictsCount = isAdmin ? (stats?.conflicts ?? stats?.different ?? 0) : 0;
 
   // ── Derive total-activity state ──────────────────────────────────────────
   const totalActivity = pendingCount + alertsCount + awaitingPeerCount + mappedCount + differentCount + rejectedCount;
@@ -249,7 +249,7 @@ export default function Review() {
           <Hourglass className="h-8 w-8 text-sky-500/50" />
           <p className="text-sm font-semibold text-foreground">No items awaiting peer confirmation</p>
           <p className="text-xs text-muted-foreground max-w-xs text-center">
-            When you <strong>Approve</strong> a match (Gate 1), it moves here and waits for the counterpart CPSE to confirm it (Gate 2).
+            When you <strong>Endorse</strong> a match, it moves here and waits for peer confirmation from the counterpart CPSE.
           </p>
         </div>
       );
@@ -479,14 +479,14 @@ export default function Review() {
           </td>
 
           <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
-            {/* Reviewer Pending Tab: Gate 1 Actions */}
+            {/* Reviewer Pending Tab: Initial Review Actions */}
             {activeTab === 'pending' && isReviewer && canSubmitDecisions ? (
               <div className="flex items-center justify-end gap-1">
                 <Button
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-700"
-                  title="Gate 1: Approve this match and send to peer CPSE for confirmation"
+                  title="Endorse this match and send to counterpart CPSE for peer verification"
                   disabled={decisionMutation.isPending}
                   onClick={() => decisionMutation.mutate({ matchId: m.id, decision: 'ACCEPT' })}
                 >
@@ -526,13 +526,13 @@ export default function Review() {
                 </Button>
               </div>
             ) : activeTab === 'alerts' && isReviewer && canSubmitDecisions ? (
-              /* Reviewer Alerts Tab: Gate 2 / NMC Link Actions */
+              /* Reviewer Alerts Tab: Peer Review Actions */
               <div className="flex items-center justify-end gap-1">
                 <Button
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-700"
-                  title={isNmcLinkAlert ? 'Accept & Link to NMC' : 'Gate 2: Confirm & Endorse Match (Accept)'}
+                  title={isNmcLinkAlert ? 'Accept & Link to NMC' : 'Confirm & Co-Endorse Match (Accept)'}
                   disabled={decisionMutation.isPending}
                   onClick={(e) => {
                     e.stopPropagation();

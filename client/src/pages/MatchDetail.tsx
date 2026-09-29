@@ -127,8 +127,14 @@ export default function MatchDetail() {
 
   const isConflict =
     match.status === 'DIFFERENT' ||
+    (match.status === 'REJECTED' && Boolean(match.gate1_cpse_code)) ||
     match.dispute_decision === 'DIFFERENT' ||
-    (match.review_decisions && match.review_decisions.some((d: any) => d.decision === 'DIFFERENT'));
+    (match.review_decisions &&
+      match.review_decisions.some(
+        (d: any) =>
+          d.decision === 'DIFFERENT' ||
+          (d.decision === 'REJECT' && Boolean(match.gate1_cpse_code))
+      ));
 
   const isGate1Approved = match.status === 'GATE_1_APPROVED';
   const gate1Cpse =
@@ -142,7 +148,7 @@ export default function MatchDetail() {
       reviewerCpse.trim().toUpperCase() === gate1Cpse.trim().toUpperCase()
   );
 
-  // Can the current user submit a routine or Gate 2 review decision?
+  // Can the current user submit a routine or peer co-endorsement decision?
   const canReview =
     !isConflict &&
     (match.status === 'PENDING_REVIEW' ||
@@ -189,8 +195,8 @@ export default function MatchDetail() {
               <span className="ml-1 uppercase font-bold">
                 {match.status === 'GATE_1_APPROVED'
                   ? canReview
-                    ? 'ACTION REQUIRED (GATE 2 CO-ENDORSEMENT)'
-                    : 'GATE 1 APPROVED (AWAITING PEER)'
+                    ? 'ACTION REQUIRED (PEER VERIFICATION)'
+                    : 'INITIAL ENDORSEMENT (AWAITING PEER)'
                   : match.status}
               </span>
             </Badge>
@@ -650,9 +656,9 @@ export default function MatchDetail() {
           </Card>
         )}
 
-        {/* 5. REVIEW ACTIONS (Routine Gate 1 or Gate 2 Action Alert) */}
+        {/* 5. REVIEW ACTIONS (Initial Endorsement or Peer Verification Alert) */}
 
-        {/* Actionable Review Card: For PENDING_REVIEW or GATE_1_APPROVED (when viewer is eligible for Gate 2) */}
+        {/* Actionable Review Card: For PENDING_REVIEW or GATE_1_APPROVED (when viewer is eligible for peer verification) */}
         {canReview && (
           <Card className={isGate1Approved ? "border-emerald-500/40 shadow-sm" : "border-border/60"}>
             <CardHeader className={isGate1Approved ? "pb-3 bg-emerald-500/5 border-b border-emerald-500/20" : "pb-3"}>
@@ -665,7 +671,7 @@ export default function MatchDetail() {
                   )}
                   <CardTitle className="text-base">
                     {isGate1Approved
-                      ? 'Gate 2 Peer Evaluation & Co-Endorsement (Action Alert)'
+                      ? 'Peer Review & Co-Endorsement (Action Alert)'
                       : match.match_category === 'ALREADY_MAPPED'
                         ? 'Confirm Link to Established National Master Code'
                         : 'Submit Reviewer Determination'}
@@ -680,7 +686,7 @@ export default function MatchDetail() {
                   }
                 >
                   {isGate1Approved
-                    ? `Endorsed by ${gate1Cpse || 'Peer CPSE'} (Gate 1)`
+                    ? `Endorsed by ${gate1Cpse || 'Peer CPSE'}`
                     : 'Pending Verification'}
                 </Badge>
               </div>
@@ -757,7 +763,7 @@ export default function MatchDetail() {
                   id="review-reason"
                   placeholder={
                     isGate1Approved
-                      ? 'Document engineering confirmation for Gate 2 co-endorsement (e.g. Dimensions and grade verified)...'
+                      ? 'Document engineering confirmation for peer co-endorsement (e.g. Dimensions and grade verified)...'
                       : 'Document justification for acceptance, rejection, or technical differences...'
                   }
                   value={reason}
@@ -786,7 +792,7 @@ export default function MatchDetail() {
                     reason:
                       reason.trim() ||
                       (isGate1Approved && decision === 'ACCEPT'
-                        ? 'Gate 2 consensus co-endorsement confirmed'
+                        ? 'Peer consensus co-endorsement confirmed'
                         : undefined),
                   })
                 }
@@ -802,9 +808,9 @@ export default function MatchDetail() {
                 {decisionMutation.isPending
                   ? 'Recording...'
                   : isGate1Approved && decision === 'ACCEPT'
-                    ? 'Confirm Gate 2 Co-Endorsement'
+                    ? 'Confirm Peer Co-Endorsement'
                     : decision === 'ACCEPT'
-                      ? 'Confirm & Endorse (Gate 1)'
+                      ? 'Confirm & Endorse'
                       : decision === 'REJECT'
                         ? 'Confirm Rejection'
                         : 'Confirm Marked as Different'}
@@ -813,7 +819,7 @@ export default function MatchDetail() {
           </Card>
         )}
 
-        {/* Awaiting Peer banner for reviewer whose CPSE already endorsed Gate 1 */}
+        {/* Awaiting Peer banner for reviewer whose CPSE already endorsed */}
         {isAwaitingPeerForViewer && (
           <Card className="border-sky-500/40 bg-sky-500/5 shadow-sm">
             <CardContent className="pt-4 pb-4">
@@ -823,14 +829,14 @@ export default function MatchDetail() {
                 </div>
                 <div className="space-y-1.5 flex-1 text-xs">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-foreground text-sm">Gate 1 Endorsement Recorded</span>
+                    <span className="font-bold text-foreground text-sm">Initial Endorsement Recorded</span>
                     <Badge variant="outline" className="border-sky-500/40 text-sky-700 dark:text-sky-300 bg-sky-500/10 font-mono text-[10px]">
-                      GATE_1_APPROVED
+                      AWAITING PEER CONFIRMATION
                     </Badge>
                   </div>
                   <p className="text-muted-foreground leading-relaxed">
                     Your enterprise (<strong>{gate1Cpse}</strong>) has evaluated and endorsed this candidate pair.
-                    An <strong>Action Alert</strong> has been broadcast to <strong>{counterpartCpse || 'the counterpart CPSE'}</strong> for independent peer verification (Gate 2).
+                    An <strong>Action Alert</strong> has been broadcast to <strong>{counterpartCpse || 'the counterpart CPSE'}</strong> for independent peer verification.
                     Once confirmed by their technical reviewer, the National Master Code will be minted.
                   </p>
                 </div>
