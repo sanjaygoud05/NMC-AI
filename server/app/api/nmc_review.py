@@ -366,7 +366,7 @@ def submit_decision(
         # If this match was already endorsed by a peer (GATE_1_APPROVED),
         # then the counterpart rejecting it or marking it as different creates a peer dispute that goes to Conflicts!
         is_peer_dispute = bool(current_status == "GATE_1_APPROVED" and gate1_cpse)
-        target_status = "DIFFERENT" if (decision_upper == "DIFFERENT" or is_peer_dispute) else decision_upper
+        target_status = "DIFFERENT" if (decision_upper == "DIFFERENT" or is_peer_dispute) else ("REJECTED" if decision_upper == "REJECT" else decision_upper)
 
         dispute_reason = req.reason
         if is_peer_dispute and decision_upper == "REJECT":
