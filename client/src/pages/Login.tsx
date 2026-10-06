@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { Shield, Key, AlertCircle, ArrowRight, Eye, EyeOff, Building2, RotateCw } from 'lucide-react';
+import { Shield, Key, AlertCircle, ArrowRight, Eye, EyeOff, Building2, RotateCw, Info, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { CPSE_PRESETS, getCpseLogo } from '@/lib/cpseLogos';
 
@@ -54,6 +54,7 @@ export default function Login() {
   // Initial password should be empty (no prefill)
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [copiedAdminPass, setCopiedAdminPass] = useState(false);
   const [reviewerId, setReviewerId] = useState('');
   const [reviewerPassword, setReviewerPassword] = useState('');
   const [showReviewerPassword, setShowReviewerPassword] = useState(false);
@@ -97,6 +98,18 @@ export default function Login() {
     }
   };
 
+  const handleCopyAdminPass = () => {
+    navigator.clipboard.writeText('nmc-admin-2026');
+    setCopiedAdminPass(true);
+    toast.success('Admin password copied to clipboard');
+    setTimeout(() => setCopiedAdminPass(false), 2000);
+  };
+
+  const handleAutofillAdmin = () => {
+    setAdminPassword('nmc-admin-2026');
+    toast.success('Admin credentials auto-filled');
+  };
+
   const handleReviewerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewerId.trim()) {
@@ -128,27 +141,27 @@ export default function Login() {
       }
     }
   };  return (
-    <div className="min-h-screen w-full flex items-center justify-center p-3 sm:p-6 bg-muted/20">
+    <div className="min-h-screen w-full flex items-center justify-center p-2 sm:p-4 bg-muted/20">
       {/* ── Container: Single-column on mobile, dual-column on desktop ── */}
-      <div className="w-full max-w-md lg:max-w-[1040px] bg-card border border-border/80 shadow-2xl rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-2 items-stretch lg:min-h-[580px]">
+      <div className="w-full max-w-md lg:max-w-[1040px] bg-card border border-border/80 shadow-2xl rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-[1.12fr_1fr] items-stretch lg:h-[580px]">
         {/* ── Left Side: Pure Full Image (Hidden in mobile view, visible on lg screens) ── */}
-        <div className="hidden lg:flex relative w-full h-full min-h-[580px] bg-muted/20 border-r border-border/70 items-center justify-center overflow-hidden">
+        <div className="hidden lg:flex relative w-full h-full bg-[#edf1f2] border-r border-border/70 items-center justify-center overflow-hidden">
           <img
             src="/auth.jpeg"
-            alt="National Material Harmonization Platform"
-            className="w-full h-full object-cover select-none"
+            alt="Unified Materials. Stronger Bharat."
+            className="w-full h-full object-cover object-[25%_center] select-none"
           />
         </div>
 
         {/* ── Right Side: Credentials & Participating Enterprises (Full width on mobile) ── */}
-        <div className="relative w-full p-5 sm:p-6 lg:p-7 flex flex-col justify-between bg-card min-h-[520px] lg:min-h-[580px]">
-          <div className="w-full max-w-sm mx-auto space-y-3 my-auto">
+        <div className="relative w-full p-4 sm:p-5 lg:p-5 flex flex-col justify-between bg-card h-full overflow-hidden">
+          <div className="w-full max-w-sm mx-auto space-y-2 my-auto">
             {/* Above Logo and Title attached directly to login form */}
-            <div className="text-center space-y-1">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full overflow-hidden bg-white shadow-sm border border-border/80 p-0.5 mb-0.5">
+            <div className="text-center space-y-0.5">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full overflow-hidden bg-white shadow-sm border border-border/80 p-0.5 mb-0.5">
                 <img src="/favicon.png" alt="NMC Logo" className="h-full w-full object-contain rounded-full scale-[1.45]" />
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">
                 Sign In to NMC-AI
               </h1>
               <p className="text-xs text-muted-foreground">
@@ -158,7 +171,7 @@ export default function Login() {
 
             {/* Login Card */}
             <Card className="border-border/70 shadow-sm rounded-xl">
-              <CardContent className="p-4 sm:p-4.5">
+              <CardContent className="p-3 sm:p-3.5">
                 {error && (
                   <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 shrink-0" />
@@ -228,6 +241,49 @@ export default function Login() {
                           </button>
                         </div>
                       </div>
+
+                      {/* ── Central Admin Credentials Callout ── */}
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 text-xs space-y-1 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-primary">
+                            <Info className="h-3.5 w-3.5 shrink-0" />
+                            Central Admin Credentials
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleAutofillAdmin}
+                            disabled={loading}
+                            className="text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer focus:outline-none"
+                            title="Auto-fill admin password"
+                          >
+                            Auto-fill
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/80 px-2 py-1">
+                          <span className="text-[11px] text-muted-foreground">Admin Password:</span>
+                          <div className="flex items-center gap-1.5">
+                            <code className="text-[11px] font-mono font-bold text-foreground tracking-wide select-all">
+                              nmc-admin-2026
+                            </code>
+                            <button
+                              type="button"
+                              onClick={handleCopyAdminPass}
+                              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors focus:outline-none cursor-pointer"
+                              title={copiedAdminPass ? "Copied" : "Copy to clipboard"}
+                            >
+                              {copiedAdminPass ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-normal">
+                          Disclaimer: This password is provided for demonstration purposes only.
+                        </p>
+                      </div>
+
                       <Button type="submit" className="w-full gap-2 text-xs font-semibold h-9" disabled={loading || !adminPassword.trim()}>
                         {loading ? (
                           <>
@@ -361,15 +417,15 @@ export default function Login() {
             </Card>
 
             {/* ── Participating Enterprises under Credentials ── */}
-            <div className="pt-2.5 text-center space-y-1.5 border-t border-border/60">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+            <div className="pt-1.5 text-center space-y-1 border-t border-border/60">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">
                 Participating Enterprises
               </span>
-              <div className="flex items-center justify-center -space-x-1.5 py-0.5">
+              <div className="flex items-center justify-center -space-x-1.5">
                 {enterpriseParticipants.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-full overflow-hidden h-9 w-9 border-2 border-background bg-white shadow-sm flex items-center justify-center p-0.5"
+                    className="rounded-full overflow-hidden h-7 w-7 border-2 border-background bg-white shadow-sm flex items-center justify-center p-0.5"
                     title={item.name}
                   >
                     <img
@@ -384,7 +440,7 @@ export default function Login() {
           </div>
 
           {/* Security footer */}
-          <div className="pt-2 text-center text-[10px] text-muted-foreground/70 border-t border-border/40 mt-1">
+          <div className="pt-1.5 text-center text-[10px] text-muted-foreground/70 border-t border-border/40">
             Protected National Infrastructure • Authorized Access Only
           </div>
         </div>
